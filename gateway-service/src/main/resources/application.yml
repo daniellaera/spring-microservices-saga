@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: order-service
+              uri: ${ORDER_SERVICE_URI:http://localhost:8081}
+              predicates:
+                - Path=/orders/**
+            - id: inventory-service
+              uri: ${INVENTORY_SERVICE_URI:http://localhost:8082}
+              predicates:
+                - Path=/products/**
+            - id: payment-service
+              uri: ${PAYMENT_SERVICE_URI:http://localhost:8083}
+              predicates:
+                - Path=/transactions/**
+  application:
+    name: gateway-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
