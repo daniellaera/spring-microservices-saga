@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: inventory-service
+  config:
+    import: "configserver:${CONFIG_SERVER_URI:http://localhost:8888}"
 
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -42,3 +44,8 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+logging:
+  level:
+    org.springframework.boot.actuator.autoconfigure.opentelemetry: DEBUG
+    org.springframework.web: DEBUG

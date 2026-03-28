@@ -51,6 +51,36 @@ services:
       retries: 5
       start_period: 10s
 
+  grafana:
+    image: grafana/otel-lgtm:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - app-network
+
+  config-server:
+    build:
+      context: .
+      dockerfile: config-server/Dockerfile
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
+    networks:
+      - app-network
+    volumes:
+      - ./config-server/src/main/resources/configs:/configs
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8888/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   order-service:
     build:
       context: .
@@ -63,10 +93,14 @@ services:
       - DB_HOST=postgres
       - DB_USER=testuser
       - DB_PASSWORD=testpass
+      - CONFIG_SERVER_URI=http://config-server:8888
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
     depends_on:
       kafka:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
     networks:
       - app-network
@@ -83,10 +117,14 @@ services:
       - DB_HOST=postgres
       - DB_USER=testuser
       - DB_PASSWORD=testpass
+      - CONFIG_SERVER_URI=http://config-server:8888
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
     depends_on:
       kafka:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
     networks:
       - app-network
@@ -103,10 +141,14 @@ services:
       - DB_HOST=postgres
       - DB_USER=testuser
       - DB_PASSWORD=testpass
+      - CONFIG_SERVER_URI=http://config-server:8888
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
     depends_on:
       kafka:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
     networks:
       - app-network
@@ -122,10 +164,17 @@ services:
       - ORDER_SERVICE_URI=http://order-service:8081
       - INVENTORY_SERVICE_URI=http://inventory-service:8082
       - PAYMENT_SERVICE_URI=http://payment-service:8083
+      - CONFIG_SERVER_URI=http://config-server:8888
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
     depends_on:
-      - order-service
-      - inventory-service
-      - payment-service
+      order-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      config-server:
+        condition: service_healthy
     networks:
       - app-network
 
