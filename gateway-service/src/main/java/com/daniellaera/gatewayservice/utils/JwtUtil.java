@@ -14,23 +14,11 @@ public class JwtUtil {
     @Value("${app.jwt.secret}")
     private String secret;
 
-    @Value("${app.jwt.expiration}")
-    private long expiration;
-
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    public String generateToken(String username) {
-        return Jwts.builder()
-                .subject(username)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSigningKey())
-                .compact();
-    }
-
-    public String extractUsername(String token) {
+    public String extractEmail(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()

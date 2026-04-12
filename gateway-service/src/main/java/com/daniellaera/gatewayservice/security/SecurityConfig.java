@@ -22,12 +22,10 @@ public class SecurityConfig {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                        //.pathMatchers("/auth/**").permitAll()
-                                .anyExchange().permitAll()
-                        //.anyExchange().authenticated()
+                        .pathMatchers("/auth/**").permitAll()
+                        .anyExchange().authenticated()
                 )
-                // TODO: JWT authentication temporarily disabled - to be re-enabled
-                //.addFilterAt(new JwtWebFilter(jwtUtil), SecurityWebFiltersOrder.AUTHENTICATION)
+                .addFilterAt(new JwtWebFilter(jwtUtil), SecurityWebFiltersOrder.AUTHENTICATION)
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .build();

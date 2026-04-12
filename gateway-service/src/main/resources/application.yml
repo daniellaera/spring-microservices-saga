@@ -7,6 +7,10 @@ spring:
       server:
         webflux:
           routes:
+            - id: auth-service
+              uri: ${AUTH_SERVICE_URI:http://localhost:8084}
+              predicates:
+                - Path=/auth/**
             - id: order-service
               uri: ${ORDER_SERVICE_URI:http://localhost:8081}
               predicates:
@@ -37,7 +41,6 @@ management:
 app:
   jwt:
     secret: ${JWT_SECRET:mySecretKey1234567890123456789012345678901234}
-    expiration: 86400000 # 24 hours in ms
 
 logging:
   level:

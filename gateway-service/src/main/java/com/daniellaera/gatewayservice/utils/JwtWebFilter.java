@@ -31,7 +31,7 @@ public class JwtWebFilter implements WebFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             if (jwtUtil.isTokenValid(token)) {
-                String username = jwtUtil.extractUsername(token);
+                String username = jwtUtil.extractEmail(token);
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(username, null, List.of());
                 return chain.filter(exchange)
