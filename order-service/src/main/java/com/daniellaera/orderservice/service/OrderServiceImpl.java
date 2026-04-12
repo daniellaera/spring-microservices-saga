@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.service.impl;
+package com.daniellaera.orderservice.service;
 
 import com.daniellaera.orderservice.producer.OrderProducer;
 import com.daniellaera.orderservice.dto.OrderRequest;
@@ -6,7 +6,6 @@ import com.daniellaera.orderservice.enums.OrderStatus;
 import com.daniellaera.orderservice.exception.ResourceNotFoundException;
 import com.daniellaera.orderservice.model.Order;
 import com.daniellaera.orderservice.repository.OrderRepository;
-import com.daniellaera.orderservice.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

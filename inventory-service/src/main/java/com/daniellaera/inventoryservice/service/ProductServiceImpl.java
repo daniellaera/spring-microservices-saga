@@ -1,9 +1,8 @@
-package com.daniellaera.inventoryservice.service.impl;
+package com.daniellaera.inventoryservice.service;
 
 import com.daniellaera.inventoryservice.dto.ProductRequest;
 import com.daniellaera.inventoryservice.model.Product;
 import com.daniellaera.inventoryservice.repository.ProductRepository;
-import com.daniellaera.inventoryservice.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

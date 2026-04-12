@@ -38,6 +38,7 @@ GET  /orders        → gateway validates JWT → order-service
 - **Spring Boot 4.0.2**
 - **Spring Cloud Gateway** — API gateway, JWT validation, single entry point
 - **Spring Cloud Config** — Centralized configuration server for all services
+- **Resilience4j** — Circuit Breaker on gateway with fallback responses
 - **Spring Security** — JWT authentication via auth-service
 - **Apache Kafka 4.2.0** — Event-driven communication (KRaft mode, no Zookeeper)
 - **PostgreSQL 17** — Database per service pattern
@@ -52,11 +53,12 @@ GET  /orders        → gateway validates JWT → order-service
 
 | Service | Port | Database | Description |
 |---------|------|----------|-------------|
-| gateway-service | 8080 | - | API Gateway, JWT validation, single entry point |
+| gateway-service | 8080 | - | API Gateway, JWT validation, Circuit Breaker |
 | auth-service | 8084 | authdb | User registration, login, JWT generation |
 | order-service | 8081 | orderdb | Manages orders, publishes to orders-topic |
 | inventory-service | 8082 | inventorydb | Manages product stock, consumes orders-topic |
 | payment-service | 8083 | paymentdb | Processes payments, consumes inventory-topic |
+| notification-service | 8085 | - | Consumes payment-topic, logs order confirmations |
 | config-server | 8888 | - | Centralized Spring Cloud Config Server |
 
 ## Observability
@@ -178,6 +180,7 @@ daniellaera/gateway-service:latest
 daniellaera/order-service:latest
 daniellaera/inventory-service:latest
 daniellaera/payment-service:latest
+daniellaera/notification-service:latest
 ```
 
 ## Project Structure

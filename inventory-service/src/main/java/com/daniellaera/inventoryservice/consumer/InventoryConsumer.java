@@ -1,5 +1,6 @@
 package com.daniellaera.inventoryservice.consumer;
 
+import com.daniellaera.inventoryservice.dto.InventoryEvent;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
 import com.daniellaera.inventoryservice.model.Product;
 import com.daniellaera.inventoryservice.repository.ProductRepository;
@@ -23,7 +24,7 @@ public class InventoryConsumer {
     private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = "orders-topic", groupId = "inventory-group")
-    public void consumeOrder(String message) {
+    public void consumeOrder(String message) throws Exception {
         OrderEvent event = objectMapper.readValue(message, OrderEvent.class);
 
         Optional<Product> productOpt = productRepository.findByName(event.productName());
@@ -32,9 +33,13 @@ public class InventoryConsumer {
             Product product = productOpt.get();
             product.setQuantity(product.getQuantity() - event.quantity());
             productRepository.save(product);
-            kafkaTemplate.send("inventory-topic", event.orderId() + ":APPROVED");
+            kafkaTemplate.send("inventory-topic", objectMapper.writeValueAsString(
+                    new InventoryEvent(event.orderId(), event.productName(), event.quantity(), "APPROVED")
+            ));
         } else {
-            kafkaTemplate.send("inventory-topic", event.orderId() + ":REJECTED");
+            kafkaTemplate.send("inventory-topic", objectMapper.writeValueAsString(
+                    new InventoryEvent(event.orderId(), event.productName(), 0, "REJECTED")
+            ));
         }
     }
 

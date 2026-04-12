@@ -6,7 +6,7 @@ DOCKERHUB_USERNAME="daniellaera"
 TAG="latest"
 
 # List of services
-SERVICES=("config-server" "auth-service" "order-service" "inventory-service" "payment-service" "gateway-service")
+SERVICES=("config-server" "auth-service" "order-service" "inventory-service" "payment-service" "notification-service" "gateway-service")
 
 # Loop over each service
 for SERVICE in "${SERVICES[@]}"; do

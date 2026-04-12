@@ -15,14 +15,29 @@ spring:
               uri: ${ORDER_SERVICE_URI:http://localhost:8081}
               predicates:
                 - Path=/orders/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: order-cb
+                    fallbackUri: forward:/fallback/orders
             - id: inventory-service
               uri: ${INVENTORY_SERVICE_URI:http://localhost:8082}
               predicates:
                 - Path=/products/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: inventory-cb
+                    fallbackUri: forward:/fallback/products
             - id: payment-service
               uri: ${PAYMENT_SERVICE_URI:http://localhost:8083}
               predicates:
                 - Path=/transactions/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: payment-cb
+                    fallbackUri: forward:/fallback/transactions
   application:
     name: gateway-service
   config:
@@ -34,9 +49,14 @@ management:
       exposure:
         include:
           - health
+          - circuitbreakers
+          - metrics
   endpoint:
     health:
       show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
 
 app:
   jwt:
@@ -44,4 +64,24 @@ app:
 
 logging:
   level:
+    io.github.resilience4j: DEBUG
     org.springframework.boot.actuator.autoconfigure.opentelemetry: DEBUG
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      order-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+      inventory-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+      payment-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3

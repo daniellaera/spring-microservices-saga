@@ -14,15 +14,13 @@
 - [x] Deployed on infra-node1 with Nginx reverse proxy
 - [x] Flyway migrations — database per service pattern
 - [x] Springdoc OpenAPI — Swagger UI per service
-
-## In Progress
-
-- [ ] Notification service — Kafka consumer on `payment-topic`, sends email on order confirmation
+- [x] Notification service — Kafka consumer on `payment-topic`
+- [x] Circuit Breaker — Resilience4j on gateway with CLOSED/OPEN/HALF_OPEN states
+- [x] JSON messaging — standardized event format across all Kafka topics
 
 ## Upcoming
 
 ### Resilience
-- [ ] Circuit Breaker with Resilience4j on inter-service calls
 - [ ] Rate limiting on the gateway
 
 ### Quality

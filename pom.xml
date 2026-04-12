@@ -16,6 +16,7 @@
     <module>gateway-service</module>
     <module>config-server</module>
     <module>auth-service</module>
+    <module>notification-service</module>
   </modules>
 
   <properties>
@@ -82,4 +83,16 @@
       </plugins>
     </pluginManagement>
   </build>
+
+  <distributionManagement>
+    <repository>
+      <id>nexus-releases</id>
+      <url>https://nexus.daniellaera.com/repository/maven-releases/</url>
+    </repository>
+    <snapshotRepository>
+      <id>nexus-snapshots</id>
+      <url>https://nexus.daniellaera.com/repository/maven-snapshots/</url>
+    </snapshotRepository>
+  </distributionManagement>
+
 </project>
