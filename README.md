@@ -2,6 +2,9 @@
 
 A production-ready microservices-based online shop built with Spring Boot 4, demonstrating enterprise-grade patterns including event-driven saga, JWT authentication, distributed tracing, centralized configuration, API gateway, and Docker deployment.
 
+![Architecture](./docs/architecture_overview_banner.svg)
+![Saga Flow](./docs/saga_flow_banner.svg)
+
 ## Documentation
 
 - [Architecture](./ARCHITECTURE.md)
