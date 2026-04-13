@@ -1,0 +1,21 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: frontend-service
+  config:
+    import: "configserver:${CONFIG_SERVER_URI:http://localhost:8888}"
+
+gateway:
+  url: ${GATEWAY_URL:http://localhost:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+  endpoint:
+    health:
+      show-details: always

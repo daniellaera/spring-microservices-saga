@@ -64,8 +64,8 @@ app:
 
 logging:
   level:
-    io.github.resilience4j: DEBUG
-    org.springframework.boot.actuator.autoconfigure.opentelemetry: DEBUG
+    io.github.resilience4j: INFO
+    org.springframework.boot.actuator.autoconfigure.opentelemetry: INFO
 
 resilience4j:
   circuitbreaker:

@@ -12,12 +12,13 @@ get_color() {
     "payment-service")     echo "\033[0;34m" ;;  # blue
     "notification-service") echo "\033[0;31m" ;; # red
     "gateway-service")     echo "\033[0;37m" ;;  # white
+    "frontend-service")    echo "\033[0;95m" ;; # magenta
     *)                     echo "\033[0m" ;;
   esac
 }
 
 echo "Killing existing services..."
-for port in 8888 8080 8081 8082 8083 8084 8085; do
+for port in 8888 8080 8081 8082 8083 8084 8085 8090; do
   kill -9 $(lsof -t -i:$port) 2>/dev/null || true
 done
 
@@ -74,8 +75,14 @@ sleep 2
 # Start gateway last
 start_service "gateway-service"
 wait_for_service "http://localhost:8080" "gateway-service"
+sleep 2
+
+# Start frontend last
+start_service "frontend-service"
+wait_for_service "http://localhost:8090" "frontend-service"
 
 echo -e "\033[1;32mAll services started successfully! 🎉\033[0m"
+echo -e "\033[1;32mUI available at: http://localhost:8090\033[0m"
 
 # Keep script running to show logs
 wait

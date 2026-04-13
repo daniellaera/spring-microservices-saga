@@ -7,8 +7,8 @@ A production-ready microservices-based online shop built with Spring Boot 4, dem
 
 ## Documentation
 
-- [Architecture](./ARCHITECTURE.md)
-- [Roadmap](./ROADMAP.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Roadmap](docs/ROADMAP.md)
 
 ## Architecture
 

@@ -17,6 +17,7 @@
     <module>config-server</module>
     <module>auth-service</module>
     <module>notification-service</module>
+    <module>frontend-service</module>
   </modules>
 
   <properties>

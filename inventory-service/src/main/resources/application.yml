@@ -47,5 +47,5 @@ springdoc:
 
 logging:
   level:
-    org.springframework.boot.actuator.autoconfigure.opentelemetry: DEBUG
-    org.springframework.web: DEBUG
+    org.springframework.boot.actuator.autoconfigure.opentelemetry: INFO
+    org.springframework.web: INFO

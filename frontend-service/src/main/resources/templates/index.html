@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Online Shop</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; }
+        header { background: #534AB7; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        header h1 { font-size: 1.2rem; }
+        header a { color: white; font-size: 0.85rem; opacity: 0.8; text-decoration: none; }
+        header a:hover { opacity: 1; }
+        .container { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+        h2 { font-size: 1rem; margin-bottom: 1rem; color: #333; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { text-align: left; padding: 0.5rem; color: #888; font-weight: 500; border-bottom: 1px solid #eee; }
+        td { padding: 0.5rem; border-bottom: 1px solid #f5f5f5; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
+        .badge.CONFIRMED { background: #EAF3DE; color: #27500A; }
+        .badge.PENDING { background: #FAEEDA; color: #633806; }
+        .badge.CANCELLED { background: #FCEBEB; color: #791F1F; }
+        label { display: block; font-size: 0.85rem; color: #555; margin-bottom: 4px; margin-top: 0.8rem; }
+        input, select { width: 100%; padding: 0.5rem 0.8rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; }
+        button { margin-top: 1rem; padding: 0.6rem 1.2rem; background: #534AB7; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
+        button:hover { background: #3C3489; }
+        .empty { color: #aaa; font-size: 0.85rem; text-align: center; padding: 1rem 0; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Online Shop</h1>
+    <a href="/logout">Sign out</a>
+</header>
+
+<div class="container">
+    <div class="card">
+        <h2>Orders</h2>
+        <table>
+            <thead>
+            <tr><th>ID</th><th>Product</th><th>Qty</th><th>Status</th></tr>
+            </thead>
+            <tbody id="orders-body">
+            <tr th:each="order : ${orders}">
+                <td th:text="${order.id}"></td>
+                <td th:text="${order.productName}"></td>
+                <td th:text="${order.quantity}"></td>
+                <td><span class="badge" th:classappend="${order.status}" th:text="${order.status}"></span></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(orders)}">
+                <td colspan="4" class="empty">No orders yet</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Place an order</h2>
+        <form method="post" action="/orders">
+            <label>Product</label>
+            <select name="productName">
+                <option th:each="p : ${products}" th:value="${p.name}" th:text="${p.name + ' (' + p.quantity + ' in stock)'}"></option>
+            </select>
+            <label>Quantity</label>
+            <input type="number" name="quantity" value="1" min="1"/>
+            <button type="submit">Place order</button>
+        </form>
+    </div>
+</div>
+</body>
+</html>

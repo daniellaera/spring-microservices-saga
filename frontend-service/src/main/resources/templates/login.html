@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login — Online Shop</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, sans-serif; background: #f5f5f5; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .card { background: white; padding: 2rem; border-radius: 12px; width: 360px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+        h1 { font-size: 1.4rem; margin-bottom: 1.5rem; color: #1a1a1a; }
+        label { display: block; font-size: 0.85rem; color: #555; margin-bottom: 4px; margin-top: 1rem; }
+        input { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; }
+        button { width: 100%; margin-top: 1.5rem; padding: 0.7rem; background: #534AB7; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+        button:hover { background: #3C3489; }
+        .error { color: #d85a30; font-size: 0.85rem; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>Online Shop</h1>
+    <form method="post" action="/login">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="daniel@test.com" required/>
+        <label>Password</label>
+        <input type="password" name="password" placeholder="••••••••" required/>
+        <button type="submit">Sign in</button>
+        <p class="error" th:if="${param.error}">Invalid credentials — try again.</p>
+    </form>
+</div>
+</body>
+</html>
