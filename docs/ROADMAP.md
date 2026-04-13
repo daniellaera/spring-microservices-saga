@@ -17,8 +17,10 @@
 - [x] Notification service — Kafka consumer on `payment-topic`
 - [x] Circuit Breaker — Resilience4j on gateway with CLOSED/OPEN/HALF_OPEN states
 - [x] JSON messaging — standardized event format across all Kafka topics
+- [x] Frontend service — Thymeleaf + HTMX UI (login, orders, products)
 
 ## Upcoming
+- [x] Dev/prod profiles via Config Server
 
 ### Resilience
 - [ ] Rate limiting on the gateway

@@ -63,7 +63,9 @@ GET  /orders        → gateway validates JWT → order-service
 | payment-service | 8083 | paymentdb | Processes payments, consumes inventory-topic |
 | notification-service | 8085 | - | Consumes payment-topic, logs order confirmations |
 | config-server | 8888 | - | Centralized Spring Cloud Config Server |
+| frontend-service | 8090 | - | Thymeleaf UI — login, orders, products |
 
+## Observability
 ## Observability
 
 Every request is automatically traced end-to-end across all services using OpenTelemetry. Traces, metrics and logs are exported via OTLP to the Grafana LGTM stack.
@@ -116,8 +118,9 @@ Then run each service from IntelliJ.
 
 **Startup order:**
 1. config-server
-2. auth-service, order-service, inventory-service, payment-service
+2. auth-service, order-service, inventory-service, payment-service, notification-service
 3. gateway-service
+4. frontend-service → http://localhost:8090
 
 ## API Endpoints
 
@@ -184,6 +187,7 @@ daniellaera/order-service:latest
 daniellaera/inventory-service:latest
 daniellaera/payment-service:latest
 daniellaera/notification-service:latest
+daniellaera/frontend-service:latest
 ```
 
 ## Project Structure
@@ -195,6 +199,7 @@ online-shop/
 ├── order-service/
 ├── inventory-service/
 ├── payment-service/
+├── frontend-service/
 ├── docker-compose.yml        ← full stack (prod-like)
 ├── docker-compose.local.yml  ← infrastructure only (dev)
 ├── push-to-dockerhub.sh
