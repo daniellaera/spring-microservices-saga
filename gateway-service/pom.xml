@@ -31,6 +31,12 @@
             <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
         </dependency>
 
+        <!-- Redis reactive starter -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+        </dependency>
+
         <!-- Tracing OpenTelemetry -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

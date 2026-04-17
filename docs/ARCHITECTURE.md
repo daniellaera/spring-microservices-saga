@@ -3,17 +3,18 @@
 ## System Overview
 
 ```
-   ┌──────────────────────────────────────┐
-   │               Clients                 │
-   │   Browser / curl · Frontend UI :8090  │
-   │         Thymeleaf + HTMX              │
-   └──────────────────────────────────────┘
-                      │ JWT
-                      ▼
-   ┌─────────────────────────────────────────────┐
-   │          Spring Cloud Gateway :8080          │
-   │   JWT Validation · Routing · Circuit Breaker │
-   └──────┬──────────┬────────────┬──────────────┘
+   ┌──────────────────────────────────────────┐
+   │                 Clients                   │
+   │   Browser / curl · Frontend UI :8090      │
+   │           Thymeleaf + HTMX                │
+   └──────────────────────────────────────────┘
+                       │ JWT
+                       ▼
+   ┌──────────────────────────────────────────────────────┐
+   │              Spring Cloud Gateway :8080               │
+   │   JWT Validation · Routing · Circuit Breaker          │
+   │   Rate Limiting (Redis token bucket)                  │
+   └──────┬──────────┬────────────┬────────────────────────┘
           │          │            │
           ▼          ▼            ▼
    ┌────────────┐ ┌────────┐ ┌──────────┐ ┌─────────┐
@@ -21,30 +22,29 @@
    │authdb      │ │:8081   │ │:8082     │ │:8083    │
    │            │ │orderdb │ │invntrydb │ │paymentdb│
    └────────────┘ └───┬────┘ └────┬─────┘ └────┬────┘
-                      │           │             │
+                      │           │  ↕Redis     │
                       └───────────┴─────────────┘
                                   │ Kafka Topics
                   ┌───────────────▼──────────────────┐
                   │          Apache Kafka :9092        │
                   │  orders-topic · inventory-topic    │
                   │  payment-topic                     │
-                  └───────────────┬──────────────────┘
-                                  │
-                          ┌───────▼────────┐
-                          │  Notification  │
-                          │    :8085       │
-                          └───────────────┘
+                  └──────┬────────────────────────────┘
+                         │
+               ┌─────────▼──────────┐
+               │  Notification :8085 │
+               └────────────────────┘
 
-   ┌──────────────────────────────────────────────────┐
-   │                 INFRASTRUCTURE                    │
-   │                                                   │
-   │  ┌──────────────┐    ┌──────────────────────┐    │
-   │  │Config Server │    │   Grafana LGTM :3000  │    │
-   │  │    :8888     │    │  Tempo · Loki · Mimir │    │
-   │  │ Spring Cloud │    │   OpenTelemetry OTLP  │    │
-   │  │   Config     │    │      :4317 · :4318    │    │
-   │  └──────────────┘    └──────────────────────┘    │
-   └──────────────────────────────────────────────────┘
+   ┌──────────────────────────────────────────────────────┐
+   │                    INFRASTRUCTURE                     │
+   │                                                       │
+   │  ┌──────────────┐  ┌──────────────┐  ┌───────────┐  │
+   │  │Config Server │  │Grafana LGTM  │  │Redis :6379│  │
+   │  │    :8888     │  │    :3000     │  │Rate limit │  │
+   │  │ Spring Cloud │  │Tempo · Loki  │  │+ cache    │  │
+   │  │   Config     │  │   · Mimir    │  │           │  │
+   │  └──────────────┘  └──────────────┘  └───────────┘  │
+   └──────────────────────────────────────────────────────┘
 ```
 
 ## Authentication Flow
@@ -62,11 +62,11 @@ GET  /orders        → gateway (no token) → 401 Unauthorized
 POST /orders
   └── order-service        → saves order (PENDING)
         └── [orders-topic]
-              └── inventory-service  → checks stock
+              └── inventory-service  → checks stock → updates quantity
                     └── [inventory-topic]
                           └── payment-service  → processes payment
                                 └── [payment-topic]
-                                      ├── order-service      → updates status (CONFIRMED / FAILED)
+                                      ├── order-service      → CONFIRMED / FAILED
                                       └── notification-service → logs confirmation
 ```
 
@@ -74,11 +74,49 @@ POST /orders
 
 ```
 Gateway → Resilience4j Circuit Breaker per route
-  ├── order-cb      → fallback: /fallback/orders
-  ├── inventory-cb  → fallback: /fallback/products
-  └── payment-cb    → fallback: /fallback/transactions
+  ├── order-cb      → fallback: /fallback/orders      → 503
+  ├── inventory-cb  → fallback: /fallback/products    → 503
+  └── payment-cb    → fallback: /fallback/transactions → 503
 
-States: CLOSED → OPEN (>50% failures) → HALF_OPEN (after 10s) → CLOSED
+States:
+  CLOSED → normal operation, counts failures
+  OPEN   → all requests rejected immediately (after >50% failures on 10 calls)
+  HALF_OPEN → tests 3 calls after 10s wait → CLOSED or back to OPEN
+
+Metrics: GET http://localhost:8080/actuator/circuitbreakers
+```
+
+## Rate Limiting
+
+```
+Gateway → Redis RequestRateLimiter (token bucket algorithm)
+  ├── replenishRate:  10 req/s  (sustained rate)
+  ├── burstCapacity:  20        (peak allowed)
+  └── requestedTokens: 1        (cost per request)
+
+KeyResolver:
+  ├── With JWT token  → rate limit per user (substring of token)
+  └── Without token   → rate limit per IP address
+
+Response when exceeded: 429 Too Many Requests
+```
+
+## Redis Cache (Inventory Service)
+
+```
+GET /products
+  ├── Cache HIT  → return from Redis (no DB query)
+  └── Cache MISS → query DB → store in Redis → return
+  
+GET /products/{id}
+  └── no cache — direct DB query
+  └── 404 if not found → GlobalExceptionHandler → ErrorResponse
+
+POST /products
+  └── Create product → @CacheEvict → invalidate "products" cache
+
+Redis key: "products::SimpleKey []"
+TTL: none (evicted on write)
 ```
 
 ## Centralized Configuration
@@ -86,7 +124,7 @@ States: CLOSED → OPEN (>50% failures) → HALF_OPEN (after 10s) → CLOSED
 ```
 config-server (8888)
   └── configs/
-       ├── application.yml        ← shared: OpenTelemetry, tracing (all services)
+       ├── application.yml        ← shared: OpenTelemetry, tracing, logging
        ├── application-dev.yml    ← shared dev: DEBUG logging
        ├── auth-service.yml
        ├── order-service.yml
@@ -96,8 +134,9 @@ config-server (8888)
        ├── notification-service.yml
        └── frontend-service.yml
 
-Each service at startup:
-  spring.config.import=configserver:http://config-server:8888
+Profile activation:
+  dev  → spring.profiles.active=dev  (local IntelliJ)
+  prod → no profile (Docker compose, default application.yml)
 ```
 
 ## Observability Stack
@@ -105,24 +144,24 @@ Each service at startup:
 ```
 Each service
   └── spring-boot-starter-opentelemetry
-        ├── Traces  → OTLP → Grafana Tempo
-        ├── Metrics → OTLP → Grafana Mimir
-        └── Logs    → OTLP → Grafana Loki
+        ├── Traces  → OTLP → Grafana Tempo  (distributed request tracing)
+        ├── Metrics → OTLP → Grafana Mimir  (service metrics)
+        └── Logs    → OTLP → Grafana Loki   (centralized logging)
 
 Every log line includes traceId:
-[order-service] [nio-8081-exec-1] [f9b4100b3004d2e68a306bf2862c67f1-7b3daefca6eeca53] ...
+[order-service] [nio-8081-exec-1] [f9b4100b3004d2e68a306bf2862c67f1] ...
 ```
 
-## Infrastructure (infra-node1)
+## Infrastructure (infra-node1 — Production)
 
 ```
-Internet → Nginx (:80) → Gateway (:8080) → Services
-                                          → Auth (:8084)
-                                          → Order (:8081)
-                                          → Inventory (:8082)
-                                          → Payment (:8083)
-                                          → Notification (:8085)
-                                          → Frontend (:8090)
+Internet → Nginx (:80) → Gateway (:8080)
+                              ├── Auth (:8084)
+                              ├── Order (:8081)
+                              ├── Inventory (:8082)
+                              ├── Payment (:8083)
+                              ├── Notification (:8085)
+                              └── Frontend (:8090)
 ```
 
 ## Database per Service
@@ -137,19 +176,22 @@ Internet → Nginx (:80) → Gateway (:8080) → Services
 ## Tech Decisions
 
 ### Why Kafka over REST between services?
-Kafka decouples services in time — if payment-service is down, the message stays in the topic and is consumed when it comes back. With REST, a failed call means a lost event.
+Kafka decouples services in time — if payment-service is down, the message stays in the topic and is consumed when it comes back. With REST, a failed call means a lost event. Kafka also enables multiple consumers on the same topic (order-service + notification-service both consume payment-topic).
 
 ### Why Spring Cloud Config?
-Centralizes configuration across all services. One change in `configs/application.yml` propagates to all services on restart — no need to touch multiple separate yml files. Dev/prod profiles are managed centrally.
+Centralizes configuration across all services. One change in `configs/application.yml` propagates to all services on restart. Dev/prod profiles managed centrally — no need to touch individual service YMLs.
 
 ### Why a dedicated auth-service instead of auth in the gateway?
-The gateway is WebFlux (reactive). Putting user management (DB access, BCrypt) in the gateway would mix concerns. The auth-service is a standard WebMVC service with JPA — simpler and more maintainable.
+The gateway is WebFlux (reactive). Putting user management (DB access, BCrypt) in the gateway would mix concerns. The auth-service is standard WebMVC with JPA — simpler and independently deployable.
 
 ### Why Resilience4j Circuit Breaker only on the gateway?
-Services communicate via Kafka (async) — Circuit Breaker is most valuable on synchronous HTTP calls. The gateway is the single entry point for all HTTP traffic, making it the right place for resilience patterns.
+Services communicate via Kafka (async) — Circuit Breaker is most valuable on synchronous HTTP calls. The gateway is the single entry point for all HTTP traffic, making it the right place for resilience patterns. Adding Circuit Breaker inside each service too would create double-retry issues.
+
+### Why Redis for rate limiting AND caching?
+Redis is already required by Spring Cloud Gateway's `RequestRateLimiter`. Adding product caching in inventory-service reuses the same infrastructure with zero added complexity. One Redis instance, two use cases.
 
 ### Why Thymeleaf + HTMX for the frontend?
-No build toolchain, no heavy framework. HTMX enables dynamic interactions via HTML attributes — the frontend is a simple Spring Boot service that calls the gateway, keeping the architecture consistent and lightweight.
+No build toolchain, no heavy framework, no separate deployment. HTMX enables dynamic interactions via HTML attributes. The frontend is a simple Spring Boot service that calls the gateway — consistent with the rest of the architecture.
 
 ### Why Grafana LGTM?
-Single Docker image that bundles Loki + Grafana + Tempo + Mimir. Zero config needed for a full observability stack in dev.
+Single Docker image bundling Loki + Grafana + Tempo + Mimir. Zero configuration needed for a full observability stack in dev. In prod, each component could be deployed separately for scalability.

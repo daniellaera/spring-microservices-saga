@@ -61,6 +61,20 @@ services:
     networks:
       - app-network
 
+  redis:
+    image: redis:8-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   config-server:
     build:
       context: .
@@ -119,12 +133,15 @@ services:
       - DB_PASSWORD=testpass
       - CONFIG_SERVER_URI=http://config-server:8888
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
+      - REDIS_HOST=redis
     depends_on:
       kafka:
         condition: service_healthy
       postgres:
         condition: service_healthy
       config-server:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - app-network
@@ -168,6 +185,7 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
       - AUTH_SERVICE_URI=http://auth-service:8084
       - JWT_SECRET=mySecretKey1234567890123456789012345678901234
+      - REDIS_HOST=redis
     depends_on:
       order-service:
         condition: service_started
@@ -178,6 +196,8 @@ services:
       auth-service:
         condition: service_started
       config-server:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - app-network
