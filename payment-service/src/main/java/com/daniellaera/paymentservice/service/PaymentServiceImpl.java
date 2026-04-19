@@ -2,7 +2,9 @@ package com.daniellaera.paymentservice.service;
 
 import com.daniellaera.paymentservice.dto.InventoryEvent;
 import com.daniellaera.paymentservice.dto.PaymentEvent;
+import com.daniellaera.paymentservice.dto.TransactionDTO;
 import com.daniellaera.paymentservice.enums.PaymentStatus;
+import com.daniellaera.paymentservice.exception.ResourceNotFoundException;
 import com.daniellaera.paymentservice.model.Transaction;
 import com.daniellaera.paymentservice.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -51,5 +55,20 @@ public class PaymentServiceImpl implements PaymentService {
     @DltHandler
     public void handleDlt(String message, Exception ex) {
         log.error("DLT received failed message: {} error: {}", message, ex.getMessage());
+    }
+
+    @Override
+    public List<TransactionDTO> getAllTransactions() {
+        return transactionRepository.findAll()
+                .stream()
+                .map(t -> new TransactionDTO(t.getId(), t.getOrderId(), t.getStatus()))
+                .toList();
+    }
+
+    @Override
+    public TransactionDTO getTransactionById(Long id) {
+        Transaction transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
+        return new TransactionDTO(transaction.getId(), transaction.getOrderId(), transaction.getStatus());
     }
 }

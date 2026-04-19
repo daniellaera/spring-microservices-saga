@@ -1,7 +1,6 @@
 package com.daniellaera.paymentservice.exception;
 
 import com.daniellaera.paymentservice.dto.ErrorResponse;
-import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;

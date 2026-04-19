@@ -1,7 +1,7 @@
 package com.daniellaera.orderservice.controller;
 
+import com.daniellaera.orderservice.dto.OrderDTO;
 import com.daniellaera.orderservice.dto.OrderRequest;
-import com.daniellaera.orderservice.model.Order;
 import com.daniellaera.orderservice.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,17 +17,17 @@ public class OrderController {
     private final OrderService orderService;
 
     @GetMapping("/{id}")
-    public ResponseEntity<Order> getOrder(@PathVariable Long id) {
+    public ResponseEntity<OrderDTO> getOrder(@PathVariable("id") Long id) {
         return ResponseEntity.ok(orderService.getOrderById(id));
     }
 
     @GetMapping
-    public ResponseEntity<List<Order>> getAllOrders() {
+    public ResponseEntity<List<OrderDTO>> getAllOrders() {
         return ResponseEntity.ok(orderService.getAllOrders());
     }
 
     @PostMapping
-    public ResponseEntity<Order> createOrder(@RequestBody OrderRequest request) {
+    public ResponseEntity<OrderDTO> createOrder(@RequestBody OrderRequest request) {
         return ResponseEntity.ok(orderService.createOrder(request));
     }
 }

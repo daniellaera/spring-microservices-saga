@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: payment-service
+  config:
+    import: "optional:configserver:"
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      ack-mode: record
+    consumer:
+      auto-offset-reset: earliest
+  datasource:
+    url: jdbc:postgresql://localhost:5432/paymentdb
+    username: testuser
+    password: testpass
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8083
