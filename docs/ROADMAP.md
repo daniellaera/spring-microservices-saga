@@ -5,7 +5,8 @@
 - [x] Spring Boot 4 + Java 21 multi-module Maven project
 - [x] Event-driven Saga pattern with Kafka (order → inventory → payment)
 - [x] Spring Cloud Gateway with JWT validation
-- [x] Auth service — register, login, BCrypt, JWT generation
+- [x] Auth service — register, login, BCrypt, JWT generation with role claim
+- [x] **Role-Based Access Control (RBAC)** — USER and ADMIN roles enforced at the gateway
 - [x] Spring Cloud Config Server — centralized configuration
 - [x] Dev/prod profiles managed via Config Server
 - [x] OpenTelemetry — distributed tracing + metrics via `spring-boot-starter-opentelemetry`
@@ -21,16 +22,21 @@
 - [x] Frontend service — Thymeleaf + HTMX UI (login, orders, products)
 - [x] Rate limiting — Redis token bucket on gateway (10 req/s, burst 20)
 - [x] Redis cache — `@Cacheable` on inventory products, `@CacheEvict` on create
+- [x] **Unit tests with JUnit + Mockito** — services and controllers across all modules
+- [x] **Integration tests with Testcontainers** — PostgreSQL + Kafka + Redis per service
 
 ## 📋 Upcoming
 
 ### Resilience
 - [ ] Retry mechanism — Kafka consumer retry + Dead Letter Topic handling
 - [ ] Timeout configuration per route on the gateway
+- [ ] Saga compensation — rollback inventory when payment fails
+
+### Security
+- [ ] Refresh token mechanism
+- [ ] ADMIN-only endpoint `POST /auth/admin` to create new admins (requires existing ADMIN JWT)
 
 ### Quality
-- [ ] Unit tests with JUnit + Mockito per service
-- [ ] Integration tests with Testcontainers
 - [ ] SonarQube analysis in CI pipeline
 
 ### Architecture

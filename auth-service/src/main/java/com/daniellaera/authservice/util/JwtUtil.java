@@ -1,6 +1,5 @@
 package com.daniellaera.authservice.util;
 
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,33 +21,13 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    public String generateToken(String email) {
+    public String generateToken(String email, String role) {
         return Jwts.builder()
                 .subject(email)
+                .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey())
                 .compact();
-    }
-
-    public String extractEmail(String token) {
-        return extractClaims(token).getSubject();
-    }
-
-    public boolean isTokenValid(String token) {
-        try {
-            extractClaims(token);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private Claims extractClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
     }
 }

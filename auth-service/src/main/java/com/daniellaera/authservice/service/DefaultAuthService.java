@@ -34,10 +34,8 @@ public class DefaultAuthService implements AuthService {
                 .role(Role.USER)
                 .createdAt(LocalDateTime.now())
                 .build();
-
         userRepository.save(user);
-        String token = jwtUtil.generateToken(user.getEmail());
-        return new AuthResponse(token);
+        return new AuthResponse(generateTokenForUser(user));
     }
 
     @Override
@@ -47,7 +45,10 @@ public class DefaultAuthService implements AuthService {
         );
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        String token = jwtUtil.generateToken(user.getEmail());
-        return new AuthResponse(token);
+        return new AuthResponse(generateTokenForUser(user));
+    }
+
+    private String generateTokenForUser(User user) {
+        return jwtUtil.generateToken(user.getEmail(), user.getRole().name());
     }
 }
