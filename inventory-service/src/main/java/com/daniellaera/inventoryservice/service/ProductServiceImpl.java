@@ -19,7 +19,6 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
 
     @Override
-    @CacheEvict(value = "products", allEntries = true)
     public ProductDTO createProduct(ProductRequest request) {
         Product product = new Product();
         product.setName(request.name());
@@ -29,7 +28,6 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    @Cacheable(value = "products")
     public List<ProductDTO> getAllProducts() {
         return productRepository.findAll()
                 .stream()

@@ -9,9 +9,12 @@
         body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; }
         header { background: #534AB7; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
         header h1 { font-size: 1.2rem; }
+        header .role-badge { font-size: 0.75rem; background: rgba(255,255,255,0.2); padding: 2px 10px; border-radius: 20px; margin-left: 10px; }
         header a { color: white; font-size: 0.85rem; opacity: 0.8; text-decoration: none; }
         header a:hover { opacity: 1; }
         .container { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .container.admin { grid-template-columns: 1fr 1fr; }
+        .full-width { grid-column: 1 / -1; }
         .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
         h2 { font-size: 1rem; margin-bottom: 1rem; color: #333; }
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -21,6 +24,10 @@
         .badge.CONFIRMED { background: #EAF3DE; color: #27500A; }
         .badge.PENDING { background: #FAEEDA; color: #633806; }
         .badge.CANCELLED { background: #FCEBEB; color: #791F1F; }
+        .badge.FAILED { background: #FCEBEB; color: #791F1F; }
+        .badge-role { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-role.ADMIN { background: #EAF3DE; color: #27500A; }
+        .badge-role.USER { background: #EEF0FA; color: #534AB7; }
         label { display: block; font-size: 0.85rem; color: #555; margin-bottom: 4px; margin-top: 0.8rem; }
         input, select { width: 100%; padding: 0.5rem 0.8rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; }
         button { margin-top: 1rem; padding: 0.6rem 1.2rem; background: #534AB7; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
@@ -30,18 +37,20 @@
 </head>
 <body>
 <header>
-    <h1>Online Shop</h1>
+    <h1>Online Shop <span class="badge-role" th:classappend="${role}" th:text="${role}"></span></h1>
     <a href="/logout">Sign out</a>
 </header>
 
 <div class="container">
+
+    <!-- Orders — visible for everyone -->
     <div class="card">
         <h2>Orders</h2>
         <table>
             <thead>
             <tr><th>ID</th><th>Product</th><th>Qty</th><th>Status</th></tr>
             </thead>
-            <tbody id="orders-body">
+            <tbody>
             <tr th:each="order : ${orders}">
                 <td th:text="${order.id}"></td>
                 <td th:text="${order.productName}"></td>
@@ -55,18 +64,59 @@
         </table>
     </div>
 
-    <div class="card">
+    <!-- Place an order — USER only -->
+    <div class="card" th:if="${role == 'USER'}">
         <h2>Place an order</h2>
         <form method="post" action="/orders">
             <label>Product</label>
             <select name="productName">
-                <option th:each="p : ${products}" th:value="${p.name}" th:text="${p.name + ' (' + p.quantity + ' in stock)'}"></option>
+                <option th:each="p : ${products}"
+                        th:value="${p.name}"
+                        th:text="${p.name + ' (' + p.quantity + ' in stock)'}">
+                </option>
             </select>
             <label>Quantity</label>
             <input type="number" name="quantity" value="1" min="1"/>
             <button type="submit">Place order</button>
         </form>
     </div>
+
+    <!-- ADMIN section -->
+    <div th:if="${role == 'ADMIN'}" style="display: contents;">
+
+        <!-- Products list -->
+        <div class="card">
+            <h2>Products</h2>
+            <table>
+                <thead>
+                <tr><th>ID</th><th>Name</th><th>Qty</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="p : ${products}">
+                    <td th:text="${p.name}"></td>
+                    <td th:text="${p.quantity}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(products)}">
+                    <td colspan="3" class="empty">No products yet</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Add a product -->
+        <div class="card">
+            <h2>Add a product</h2>
+            <form method="post" action="/products">
+                <label>Name</label>
+                <input type="text" name="name" placeholder="MacBook Pro" required/>
+                <label>Quantity</label>
+                <input type="number" name="quantity" value="10" min="1"/>
+                <button type="submit">Add product</button>
+            </form>
+        </div>
+
+    </div>
+
 </div>
 </body>
 </html>

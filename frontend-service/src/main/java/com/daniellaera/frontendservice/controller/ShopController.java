@@ -27,6 +27,10 @@ public class ShopController {
         String token = (String) session.getAttribute("token");
         if (token == null) return "redirect:/login";
 
+        // extraire le rôle du JWT
+        String role = extractRoleFromToken(token);
+        model.addAttribute("role", role);
+
         List<OrderDto> orders = objectMapper.readValue(
                 gatewayClient.getOrders(token),
                 new TypeReference<List<OrderDto>>() {}
@@ -60,6 +64,16 @@ public class ShopController {
         }
     }
 
+    @PostMapping("/products")
+    public String createProduct(@RequestParam("name") String name,
+                                @RequestParam("quantity") int quantity,
+                                HttpSession session) {
+        String token = (String) session.getAttribute("token");
+        if (token == null) return "redirect:/login";
+        gatewayClient.createProduct(token, name, quantity);
+        return "redirect:/";
+    }
+
     @PostMapping("/orders")
     public String createOrder(@RequestParam("productName") String productName,
                               @RequestParam("quantity") int quantity,
@@ -74,5 +88,17 @@ public class ShopController {
     public String logout(HttpSession session) {
         session.invalidate();
         return "redirect:/login";
+    }
+
+    private String extractRoleFromToken(String token) {
+        try {
+            String payload = token.split("\\.")[1];
+            String decoded = new String(java.util.Base64.getUrlDecoder().decode(payload));
+            // parse "role":"ADMIN" or "role":"USER"
+            tools.jackson.databind.JsonNode node = objectMapper.readTree(decoded);
+            return node.get("role").asString();
+        } catch (Exception e) {
+            return "USER";
+        }
     }
 }

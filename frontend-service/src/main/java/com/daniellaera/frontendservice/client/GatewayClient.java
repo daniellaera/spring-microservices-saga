@@ -44,14 +44,21 @@ public class GatewayClient {
         return response.getBody();
     }
 
-    public String createOrder(String token, String productName, int quantity) {
+    public void createOrder(String token, String productName, int quantity) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(token);
         String body = "{\"productName\":\"" + productName + "\",\"quantity\":" + quantity + "}";
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                gatewayUrl + "/orders", entity, String.class);
-        return response.getBody();
+        restTemplate.postForEntity(gatewayUrl + "/orders", entity, String.class);
+    }
+
+    public void createProduct(String token, String name, int quantity) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(token);
+        String body = "{\"name\":\"" + name + "\",\"quantity\":" + quantity + "}";
+        HttpEntity<String> entity = new HttpEntity<>(body, headers);
+        restTemplate.postForEntity(gatewayUrl + "/products", entity, String.class);
     }
 }
