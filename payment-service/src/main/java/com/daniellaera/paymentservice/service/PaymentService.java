@@ -7,7 +7,7 @@ import java.util.List;
 
 @Service
 public interface PaymentService {
-    void handleInventoryEvent(String message);
+    void handleInventoryEvent(String message) throws Exception;
 
     List<TransactionDTO> getAllTransactions();
 

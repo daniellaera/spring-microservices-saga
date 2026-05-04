@@ -13,6 +13,14 @@ spring:
       ack-mode: record
     consumer:
       auto-offset-reset: earliest
+    retry:
+      topic:
+        attempts: 3
+        enabled: true
+        backoff:
+          delay: 1000
+          multiplier: 2.0
+          max-delay: 10000
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/paymentdb

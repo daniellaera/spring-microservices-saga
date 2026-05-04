@@ -2,6 +2,7 @@ package com.daniellaera.inventoryservice.service;
 
 import com.daniellaera.inventoryservice.dto.ProductDTO;
 import com.daniellaera.inventoryservice.dto.ProductRequest;
+import com.daniellaera.inventoryservice.exception.ResourceAlreadyExistsException;
 import com.daniellaera.inventoryservice.exception.ResourceNotFoundException;
 import com.daniellaera.inventoryservice.model.Product;
 import com.daniellaera.inventoryservice.repository.ProductRepository;
@@ -20,6 +21,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductDTO createProduct(ProductRequest request) {
+        if (productRepository.existsByName(request.name())) {
+            throw new ResourceAlreadyExistsException("Product already exists: " + request.name());
+        }
         Product product = new Product();
         product.setName(request.name());
         product.setQuantity(request.quantity());

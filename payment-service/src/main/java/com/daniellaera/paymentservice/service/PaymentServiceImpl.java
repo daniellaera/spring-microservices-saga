@@ -28,28 +28,24 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @KafkaListener(topics = "inventory-topic", groupId = "payment-group")
-    public void handleInventoryEvent(String message) {
-        try {
-            InventoryEvent event = objectMapper.readValue(message, InventoryEvent.class);
+    public void handleInventoryEvent(String message) throws Exception {
+        InventoryEvent event = objectMapper.readValue(message, InventoryEvent.class);
 
-            Transaction transaction = new Transaction();
-            transaction.setOrderId(event.orderId());
+        Transaction transaction = new Transaction();
+        transaction.setOrderId(event.orderId());
 
-            if ("APPROVED".equals(event.status())) {
-                transaction.setStatus(PaymentStatus.SUCCESS);
-                kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
-                        new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "SUCCESS")
-                ));
-            } else {
-                transaction.setStatus(PaymentStatus.FAILED);
-                kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
-                        new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "FAILED")
-                ));
-            }
-            transactionRepository.save(transaction);
-        } catch (Exception e) {
-            log.error("Failed to process inventory event: {}", e.getMessage());
+        if ("APPROVED".equals(event.status())) {
+            transaction.setStatus(PaymentStatus.SUCCESS);
+            kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
+                    new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "SUCCESS")
+            ));
+        } else {
+            transaction.setStatus(PaymentStatus.FAILED);
+            kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
+                    new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "FAILED")
+            ));
         }
+        transactionRepository.save(transaction);
     }
 
     @DltHandler
