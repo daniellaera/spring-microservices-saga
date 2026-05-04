@@ -203,6 +203,23 @@ Every log line includes traceId:
 [order-service] [nio-8081-exec-1] [f9b4100b3004d2e68a306bf2862c67f1] ...
 ```
 
+## Uptime Monitoring
+
+```
+Uptime Kuma :3001
+  └── HTTP monitor per service (every 60s)
+        ├── gateway-service    → http://gateway-service:8080/actuator/health
+        ├── auth-service       → http://auth-service:8084/actuator/health
+        ├── order-service      → http://order-service:8081/actuator/health
+        ├── inventory-service  → http://inventory-service:8082/actuator/health
+        ├── payment-service    → http://payment-service:8083/actuator/health
+        ├── notification-service → http://notification-service:8085/actuator/health
+        └── frontend-service   → http://frontend-service:8090/actuator/health
+
+Notifications:
+  └── Telegram → instant alert on DOWN / UP events
+```
+
 ## Infrastructure (infra-node1 — Production)
 
 ```

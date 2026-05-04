@@ -104,6 +104,7 @@ See [Architecture — Admin User Provisioning](./docs/ARCHITECTURE.md#admin-user
 | notification-service | 8085 | - | Consumes payment-topic, logs confirmations |
 | frontend-service | 8090 | - | Thymeleaf + HTMX UI |
 | config-server | 8888 | - | Centralized Spring Cloud Config Server |
+| uptime-kuma | 3001 | - | Service uptime monitoring + Telegram alerts |
 
 ---
 
@@ -140,6 +141,14 @@ Each log line includes a `traceId` for correlation:
 ```
 
 Access Grafana at `http://localhost:3000`
+
+## Uptime Monitoring
+
+All services are monitored via **Uptime Kuma** on infra-node1, with instant **Telegram alerts** on DOWN/UP events.
+
+- Access dashboard at `http://infra-node1:3001`
+- Each service monitored via `/actuator/health` every 60s
+- Notifications sent to Telegram on status change
 
 ---
 

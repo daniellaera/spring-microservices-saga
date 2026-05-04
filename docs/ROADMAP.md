@@ -24,6 +24,7 @@
 - [x] Redis cache — `@Cacheable` on inventory products, `@CacheEvict` on create
 - [x] **Unit tests with JUnit + Mockito** — services and controllers across all modules
 - [x] **Integration tests with Testcontainers** — PostgreSQL + Kafka + Redis per service
+- [x] **Uptime monitoring** — Uptime Kuma with Telegram alerts for all services on infra-node1
 
 ## 📋 Upcoming
 
