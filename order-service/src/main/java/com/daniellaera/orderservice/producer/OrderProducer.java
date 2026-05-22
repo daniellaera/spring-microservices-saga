@@ -17,12 +17,17 @@ public class OrderProducer {
     private final ObjectMapper objectMapper;
 
     public void sendOrder(Order order) {
+        sendOrderEvent(new OrderEvent(
+                order.getId(),
+                order.getProductName(),
+                order.getQuantity(),
+                order.getPrice(),
+                order.getTotalAmount()
+        ));
+    }
+
+    public void sendOrderEvent(OrderEvent event) {
         try {
-            OrderEvent event = new OrderEvent(
-                    order.getId(),
-                    order.getProductName(),
-                    order.getQuantity()
-            );
             String message = objectMapper.writeValueAsString(event);
             kafkaTemplate.send("orders-topic", message);
         } catch (Exception e) {

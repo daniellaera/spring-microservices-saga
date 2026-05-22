@@ -65,6 +65,16 @@ The Flyway migration only seeds USER accounts. To create an ADMIN, use the provi
 ```
 See [Architecture — Admin User Provisioning](./docs/ARCHITECTURE.md#admin-user-provisioning) for details.
 
+## Demo accounts
+
+| Email | Password | Role |
+|-------|----------|------|
+| daniel@example.com | password123 | USER |
+| admin@example.com | password123 | ADMIN |
+
+> These accounts are seeded by Flyway on first startup.
+> Never use these credentials in production.
+
 ---
 
 ## Tech Stack

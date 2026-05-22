@@ -14,6 +14,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -36,6 +38,7 @@ public class PaymentControllerITTest {
         Transaction transaction = new Transaction();
         transaction.setOrderId(1L);
         transaction.setStatus(PaymentStatus.SUCCESS);
+        transaction.setTotalAmount(BigDecimal.valueOf(999.99));
         transactionRepository.save(transaction);
     }
 
@@ -45,7 +48,8 @@ public class PaymentControllerITTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].orderId").value(1))
-                .andExpect(jsonPath("$[0].status").value("SUCCESS"));
+                .andExpect(jsonPath("$[0].status").value("SUCCESS"))
+                .andExpect(jsonPath("$[0].totalAmount").value(999.99));
     }
 
     @Test

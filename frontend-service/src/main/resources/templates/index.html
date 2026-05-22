@@ -22,9 +22,14 @@
         td { padding: 0.5rem; border-bottom: 1px solid #f5f5f5; }
         .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
         .badge.CONFIRMED { background: #EAF3DE; color: #27500A; }
-        .badge.PENDING { background: #FAEEDA; color: #633806; }
         .badge.CANCELLED { background: #FCEBEB; color: #791F1F; }
         .badge.FAILED { background: #FCEBEB; color: #791F1F; }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        .badge.PENDING { background: #FAEEDA; color: #633806; animation: pulse 1.5s ease-in-out infinite; }
+        .badge.COMPENSATED { background: #EEF0FA; color: #534AB7; font-size: 0.7rem; margin-left: 4px; }
         .badge-role { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
         .badge-role.ADMIN { background: #EAF3DE; color: #27500A; }
         .badge-role.USER { background: #EEF0FA; color: #534AB7; }
@@ -48,17 +53,30 @@
         <h2>Orders</h2>
         <table>
             <thead>
-            <tr><th>ID</th><th>Product</th><th>Qty</th><th>Status</th></tr>
+            <tr><th>ID</th><th>Product</th><th>Qty</th><th>Price</th><th>Total</th><th>Status</th></tr>
             </thead>
-            <tbody>
+            <tbody
+                id="orders-body"
+                hx-get="/orders/partial"
+                hx-trigger="every 3s"
+                hx-swap="innerHTML"
+                hx-target="#orders-body">
             <tr th:each="order : ${orders}">
                 <td th:text="${order.id}"></td>
                 <td th:text="${order.productName}"></td>
                 <td th:text="${order.quantity}"></td>
-                <td><span class="badge" th:classappend="${order.status}" th:text="${order.status}"></span></td>
+                <td th:text="${order.price != null ? #numbers.formatDecimal(order.price, 1, 2) + ' €' : '—'}">—</td>
+                <td th:text="${order.totalAmount != null ? #numbers.formatDecimal(order.totalAmount, 1, 2) + ' €' : '—'}">—</td>
+                <td>
+                    <span class="badge" th:classappend="${order.status}"
+                          th:text="${order.status}"></span>
+                    <span class="badge COMPENSATED"
+                          th:if="${order.status == 'CANCELLED'}"
+                          title="Stock restored automatically">↩ restored</span>
+                </td>
             </tr>
             <tr th:if="${#lists.isEmpty(orders)}">
-                <td colspan="4" class="empty">No orders yet</td>
+                <td colspan="6" class="empty">No orders yet</td>
             </tr>
             </tbody>
         </table>
@@ -72,13 +90,38 @@
             <select name="productName">
                 <option th:each="p : ${products}"
                         th:value="${p.name}"
-                        th:text="${p.name + ' (' + p.quantity + ' in stock)'}">
+                        th:data-price="${p.price}"
+                        th:text="${p.name + ' — ' + p.price + ' € (' + p.quantity + ' in stock)'}">
                 </option>
             </select>
             <label>Quantity</label>
             <input type="number" name="quantity" value="1" min="1"/>
+            <div style="margin-top:.8rem; padding:.6rem; background:#f5f5f5; border-radius:8px; font-size:.85rem; color:#555">
+                Estimated total: <strong id="estimated-total">—</strong>
+            </div>
+            <input type="hidden" name="price" id="price-input"/>
             <button type="submit">Place order</button>
         </form>
+        <script>
+            const select = document.querySelector('select[name=productName]');
+            const qty = document.querySelector('input[name=quantity]');
+            const total = document.getElementById('estimated-total');
+            const priceInput = document.getElementById('price-input');
+
+            function updateTotal() {
+                const price = parseFloat(
+                    select.options[select.selectedIndex]?.dataset.price || 0
+                );
+                const q = parseInt(qty.value || 1);
+                const amount = (price * q).toFixed(2);
+                total.textContent = amount + ' €';
+                priceInput.value = price;
+            }
+
+            select.addEventListener('change', updateTotal);
+            qty.addEventListener('input', updateTotal);
+            updateTotal();
+        </script>
     </div>
 
     <!-- ADMIN section -->
@@ -89,12 +132,18 @@
             <h2>Products</h2>
             <table>
                 <thead>
-                <tr><th>ID</th><th>Name</th><th>Qty</th></tr>
+                <tr><th>Name</th><th>Stock</th><th>Price</th></tr>
                 </thead>
-                <tbody>
+                <tbody
+                    id="products-body"
+                    hx-get="/products/partial"
+                    hx-trigger="every 3s"
+                    hx-swap="innerHTML"
+                    hx-target="#products-body">
                 <tr th:each="p : ${products}">
                     <td th:text="${p.name}"></td>
                     <td th:text="${p.quantity}"></td>
+                    <td th:text="${p.price != null ? #numbers.formatDecimal(p.price, 1, 2) + ' €' : '—'}"></td>
                 </tr>
                 <tr th:if="${#lists.isEmpty(products)}">
                     <td colspan="3" class="empty">No products yet</td>
@@ -111,6 +160,8 @@
                 <input type="text" name="name" placeholder="MacBook Pro" required/>
                 <label>Quantity</label>
                 <input type="number" name="quantity" value="10" min="1"/>
+                <label>Price (€)</label>
+                <input type="number" name="price" placeholder="999.99" step="0.01" min="0" required/>
                 <button type="submit">Add product</button>
             </form>
         </div>

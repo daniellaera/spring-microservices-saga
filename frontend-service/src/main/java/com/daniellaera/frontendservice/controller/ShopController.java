@@ -4,7 +4,6 @@ import com.daniellaera.frontendservice.client.GatewayClient;
 import com.daniellaera.frontendservice.dto.OrderDto;
 import com.daniellaera.frontendservice.dto.ProductDto;
 import jakarta.servlet.http.HttpSession;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,14 +12,19 @@ import org.springframework.web.bind.annotation.RequestParam;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Controller
-@RequiredArgsConstructor
 public class ShopController {
 
     private final GatewayClient gatewayClient;
     private final ObjectMapper objectMapper;
+
+    public ShopController(GatewayClient gatewayClient, ObjectMapper objectMapper) {
+        this.gatewayClient = gatewayClient;
+        this.objectMapper = objectMapper;
+    }
 
     @GetMapping("/")
     public String index(HttpSession session, Model model) throws Exception {
@@ -67,21 +71,47 @@ public class ShopController {
     @PostMapping("/products")
     public String createProduct(@RequestParam("name") String name,
                                 @RequestParam("quantity") int quantity,
+                                @RequestParam("price") BigDecimal price,
                                 HttpSession session) {
         String token = (String) session.getAttribute("token");
         if (token == null) return "redirect:/login";
-        gatewayClient.createProduct(token, name, quantity);
+        gatewayClient.createProduct(token, name, quantity, price);
         return "redirect:/";
     }
 
     @PostMapping("/orders")
     public String createOrder(@RequestParam("productName") String productName,
                               @RequestParam("quantity") int quantity,
+                              @RequestParam("price") BigDecimal price,
                               HttpSession session) {
         String token = (String) session.getAttribute("token");
         if (token == null) return "redirect:/login";
-        gatewayClient.createOrder(token, productName, quantity);
+        gatewayClient.createOrder(token, productName, quantity, price);
         return "redirect:/";
+    }
+
+    @GetMapping("/orders/partial")
+    public String ordersPartial(Model model, HttpSession session) throws Exception {
+        String token = (String) session.getAttribute("token");
+        if (token == null) return "redirect:/login";
+        List<OrderDto> orders = objectMapper.readValue(
+                gatewayClient.getOrders(token),
+                new TypeReference<List<OrderDto>>() {}
+        );
+        model.addAttribute("orders", orders);
+        return "fragments/orders :: orders-body";
+    }
+
+    @GetMapping("/products/partial")
+    public String productsPartial(Model model, HttpSession session) throws Exception {
+        String token = (String) session.getAttribute("token");
+        if (token == null) return "redirect:/login";
+        List<ProductDto> products = objectMapper.readValue(
+                gatewayClient.getProducts(token),
+                new TypeReference<List<ProductDto>>() {}
+        );
+        model.addAttribute("products", products);
+        return "fragments/products :: products-body";
     }
 
     @GetMapping("/logout")

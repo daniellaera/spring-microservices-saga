@@ -14,6 +14,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -37,6 +39,8 @@ public class OrderControllerITTest {
         Order order = new Order();
         order.setProductName("MacBook Pro");
         order.setQuantity(1);
+        order.setPrice(BigDecimal.valueOf(1299.99));
+        order.setTotalAmount(BigDecimal.valueOf(1299.99));
         order.setStatus(OrderStatus.PENDING);
         orderRepository.save(order);
     }
@@ -71,10 +75,12 @@ public class OrderControllerITTest {
     void createOrder_shouldReturn200AndPersist() throws Exception {
         mockMvc.perform(post("/orders")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"productName\":\"iPhone 16\",\"quantity\":2}"))
+                        .content("{\"productName\":\"iPhone 16\",\"quantity\":2,\"price\":999.99}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.productName").value("iPhone 16"))
-                .andExpect(jsonPath("$.status").value("PENDING"));
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.price").value(999.99))
+                .andExpect(jsonPath("$.totalAmount").value(1999.98));
 
         assertThat(orderRepository.findAll()).hasSize(2);
     }

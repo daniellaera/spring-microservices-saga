@@ -1,0 +1,1 @@
+ALTER TABLE transaction ADD COLUMN IF NOT EXISTS total_amount NUMERIC(10,2);

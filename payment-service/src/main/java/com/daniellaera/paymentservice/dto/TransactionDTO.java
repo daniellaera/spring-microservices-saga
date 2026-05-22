@@ -2,4 +2,6 @@ package com.daniellaera.paymentservice.dto;
 
 import com.daniellaera.paymentservice.enums.PaymentStatus;
 
-public record TransactionDTO(Long id, Long orderId, PaymentStatus status) {}
+import java.math.BigDecimal;
+
+public record TransactionDTO(Long id, Long orderId, BigDecimal totalAmount, PaymentStatus status) {}

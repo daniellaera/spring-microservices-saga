@@ -1,19 +1,24 @@
 package com.daniellaera.orderservice.service;
 
 import com.daniellaera.orderservice.dto.OrderDTO;
+import com.daniellaera.orderservice.dto.OrderEvent;
 import com.daniellaera.orderservice.dto.OrderRequest;
 import com.daniellaera.orderservice.enums.OrderStatus;
 import com.daniellaera.orderservice.exception.ResourceNotFoundException;
 import com.daniellaera.orderservice.model.Order;
+import com.daniellaera.orderservice.model.OutboxEvent;
 import com.daniellaera.orderservice.producer.OrderProducer;
 import com.daniellaera.orderservice.repository.OrderRepository;
+import com.daniellaera.orderservice.repository.OutboxEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import tools.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,7 +33,13 @@ class OrderServiceImplTest {
     private OrderRepository orderRepository;
 
     @Mock
+    private OutboxEventRepository outboxEventRepository;
+
+    @Mock
     private OrderProducer orderProducer;
+
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -40,6 +51,8 @@ class OrderServiceImplTest {
         order = new Order();
         order.setProductName("MacBook Pro");
         order.setQuantity(1);
+        order.setPrice(BigDecimal.valueOf(1299.99));
+        order.setTotalAmount(BigDecimal.valueOf(1299.99));
         order.setStatus(OrderStatus.PENDING);
     }
 
@@ -75,15 +88,18 @@ class OrderServiceImplTest {
     }
 
     @Test
-    void createOrder_shouldSaveAndPublishToKafka() {
-        OrderRequest request = new OrderRequest("MacBook Pro", 1);
+    void createOrder_shouldSaveAndPublishToOutbox() throws Exception {
+        OrderRequest request = new OrderRequest("MacBook Pro", 1, BigDecimal.valueOf(1299.99));
         when(orderRepository.save(any(Order.class))).thenReturn(order);
+        when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
+        when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
 
         OrderDTO result = orderService.createOrder(request);
 
         assertThat(result.productName()).isEqualTo("MacBook Pro");
         assertThat(result.status()).isEqualTo(OrderStatus.PENDING);
         verify(orderRepository, times(1)).save(any(Order.class));
-        verify(orderProducer, times(1)).sendOrder(any(Order.class));
+        verify(outboxEventRepository, times(1)).save(any(OutboxEvent.class));
+        verifyNoInteractions(orderProducer);
     }
 }

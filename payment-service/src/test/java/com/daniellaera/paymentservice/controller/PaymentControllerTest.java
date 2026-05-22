@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
@@ -33,7 +34,7 @@ class PaymentControllerTest {
 
     private MockMvc mockMvc;
 
-    private final TransactionDTO dto = new TransactionDTO(1L, 1L, PaymentStatus.SUCCESS);
+    private final TransactionDTO dto = new TransactionDTO(1L, 1L, BigDecimal.valueOf(999.99), PaymentStatus.SUCCESS);
 
     @BeforeEach
     void setUp() {
@@ -50,7 +51,8 @@ class PaymentControllerTest {
         mockMvc.perform(get("/transactions"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].orderId").value(1))
-                .andExpect(jsonPath("$[0].status").value("SUCCESS"));
+                .andExpect(jsonPath("$[0].status").value("SUCCESS"))
+                .andExpect(jsonPath("$[0].totalAmount").value(999.99));
     }
 
     @Test

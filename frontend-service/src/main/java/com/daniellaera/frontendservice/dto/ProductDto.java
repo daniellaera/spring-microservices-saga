@@ -1,3 +1,5 @@
 package com.daniellaera.frontendservice.dto;
 
-public record ProductDto(String name, Integer quantity) {}
+import java.math.BigDecimal;
+
+public record ProductDto(String name, Integer quantity, BigDecimal price) {}

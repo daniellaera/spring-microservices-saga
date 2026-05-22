@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +37,7 @@ class ProductServiceImplTest {
         product = new Product();
         product.setName("MacBook Pro");
         product.setQuantity(10);
+        product.setPrice(BigDecimal.valueOf(1299.99));
     }
 
     @Test
@@ -47,6 +49,7 @@ class ProductServiceImplTest {
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().name()).isEqualTo("MacBook Pro");
         assertThat(result.getFirst().quantity()).isEqualTo(10);
+        assertThat(result.getFirst().price()).isEqualByComparingTo(BigDecimal.valueOf(1299.99));
         verify(productRepository, times(1)).findAll();
     }
 
@@ -58,6 +61,7 @@ class ProductServiceImplTest {
 
         assertThat(result.name()).isEqualTo("MacBook Pro");
         assertThat(result.quantity()).isEqualTo(10);
+        assertThat(result.price()).isEqualByComparingTo(BigDecimal.valueOf(1299.99));
     }
 
     @Test
@@ -71,7 +75,7 @@ class ProductServiceImplTest {
 
     @Test
     void createProduct_shouldSaveAndReturnDTO() {
-        ProductRequest request = new ProductRequest("iPhone 16", 5);
+        ProductRequest request = new ProductRequest("iPhone 16", 5, BigDecimal.valueOf(999.99));
 
         when(productRepository.save(any(Product.class))).thenReturn(product);
 
@@ -84,10 +88,11 @@ class ProductServiceImplTest {
 
     @Test
     void createProduct_shouldSetNameAndQuantity() {
-        ProductRequest request = new ProductRequest("iPhone 16", 5);
+        ProductRequest request = new ProductRequest("iPhone 16", 5, BigDecimal.valueOf(999.99));
         Product saved = new Product();
         saved.setName("iPhone 16");
         saved.setQuantity(5);
+        saved.setPrice(BigDecimal.valueOf(999.99));
 
         when(productRepository.save(any(Product.class))).thenReturn(saved);
 
@@ -95,5 +100,6 @@ class ProductServiceImplTest {
 
         assertThat(result.name()).isEqualTo("iPhone 16");
         assertThat(result.quantity()).isEqualTo(5);
+        assertThat(result.price()).isEqualByComparingTo(BigDecimal.valueOf(999.99));
     }
 }

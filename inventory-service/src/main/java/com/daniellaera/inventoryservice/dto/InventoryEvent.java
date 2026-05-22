@@ -1,3 +1,5 @@
 package com.daniellaera.inventoryservice.dto;
 
-public record InventoryEvent(Long orderId, String productName, Integer quantity, String status) {}
+import java.math.BigDecimal;
+
+public record InventoryEvent(Long orderId, String productName, Integer quantity, String status, BigDecimal price, BigDecimal totalAmount) {}

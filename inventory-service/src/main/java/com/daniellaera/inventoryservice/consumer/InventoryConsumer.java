@@ -2,7 +2,10 @@ package com.daniellaera.inventoryservice.consumer;
 
 import com.daniellaera.inventoryservice.dto.InventoryEvent;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
+import com.daniellaera.inventoryservice.dto.PaymentEvent;
+import com.daniellaera.inventoryservice.model.CompensationLog;
 import com.daniellaera.inventoryservice.model.Product;
+import com.daniellaera.inventoryservice.repository.CompensationLogRepository;
 import com.daniellaera.inventoryservice.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +23,7 @@ import java.util.Optional;
 public class InventoryConsumer {
 
     private final ProductRepository productRepository;
+    private final CompensationLogRepository compensationLogRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
@@ -34,13 +38,50 @@ public class InventoryConsumer {
             product.setQuantity(product.getQuantity() - event.quantity());
             productRepository.save(product);
             kafkaTemplate.send("inventory-topic", objectMapper.writeValueAsString(
-                    new InventoryEvent(event.orderId(), event.productName(), event.quantity(), "APPROVED")
+                    new InventoryEvent(event.orderId(), event.productName(), event.quantity(), "APPROVED",
+                            event.price(), event.totalAmount())
             ));
         } else {
             kafkaTemplate.send("inventory-topic", objectMapper.writeValueAsString(
-                    new InventoryEvent(event.orderId(), event.productName(), 0, "REJECTED")
+                    new InventoryEvent(event.orderId(), event.productName(), 0, "REJECTED",
+                            event.price(), event.totalAmount())
             ));
         }
+    }
+
+    @KafkaListener(topics = "payment-topic", groupId = "inventory-compensation-group")
+    public void handlePaymentResult(String message) throws Exception {
+        PaymentEvent event = objectMapper.readValue(message, PaymentEvent.class);
+
+        log.info("=== Received payment result for orderId: {} status: {}", event.orderId(), event.status());
+
+        if (!"FAILED".equals(event.status())) {
+            log.info("=== Payment SUCCESS — no compensation needed for orderId: {}", event.orderId());
+            return;
+        }
+
+        if (compensationLogRepository.existsByOrderId(event.orderId())) {
+            log.warn("=== Compensation already applied for orderId: {} — skipping", event.orderId());
+            return;
+        }
+
+        log.info("=== Payment FAILED — compensating: restoring {} units of {}", event.quantity(), event.productName());
+
+        productRepository.findByName(event.productName()).ifPresentOrElse(
+                product -> {
+                    product.setQuantity(product.getQuantity() + event.quantity());
+                    productRepository.save(product);
+
+                    CompensationLog entry = new CompensationLog();
+                    entry.setOrderId(event.orderId());
+                    entry.setProductName(event.productName());
+                    entry.setQuantity(event.quantity());
+                    compensationLogRepository.save(entry);
+
+                    log.info("=== Compensation SUCCESS — {} stock restored to {}", event.productName(), product.getQuantity());
+                },
+                () -> log.error("=== Compensation FAILED — product {} not found", event.productName())
+        );
     }
 
     @DltHandler

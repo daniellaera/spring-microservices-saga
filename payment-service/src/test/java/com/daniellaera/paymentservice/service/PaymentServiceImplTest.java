@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,6 +36,7 @@ class PaymentServiceImplTest {
         transaction = new Transaction();
         transaction.setOrderId(1L);
         transaction.setStatus(PaymentStatus.SUCCESS);
+        transaction.setTotalAmount(BigDecimal.valueOf(999.99));
     }
 
     @Test
@@ -46,6 +48,7 @@ class PaymentServiceImplTest {
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().orderId()).isEqualTo(1L);
         assertThat(result.getFirst().status()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(result.getFirst().totalAmount()).isEqualByComparingTo(BigDecimal.valueOf(999.99));
         verify(transactionRepository, times(1)).findAll();
     }
 
@@ -57,6 +60,7 @@ class PaymentServiceImplTest {
 
         assertThat(result.orderId()).isEqualTo(1L);
         assertThat(result.status()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(result.totalAmount()).isEqualByComparingTo(BigDecimal.valueOf(999.99));
     }
 
     @Test

@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -36,7 +37,7 @@ class ProductControllerTest {
 
     private MockMvc mockMvc;
 
-    private final ProductDTO dto = new ProductDTO(1L, "MacBook Pro", 10, LocalDateTime.now());
+    private final ProductDTO dto = new ProductDTO(1L, "MacBook Pro", 10, BigDecimal.valueOf(1299.99), LocalDateTime.now());
 
     @BeforeEach
     void setUp() {
@@ -53,7 +54,8 @@ class ProductControllerTest {
         mockMvc.perform(get("/products"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].name").value("MacBook Pro"))
-                .andExpect(jsonPath("$[0].quantity").value(10));
+                .andExpect(jsonPath("$[0].quantity").value(10))
+                .andExpect(jsonPath("$[0].price").value(1299.99));
     }
 
     @Test
@@ -82,7 +84,7 @@ class ProductControllerTest {
 
         mockMvc.perform(post("/products")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"MacBook Pro\",\"quantity\":10}"))
+                        .content("{\"name\":\"MacBook Pro\",\"quantity\":10,\"price\":1299.99}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("MacBook Pro"))
                 .andExpect(jsonPath("$.quantity").value(10));

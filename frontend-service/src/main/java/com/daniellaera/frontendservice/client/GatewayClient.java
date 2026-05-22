@@ -5,6 +5,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
+
 @Component
 public class GatewayClient {
 
@@ -44,20 +46,20 @@ public class GatewayClient {
         return response.getBody();
     }
 
-    public void createOrder(String token, String productName, int quantity) {
+    public void createOrder(String token, String productName, int quantity, BigDecimal price) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(token);
-        String body = "{\"productName\":\"" + productName + "\",\"quantity\":" + quantity + "}";
+        String body = "{\"productName\":\"" + productName + "\",\"quantity\":" + quantity + ",\"price\":" + price.toPlainString() + "}";
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
         restTemplate.postForEntity(gatewayUrl + "/orders", entity, String.class);
     }
 
-    public void createProduct(String token, String name, int quantity) {
+    public void createProduct(String token, String name, int quantity, BigDecimal price) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(token);
-        String body = "{\"name\":\"" + name + "\",\"quantity\":" + quantity + "}";
+        String body = "{\"name\":\"" + name + "\",\"quantity\":" + quantity + ",\"price\":" + price.toPlainString() + "}";
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
         restTemplate.postForEntity(gatewayUrl + "/products", entity, String.class);
     }

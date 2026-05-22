@@ -13,6 +13,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -38,6 +40,7 @@ public class ProductControllerITTest {
         Product product = new Product();
         product.setName("MacBook Pro");
         product.setQuantity(10);
+        product.setPrice(BigDecimal.valueOf(1299.99));
         productRepository.save(product);
     }
 
@@ -47,7 +50,8 @@ public class ProductControllerITTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].name").value("MacBook Pro"))
-                .andExpect(jsonPath("$[0].quantity").value(10));
+                .andExpect(jsonPath("$[0].quantity").value(10))
+                .andExpect(jsonPath("$[0].price").value(1299.99));
     }
 
     @Test
@@ -73,10 +77,11 @@ public class ProductControllerITTest {
     void createProduct_shouldReturn200AndPersist() throws Exception {
         mockMvc.perform(post("/products")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"iPhone 16\",\"quantity\":5}"))
+                        .content("{\"name\":\"iPhone 16\",\"quantity\":5,\"price\":999.99}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("iPhone 16"))
-                .andExpect(jsonPath("$.quantity").value(5));
+                .andExpect(jsonPath("$.quantity").value(5))
+                .andExpect(jsonPath("$.price").value(999.99));
 
         assertThat(productRepository.findAll()).hasSize(2);
     }

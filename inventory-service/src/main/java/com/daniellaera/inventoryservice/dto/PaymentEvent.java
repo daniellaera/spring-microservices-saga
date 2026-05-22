@@ -1,4 +1,4 @@
-package com.daniellaera.paymentservice.dto;
+package com.daniellaera.inventoryservice.dto;
 
 import java.math.BigDecimal;
 

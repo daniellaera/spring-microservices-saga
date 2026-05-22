@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "orders")
@@ -20,6 +20,12 @@ public class Order extends BaseEntity {
 
     @Column(nullable = false)
     private Integer quantity;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal price;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal totalAmount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

@@ -1,3 +1,5 @@
 package com.daniellaera.orderservice.dto;
 
-public record OrderEvent(Long orderId, String productName, Integer quantity) {}
+import java.math.BigDecimal;
+
+public record OrderEvent(Long orderId, String productName, Integer quantity, BigDecimal price, BigDecimal totalAmount) {}

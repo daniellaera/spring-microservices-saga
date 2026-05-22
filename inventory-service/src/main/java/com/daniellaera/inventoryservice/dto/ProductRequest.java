@@ -1,3 +1,5 @@
 package com.daniellaera.inventoryservice.dto;
 
-public record ProductRequest(String name, Integer quantity) {}
+import java.math.BigDecimal;
+
+public record ProductRequest(String name, Integer quantity, BigDecimal price) {}

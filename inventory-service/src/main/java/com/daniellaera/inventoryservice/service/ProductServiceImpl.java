@@ -27,15 +27,16 @@ public class ProductServiceImpl implements ProductService {
         Product product = new Product();
         product.setName(request.name());
         product.setQuantity(request.quantity());
+        product.setPrice(request.price() != null ? request.price() : java.math.BigDecimal.ZERO);
         Product saved = productRepository.save(product);
-        return new ProductDTO(saved.getId(), saved.getName(), saved.getQuantity(), saved.getCreatedAt());
+        return toDTO(saved);
     }
 
     @Override
     public List<ProductDTO> getAllProducts() {
         return productRepository.findAll()
                 .stream()
-                .map(p -> new ProductDTO(p.getId(), p.getName(), p.getQuantity(), p.getCreatedAt()))
+                .map(this::toDTO)
                 .toList();
     }
 
@@ -43,6 +44,10 @@ public class ProductServiceImpl implements ProductService {
     public ProductDTO getProductById(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
-        return new ProductDTO(product.getId(), product.getName(), product.getQuantity(), product.getCreatedAt());
+        return toDTO(product);
+    }
+
+    private ProductDTO toDTO(Product p) {
+        return new ProductDTO(p.getId(), p.getName(), p.getQuantity(), p.getPrice(), p.getCreatedAt());
     }
 }

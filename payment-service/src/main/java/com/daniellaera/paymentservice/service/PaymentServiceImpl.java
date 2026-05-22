@@ -33,16 +33,19 @@ public class PaymentServiceImpl implements PaymentService {
 
         Transaction transaction = new Transaction();
         transaction.setOrderId(event.orderId());
+        transaction.setTotalAmount(event.totalAmount());
 
         if ("APPROVED".equals(event.status())) {
             transaction.setStatus(PaymentStatus.SUCCESS);
             kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
-                    new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "SUCCESS")
+                    new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "SUCCESS",
+                            event.price(), event.totalAmount())
             ));
         } else {
             transaction.setStatus(PaymentStatus.FAILED);
             kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
-                    new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "FAILED")
+                    new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "FAILED",
+                            event.price(), event.totalAmount())
             ));
         }
         transactionRepository.save(transaction);
@@ -57,7 +60,7 @@ public class PaymentServiceImpl implements PaymentService {
     public List<TransactionDTO> getAllTransactions() {
         return transactionRepository.findAll()
                 .stream()
-                .map(t -> new TransactionDTO(t.getId(), t.getOrderId(), t.getStatus()))
+                .map(t -> new TransactionDTO(t.getId(), t.getOrderId(), t.getTotalAmount(), t.getStatus()))
                 .toList();
     }
 
@@ -65,6 +68,6 @@ public class PaymentServiceImpl implements PaymentService {
     public TransactionDTO getTransactionById(Long id) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
-        return new TransactionDTO(transaction.getId(), transaction.getOrderId(), transaction.getStatus());
+        return new TransactionDTO(transaction.getId(), transaction.getOrderId(), transaction.getTotalAmount(), transaction.getStatus());
     }
 }
