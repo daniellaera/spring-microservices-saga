@@ -1,0 +1,13 @@
+@import "primeicons/primeicons.css";
+@import "primeflex/primeflex.css";
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: var(--surface-ground);
+}
+
+.no-underline { text-decoration: none; }

@@ -1,0 +1,30 @@
+<p-toolbar styleClass="shadow-2 border-none px-4"
+           style="position:sticky; top:0; z-index:100;
+                  background:var(--surface-card);
+                  border-bottom:1px solid var(--surface-border)">
+  <ng-template pTemplate="start">
+    <a routerLink="/dashboard"
+       class="flex align-items-center gap-2 no-underline">
+      <i class="pi pi-shopping-cart text-primary text-2xl"></i>
+      <span class="text-xl font-bold text-color">Online Shop</span>
+    </a>
+  </ng-template>
+  <ng-template pTemplate="end">
+    @if (isLoggedIn()) {
+      <div class="flex align-items-center gap-2">
+        <p-avatar
+          [label]="userInitial()"
+          shape="circle"
+          styleClass="cursor-pointer bg-primary text-white font-bold"
+          (click)="userMenu.toggle($event)" />
+        <p-menu #userMenu [popup]="true" [model]="menuItems" />
+      </div>
+    } @else {
+      <p-button
+        label="Sign in"
+        icon="pi pi-sign-in"
+        [text]="true"
+        routerLink="/login" />
+    }
+  </ng-template>
+</p-toolbar>

@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
@@ -50,8 +51,8 @@ public class OrderControllerITTest {
         mockMvc.perform(get("/orders")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].productName").value("MacBook Pro"))
-                .andExpect(jsonPath("$[0].status").value("PENDING"));
+                .andExpect(jsonPath("$.content[0].productName").value("MacBook Pro"))
+                .andExpect(jsonPath("$.content[0].status").value("PENDING"));
     }
 
     @Test
@@ -83,5 +84,57 @@ public class OrderControllerITTest {
                 .andExpect(jsonPath("$.totalAmount").value(1999.98));
 
         assertThat(orderRepository.findAll()).hasSize(2);
+    }
+
+    @Test
+    void createOrder_withUserEmailHeader_shouldPersistEmail() throws Exception {
+        mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productName\":\"AirPods\",\"quantity\":1,\"price\":249.99}")
+                        .header("X-User-Email", "alice@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userEmail").value("alice@example.com"));
+
+        assertThat(orderRepository.findByUserEmail("alice@example.com")).hasSize(1);
+    }
+
+    @Test
+    void getMyOrders_shouldReturnOnlyOrdersForThatEmail() throws Exception {
+        Order alice = new Order();
+        alice.setProductName("iPad");
+        alice.setQuantity(1);
+        alice.setPrice(BigDecimal.valueOf(599.99));
+        alice.setTotalAmount(BigDecimal.valueOf(599.99));
+        alice.setStatus(OrderStatus.PENDING);
+        alice.setUserEmail("alice@example.com");
+        orderRepository.save(alice);
+
+        mockMvc.perform(get("/orders/my")
+                        .header("X-User-Email", "alice@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].userEmail").value("alice@example.com"))
+                .andExpect(jsonPath("$.content[0].productName").value("iPad"));
+    }
+
+    @Test
+    void getMyOrders_withoutHeader_shouldReturn401() throws Exception {
+        mockMvc.perform(get("/orders/my"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void streamOrders_withEmail_returns200AndEventStream() throws Exception {
+        mockMvc.perform(get("/orders/stream")
+                        .header("X-User-Email", "alice@example.com")
+                        .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+    }
+
+    @Test
+    void streamOrders_withoutEmail_returns401() throws Exception {
+        mockMvc.perform(get("/orders/stream"))
+                .andExpect(status().isUnauthorized());
     }
 }

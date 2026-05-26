@@ -1,0 +1,192 @@
+<p-toast />
+
+<div class="p-4" style="max-width:1300px; margin:0 auto">
+
+  <!-- Welcome header -->
+  <div class="flex align-items-center justify-content-between mb-4">
+    <div>
+      <h2 class="text-2xl font-bold m-0">
+        @if (isAdmin()) { Admin Dashboard } @else { My Dashboard }
+      </h2>
+      <p class="text-color-secondary mt-1 mb-0">
+        {{ currentEmail() }}
+      </p>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- Orders table -->
+    <div [class]="isAdmin() ? 'col-12' : 'col-12 lg:col-8'">
+      <p-card>
+        <ng-template pTemplate="header">
+          <div class="flex align-items-center
+                      justify-content-between px-4 pt-3">
+            <h3 class="m-0">
+              @if (isAdmin()) { All Orders } @else { My Orders }
+            </h3>
+            <span class="text-color-secondary text-sm">
+              {{ totalElements }} total
+            </span>
+          </div>
+        </ng-template>
+
+        @if (loading) {
+          <div class="flex flex-column gap-2 p-3">
+            @for (i of [1,2,3,4,5]; track i) {
+              <p-skeleton height="2.5rem" />
+            }
+          </div>
+        }
+
+        @if (!loading) {
+          <p-table
+            [value]="orders"
+            [tableStyle]="{'min-width': '100%'}"
+            styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th style="width:60px">ID</th>
+                @if (isAdmin()) {
+                  <th>Customer</th>
+                }
+                <th>Product</th>
+                <th style="width:60px">Qty</th>
+                <th style="width:100px">Total</th>
+                <th style="width:120px">Status</th>
+                <th style="width:130px">Date</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-order>
+              <tr>
+                <td class="text-color-secondary text-sm">
+                  {{ order.id }}
+                </td>
+                @if (isAdmin()) {
+                  <td class="text-sm text-color-secondary">
+                    {{ order.userEmail || 'unknown' }}
+                  </td>
+                }
+                <td class="font-medium">{{ order.productName }}</td>
+                <td class="text-center">{{ order.quantity }}</td>
+                <td class="font-semibold">
+                  {{ order.totalAmount | number:'1.2-2' }} €
+                </td>
+                <td>
+                  <p-tag
+                    [value]="order.status"
+                    [severity]="getStatusSeverity(order.status)" />
+                </td>
+                <td class="text-sm text-color-secondary">
+                  {{ order.createdAt | date:'dd MMM, HH:mm' }}
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td [attr.colspan]="isAdmin() ? 7 : 6"
+                    class="text-center text-color-secondary py-5">
+                  <i class="pi pi-inbox text-4xl block mb-2"></i>
+                  No orders yet
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+
+          <!-- Pagination -->
+          @if (totalPages > 1) {
+            <div class="flex align-items-center
+                        justify-content-between px-3 py-3"
+                 style="border-top:1px solid var(--surface-border)">
+              <span class="text-sm text-color-secondary">
+                Page {{ currentPage + 1 }} of {{ totalPages }}
+              </span>
+              <div class="flex gap-2 align-items-center">
+                <p-button
+                  icon="pi pi-chevron-left"
+                  [text]="true"
+                  size="small"
+                  [disabled]="!hasPrevious"
+                  (onClick)="prevPage()" />
+                @for (p of [].constructor(totalPages); track $index) {
+                  <p-button
+                    [label]="($index + 1).toString()"
+                    [text]="$index !== currentPage"
+                    size="small"
+                    [ngStyle]="$index === currentPage ?
+                      {'font-weight': '700'} : {}"
+                    (onClick)="goToPage($index)" />
+                }
+                <p-button
+                  icon="pi pi-chevron-right"
+                  [text]="true"
+                  size="small"
+                  [disabled]="!hasNext"
+                  (onClick)="nextPage()" />
+              </div>
+            </div>
+          }
+        }
+      </p-card>
+    </div>
+
+    <!-- Place order form — USER only -->
+    @if (!isAdmin()) {
+      <div class="col-12 lg:col-4">
+        <p-card header="Place an order">
+          <div class="flex flex-column gap-4">
+
+            <div class="flex flex-column gap-2">
+              <label class="font-medium text-sm">Product</label>
+              <p-select
+                [ngModel]="selectedProduct()"
+                (ngModelChange)="selectedProduct.set($event)"
+                [options]="products"
+                optionLabel="name"
+                placeholder="Select a product"
+                styleClass="w-full">
+                <ng-template pTemplate="option" let-p>
+                  <div class="flex justify-content-between w-full">
+                    <span>{{ p.name }}</span>
+                    <span class="text-color-secondary text-sm">
+                      {{ p.price | number:'1.2-2' }} €
+                      ({{ p.quantity }} left)
+                    </span>
+                  </div>
+                </ng-template>
+              </p-select>
+            </div>
+
+            <div class="flex flex-column gap-2">
+              <label class="font-medium text-sm">Quantity</label>
+              <p-inputNumber
+                [ngModel]="quantity()"
+                (ngModelChange)="quantity.set(+$event)"
+                [min]="1"
+                [max]="selectedProduct()?.quantity ?? 99"
+                styleClass="w-full"
+                inputStyleClass="w-full" />
+            </div>
+
+            <div class="surface-50 border-round p-3 text-sm">
+              Estimated total:
+              <strong class="text-primary text-lg">
+                {{ estimatedTotal() }} €
+              </strong>
+            </div>
+
+            <p-button
+              label="Place order"
+              icon="pi pi-shopping-cart"
+              styleClass="w-full"
+              [loading]="orderLoading"
+              [disabled]="!selectedProduct()"
+              (onClick)="placeOrder()" />
+
+          </div>
+        </p-card>
+      </div>
+    }
+
+  </div>
+</div>

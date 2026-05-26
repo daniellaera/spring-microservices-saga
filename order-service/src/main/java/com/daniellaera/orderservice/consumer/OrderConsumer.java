@@ -1,8 +1,10 @@
 package com.daniellaera.orderservice.consumer;
 
+import com.daniellaera.orderservice.dto.OrderStatusUpdate;
 import com.daniellaera.orderservice.dto.PaymentEvent;
 import com.daniellaera.orderservice.enums.OrderStatus;
 import com.daniellaera.orderservice.repository.OrderRepository;
+import com.daniellaera.orderservice.sse.SseEmitterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.DltHandler;
@@ -17,6 +19,7 @@ public class OrderConsumer {
 
     private final OrderRepository orderRepository;
     private final ObjectMapper objectMapper;
+    private final SseEmitterRegistry sseEmitterRegistry;
 
     @KafkaListener(topics = "payment-topic", groupId = "order-group")
     public void handlePaymentEvent(String message) {
@@ -30,6 +33,20 @@ public class OrderConsumer {
                     order.setStatus(OrderStatus.CANCELLED);
                 }
                 orderRepository.save(order);
+
+                OrderStatusUpdate update = new OrderStatusUpdate(
+                        order.getId(),
+                        order.getStatus().name(),
+                        order.getUserEmail()
+                );
+
+                if (order.getUserEmail() != null) {
+                    sseEmitterRegistry.pushToUser(order.getUserEmail(), update);
+                } else {
+                    sseEmitterRegistry.pushToAll(update);
+                }
+
+                log.info("=== SSE: pushed status {} for orderId {}", order.getStatus(), order.getId());
             });
         } catch (Exception e) {
             log.error("Failed to process payment event: {}", e.getMessage());

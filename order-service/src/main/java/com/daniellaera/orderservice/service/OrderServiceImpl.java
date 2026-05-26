@@ -3,10 +3,15 @@ package com.daniellaera.orderservice.service;
 import com.daniellaera.orderservice.dto.OrderDTO;
 import com.daniellaera.orderservice.dto.OrderEvent;
 import com.daniellaera.orderservice.dto.OrderRequest;
+import com.daniellaera.orderservice.dto.PagedResponse;
 import com.daniellaera.orderservice.enums.OrderStatus;
 import com.daniellaera.orderservice.exception.ResourceNotFoundException;
 import com.daniellaera.orderservice.model.Order;
 import com.daniellaera.orderservice.model.OutboxEvent;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import com.daniellaera.orderservice.producer.OrderProducer;
 import com.daniellaera.orderservice.repository.OrderRepository;
 import com.daniellaera.orderservice.repository.OutboxEventRepository;
@@ -33,7 +38,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderDTO createOrder(OrderRequest request) {
+    public OrderDTO createOrder(OrderRequest request, String userEmail) {
         BigDecimal price = request.price() != null ? request.price() : BigDecimal.ZERO;
         BigDecimal totalAmount = price.multiply(BigDecimal.valueOf(request.quantity()));
 
@@ -43,10 +48,11 @@ public class OrderServiceImpl implements OrderService {
         order.setPrice(price);
         order.setTotalAmount(totalAmount);
         order.setStatus(OrderStatus.PENDING);
+        order.setUserEmail(userEmail);
         Order saved = orderRepository.save(order);
 
         OrderEvent orderEvent = new OrderEvent(saved.getId(), saved.getProductName(), saved.getQuantity(),
-                saved.getPrice(), saved.getTotalAmount());
+                saved.getPrice(), saved.getTotalAmount(), saved.getUserEmail());
 
         try {
             OutboxEvent outboxEvent = new OutboxEvent();
@@ -96,7 +102,43 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
     }
 
+    @Override
+    public List<OrderDTO> getMyOrders(String userEmail) {
+        return orderRepository.findByUserEmail(userEmail)
+                .stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
+    @Override
+    public PagedResponse<OrderDTO> getMyOrdersPaged(String userEmail, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Order> result = orderRepository.findByUserEmail(userEmail, pageable);
+        return new PagedResponse<>(
+                result.getContent().stream().map(this::toDTO).toList(),
+                result.getNumber(),
+                result.getTotalPages(),
+                result.getTotalElements(),
+                result.hasNext(),
+                result.hasPrevious()
+        );
+    }
+
+    @Override
+    public PagedResponse<OrderDTO> getAllOrdersPaged(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Order> result = orderRepository.findAll(pageable);
+        return new PagedResponse<>(
+                result.getContent().stream().map(this::toDTO).toList(),
+                result.getNumber(),
+                result.getTotalPages(),
+                result.getTotalElements(),
+                result.hasNext(),
+                result.hasPrevious()
+        );
+    }
+
     private OrderDTO toDTO(Order o) {
-        return new OrderDTO(o.getId(), o.getProductName(), o.getQuantity(), o.getPrice(), o.getTotalAmount(), o.getStatus());
+        return new OrderDTO(o.getId(), o.getProductName(), o.getQuantity(), o.getPrice(), o.getTotalAmount(), o.getStatus(), o.getUserEmail(), o.getCreatedAt());
     }
 }

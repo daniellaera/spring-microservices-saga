@@ -1,0 +1,22 @@
+{
+  "/api": {
+    "target": "http://localhost:8080",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/auth": {
+    "target": "http://localhost:8080",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/orders": {
+    "target": "http://localhost:8080",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/products": {
+    "target": "http://localhost:8080",
+    "secure": false,
+    "changeOrigin": true
+  }
+}

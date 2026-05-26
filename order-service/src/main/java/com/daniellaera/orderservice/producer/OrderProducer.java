@@ -22,7 +22,8 @@ public class OrderProducer {
                 order.getProductName(),
                 order.getQuantity(),
                 order.getPrice(),
-                order.getTotalAmount()
+                order.getTotalAmount(),
+                order.getUserEmail()
         ));
     }
 

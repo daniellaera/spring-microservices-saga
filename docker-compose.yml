@@ -243,11 +243,11 @@ services:
     networks:
       - app-network
 
-  frontend-service:
+  shop-ui:
     build:
       context: .
-      dockerfile: frontend-service/Dockerfile
-    container_name: frontend-service
+      dockerfile: shop-ui/Dockerfile
+    container_name: shop-ui
     ports:
       - "8090:8090"
     environment:

@@ -1,0 +1,59 @@
+<p-toast />
+<div class="min-h-screen surface-ground flex align-items-center
+            justify-content-center px-3">
+  <div style="width:100%; max-width:400px">
+    <div class="text-center mb-5">
+      <i class="pi pi-shopping-cart text-primary"
+         style="font-size:3rem"></i>
+      <h1 class="text-3xl font-bold mt-3 mb-1">Online Shop</h1>
+      <p class="text-color-secondary m-0">Sign in to your account</p>
+    </div>
+    <p-card styleClass="shadow-4">
+      <div class="flex flex-column gap-4">
+        <div class="flex flex-column gap-2">
+          <label class="font-medium text-sm">Email</label>
+          <input
+            pInputText
+            [(ngModel)]="email"
+            type="email"
+            placeholder="daniel@example.com"
+            class="w-full"
+            (keyup.enter)="signIn()" />
+          @if (emailError) {
+            <small class="text-red-500">{{ emailError }}</small>
+          }
+        </div>
+        <div class="flex flex-column gap-2">
+          <label class="font-medium text-sm">Password</label>
+          <p-password
+            [(ngModel)]="password"
+            [feedback]="false"
+            [toggleMask]="true"
+            styleClass="w-full"
+            inputStyleClass="w-full"
+            placeholder="••••••••"
+            (keyup.enter)="signIn()" />
+        </div>
+        <p-button
+          label="Sign in"
+          icon="pi pi-sign-in"
+          styleClass="w-full"
+          size="large"
+          [loading]="loading"
+          [disabled]="!email.trim() || !password"
+          (onClick)="signIn()" />
+        <p-divider align="center">
+          <span class="text-color-secondary text-sm">
+            Demo credentials
+          </span>
+        </p-divider>
+        <div class="surface-50 border-round p-3 text-sm
+                    text-color-secondary">
+          <div><strong>User:</strong> daniel@example.com</div>
+          <div><strong>Admin:</strong> admin@example.com</div>
+          <div class="mt-1 text-xs">Password: demo1234</div>
+        </div>
+      </div>
+    </p-card>
+  </div>
+</div>

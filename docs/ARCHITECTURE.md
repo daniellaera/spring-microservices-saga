@@ -183,7 +183,7 @@ config-server (8888)
        ├── payment-service.yml
        ├── gateway-service.yml
        ├── notification-service.yml
-       └── frontend-service.yml
+       └── shop-ui.yml
 
 Profile activation:
   dev  → spring.profiles.active=dev  (local IntelliJ)
@@ -214,7 +214,7 @@ Uptime Kuma :3001
         ├── inventory-service  → http://inventory-service:8082/actuator/health
         ├── payment-service    → http://payment-service:8083/actuator/health
         ├── notification-service → http://notification-service:8085/actuator/health
-        └── frontend-service   → http://frontend-service:8090/actuator/health
+        └── shop-ui            → http://shop-ui:4200/actuator/health
 
 Notifications:
   └── Telegram → instant alert on DOWN / UP events

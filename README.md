@@ -93,7 +93,7 @@ See [Architecture — Admin User Provisioning](./docs/ARCHITECTURE.md#admin-user
 | Flyway | 11 | Database migrations |
 | OpenTelemetry | latest | Distributed tracing + metrics |
 | Grafana LGTM | latest | Observability (Tempo, Loki, Mimir) |
-| Thymeleaf + HTMX | latest | Lightweight frontend UI |
+| Angular 21 + PrimeNG | latest | Frontend UI (shop-ui) |
 | Testcontainers | 1.21.4 | Integration tests with real PostgreSQL + Kafka |
 | JUnit 5 + Mockito | latest | Unit tests |
 | Docker | latest | Multi-arch images (amd64 + arm64) |
@@ -112,7 +112,7 @@ See [Architecture — Admin User Provisioning](./docs/ARCHITECTURE.md#admin-user
 | inventory-service | 8082 | inventorydb | Stock management, Redis cache, consumes orders-topic |
 | payment-service | 8083 | paymentdb | Payment processing, consumes inventory-topic |
 | notification-service | 8085 | - | Consumes payment-topic, logs confirmations |
-| frontend-service | 8090 | - | Thymeleaf + HTMX UI |
+| shop-ui | 4200 | - | Angular UI |
 | config-server | 8888 | - | Centralized Spring Cloud Config Server |
 | uptime-kuma | 3001 | - | Service uptime monitoring + Telegram alerts |
 
@@ -177,7 +177,7 @@ config-server
        ├── payment-service.yml
        ├── auth-service.yml
        ├── notification-service.yml
-       └── frontend-service.yml
+       └── shop-ui.yml
 ```
 
 ---
@@ -214,7 +214,15 @@ chmod +x start-services.sh
 1. `config-server`
 2. `auth-service`, `order-service`, `inventory-service`, `payment-service`, `notification-service`
 3. `gateway-service`
-4. `frontend-service` → UI at `http://localhost:8090`
+4. `shop-ui` → UI at `http://localhost:4200`
+
+### Start the frontend
+```bash
+cd shop-ui && npx ng serve
+```
+
+Frontend runs at `http://localhost:4200`
+Proxies API calls to gateway at `http://localhost:8080`
 
 ### Create an ADMIN user (first-time setup)
 After services are running, provision the first admin:
@@ -341,7 +349,7 @@ daniellaera/order-service:latest
 daniellaera/inventory-service:latest
 daniellaera/payment-service:latest
 daniellaera/notification-service:latest
-daniellaera/frontend-service:latest
+daniellaera/shop-ui:latest
 ```
 
 ---
@@ -352,7 +360,7 @@ daniellaera/frontend-service:latest
 online-shop/
 ├── auth-service/
 ├── config-server/
-├── frontend-service/
+├── shop-ui/
 ├── gateway-service/
 ├── inventory-service/
 ├── notification-service/

@@ -3,6 +3,7 @@ package com.daniellaera.gatewayservice.utils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
@@ -47,10 +48,16 @@ public class JwtWebFilter implements WebFilter {
                     return exchange.getResponse().setComplete();
                 }
 
+                ServerHttpRequest mutatedRequest = exchange.getRequest()
+                        .mutate()
+                        .header("X-User-Email", email)
+                        .header("X-User-Role", role)
+                        .build();
+
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(email, null,
                                 List.of(new SimpleGrantedAuthority("ROLE_" + role)));
-                return chain.filter(exchange)
+                return chain.filter(exchange.mutate().request(mutatedRequest).build())
                         .contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
             }
         }

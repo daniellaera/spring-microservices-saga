@@ -27,6 +27,9 @@ public class Order extends BaseEntity {
     @Column(precision = 10, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "user_email")
+    private String userEmail;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OrderStatus status;

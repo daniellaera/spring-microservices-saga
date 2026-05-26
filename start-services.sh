@@ -2,6 +2,30 @@
 
 BASE_DIR=$(pwd)
 RESET="\033[0m"
+DOCKER_FILE="docker-compose.local.yml"
+
+# --- Cleanup Function ---
+cleanup() {
+  # Save the exit status of whatever triggered the cleanup
+  local exit_status=$?
+
+  echo -e "\n\033[1;31mStopping Docker containers (Keeping data intact)...\033[0m"
+  # 'stop' pauses the containers without removing them or deleting volumes
+  docker compose -f "$DOCKER_FILE" stop 2>/dev/null || true
+
+  echo -e "\033[1;31mTerminating all background service logs...\033[0m"
+
+  # Clear the trap so we don't accidentally trigger an infinite loop during exit
+  trap - EXIT INT TERM
+
+  # Kill the entire process group (-$$) to instantly stop all background subshell log loops
+  kill -9 -$$ 2>/dev/null || true
+
+  exit $exit_status
+}
+
+# Trap Ctrl+C (SIGINT), SIGTERM, and normal script exit to trigger the cleanup
+trap cleanup EXIT INT TERM
 
 get_color() {
   case $1 in
@@ -12,13 +36,27 @@ get_color() {
     "payment-service")     echo "\033[0;34m" ;;  # blue
     "notification-service") echo "\033[0;31m" ;; # red
     "gateway-service")     echo "\033[0;37m" ;;  # white
-    "frontend-service")    echo "\033[0;95m" ;; # magenta
+    "shop-ui")             echo "\033[0;95m" ;; # magenta
     *)                     echo "\033[0m" ;;
   esac
 }
 
-echo "Killing existing services..."
-for port in 8888 8080 8081 8082 8083 8084 8085 8090; do
+# --- 1. Start Docker Infrastructure ---
+echo -e "\033[1;34mStarting Docker containers from $DOCKER_FILE...\033[0m"
+if [ -f "$DOCKER_FILE" ]; then
+  # Simply run 'up -d'. Docker will reuse existing stopped containers without recreating them
+  docker compose -f "$DOCKER_FILE" up -d
+else
+  echo -e "\033[1;31mError: $DOCKER_FILE not found!\033[0m"
+  exit 1
+fi
+
+# Give Docker services a moment to spin up
+sleep 3
+
+# --- 2. Kill Existing Local Services ---
+echo "Killing existing local services running on ports..."
+for port in 8888 8080 8081 8082 8083 8084 8085 4200; do
   kill -9 $(lsof -t -i:$port) 2>/dev/null || true
 done
 
@@ -77,12 +115,18 @@ start_service "gateway-service"
 wait_for_service "http://localhost:8080" "gateway-service"
 sleep 2
 
-# Start frontend last
-start_service "frontend-service"
-wait_for_service "http://localhost:8090" "frontend-service"
+# Start Angular UI last
+color=$(get_color "shop-ui")
+echo -e "${color}Starting shop-ui...${RESET}"
+(
+  cd "$BASE_DIR/shop-ui" || exit 1
+  npx ng serve 2>&1 | while IFS= read -r line; do
+    echo -e "${color}[shop-ui]${RESET} $line"
+  done
+) &
 
 echo -e "\033[1;32mAll services started successfully! 🎉\033[0m"
-echo -e "\033[1;32mUI available at: http://localhost:8090\033[0m"
+echo -e "\033[1;32mUI available at: http://localhost:4200\033[0m"
 
-# Keep script running to show logs
+# Keep script running to show logs.
 wait

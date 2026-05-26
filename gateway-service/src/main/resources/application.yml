@@ -11,6 +11,13 @@ spring:
               uri: ${AUTH_SERVICE_URI:http://localhost:8084}
               predicates:
                 - Path=/auth/**
+            - id: order-stream
+              uri: ${ORDER_SERVICE_URI:http://localhost:8081}
+              predicates:
+                - Path=/orders/stream
+              metadata:
+                response-timeout: -1
+                connect-timeout: 5000
             - id: order-service
               uri: ${ORDER_SERVICE_URI:http://localhost:8081}
               predicates:
