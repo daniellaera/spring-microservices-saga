@@ -20,30 +20,35 @@ jobs:
       gateway-service: ${{ steps.filter.outputs.gateway-service }}
       shop-ui: ${{ steps.filter.outputs.shop-ui }}
     steps:
-      - name: Login to Gitea Registry
-        run: echo "${{ secrets.GIT_PASSWORD }}" | docker login 192.168.1.103:3000 -u "${{ secrets.GIT_USERNAME }}" --password-stdin
+      # 2. Add a dummy echo step so the runner has something to execute
+      - name: Force all pipeline triggers
+        run: echo "Bypassing change detection. Forcing all builds."
 
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            config-server:
-              - 'config-server/**'
-            auth-service:
-              - 'auth-service/**'
-            order-service:
-              - 'order-service/**'
-            inventory-service:
-              - 'inventory-service/**'
-            payment-service:
-              - 'payment-service/**'
-            notification-service:
-              - 'notification-service/**'
-            gateway-service:
-              - 'gateway-service/**'
-            shop-ui:
-              - 'shop-ui/**'
+      # 3. Comment out everything else below this line using '#'
+      # - name: Login to Gitea Registry
+      #   run: echo "${{ secrets.GIT_PASSWORD }}" | docker login 192.168.1.103:3000 -u "${{ secrets.GIT_USERNAME }}" --password-stdin
+
+      # - uses: actions/checkout@v4
+      # - uses: dorny/paths-filter@v2
+      #   id: filter
+      #   with:
+      #     filters: |
+      #       config-server:
+      #         - 'config-server/**'
+      #       auth-service:
+      #         - 'auth-service/**'
+      #       order-service:
+      #         - 'order-service/**'
+      #       inventory-service:
+      #         - 'inventory-service/**'
+      #       payment-service:
+      #         - 'payment-service/**'
+      #       notification-service:
+      #         - 'notification-service/**'
+      #       gateway-service:
+      #         - 'gateway-service/**'
+      #       shop-ui:
+      #         - 'shop-ui/**'
 
   test-backend:
     name: Test Backend Services
