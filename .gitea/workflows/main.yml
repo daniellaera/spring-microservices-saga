@@ -210,10 +210,10 @@ jobs:
             cd /srv/online-shop
             
             echo "Downloading latest production compose file from Gitea..."
-            curl -sSL "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/docker-compose.prod.yml" -o docker-compose.prod.yml
+            curl -sSL "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/docker-compose.yml" -o docker-compose.yml
             
             echo "Pulling latest images..."
-            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.yml pull
             
             echo "Restarting updated services..."
             CHANGED=""
@@ -228,7 +228,7 @@ jobs:
             
             if [ -n "$CHANGED" ]; then
               echo "Restarting:$CHANGED"
-              docker compose -f docker-compose.prod.yml \
+              docker compose -f docker-compose.yml \
                 up -d --no-deps --pull always $CHANGED
             else
               echo "No services changed — skipping restart"
