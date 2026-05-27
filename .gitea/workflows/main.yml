@@ -1,0 +1,241 @@
+name: Build and Deploy Online Shop
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      config-server: ${{ steps.filter.outputs.config-server }}
+      auth-service: ${{ steps.filter.outputs.auth-service }}
+      order-service: ${{ steps.filter.outputs.order-service }}
+      inventory-service: ${{ steps.filter.outputs.inventory-service }}
+      payment-service: ${{ steps.filter.outputs.payment-service }}
+      notification-service: ${{ steps.filter.outputs.notification-service }}
+      gateway-service: ${{ steps.filter.outputs.gateway-service }}
+      shop-ui: ${{ steps.filter.outputs.shop-ui }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            config-server:
+              - 'config-server/**'
+            auth-service:
+              - 'auth-service/**'
+            order-service:
+              - 'order-service/**'
+            inventory-service:
+              - 'inventory-service/**'
+            payment-service:
+              - 'payment-service/**'
+            notification-service:
+              - 'notification-service/**'
+            gateway-service:
+              - 'gateway-service/**'
+            shop-ui:
+              - 'shop-ui/**'
+
+  test-backend:
+    name: Test Backend Services
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.auth-service == 'true' ||
+      needs.detect-changes.outputs.order-service == 'true' ||
+      needs.detect-changes.outputs.inventory-service == 'true' ||
+      needs.detect-changes.outputs.payment-service == 'true' ||
+      needs.detect-changes.outputs.notification-service == 'true' ||
+      needs.detect-changes.outputs.gateway-service == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run backend tests
+        run: |
+          mvn test \
+            -pl auth-service,order-service,inventory-service,payment-service,notification-service \
+            -am \
+            --no-transfer-progress
+
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.shop-ui == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: shop-ui/package-lock.json
+
+      - name: Install and build
+        working-directory: shop-ui
+        run: |
+          npm ci
+          npx ng build --configuration=production
+
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [ detect-changes, test-backend, test-frontend ]
+    if: always() && !failure() && !cancelled()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push config-server
+        if: needs.detect-changes.outputs.config-server == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: config-server/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: daniellaera/config-server:latest
+
+      - name: Build and push auth-service
+        if: needs.detect-changes.outputs.auth-service == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: auth-service/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: daniellaera/auth-service:latest
+
+      - name: Build and push order-service
+        if: needs.detect-changes.outputs.order-service == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: order-service/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: daniellaera/order-service:latest
+
+      - name: Build and push inventory-service
+        if: needs.detect-changes.outputs.inventory-service == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: inventory-service/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: daniellaera/inventory-service:latest
+
+      - name: Build and push payment-service
+        if: needs.detect-changes.outputs.payment-service == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: payment-service/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: daniellaera/payment-service:latest
+
+      - name: Build and push notification-service
+        if: needs.detect-changes.outputs.notification-service == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: notification-service/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: daniellaera/notification-service:latest
+
+      - name: Build and push gateway-service
+        if: needs.detect-changes.outputs.gateway-service == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: gateway-service/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: daniellaera/gateway-service:latest
+
+      - name: Build and push shop-ui
+        if: needs.detect-changes.outputs.shop-ui == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: shop-ui/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: daniellaera/shop-ui:latest
+
+  deploy:
+    name: Deploy to infra-node1
+    runs-on: ubuntu-latest
+    needs: [ detect-changes, build-and-push ]
+    if: always() && !failure() && !cancelled()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy compose file to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "docker-compose.prod.yml"
+          target: "/srv/online-shop/"
+
+      - name: Deploy on infra-node1
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd /srv/online-shop
+
+            echo "Pulling latest images..."
+            docker compose -f docker-compose.prod.yml pull
+
+            echo "Restarting updated services..."
+            CHANGED=""
+            ${{ needs.detect-changes.outputs.config-server == 'true' && 'CHANGED="$CHANGED config-server"' || 'true' }}
+            ${{ needs.detect-changes.outputs.auth-service == 'true' && 'CHANGED="$CHANGED auth-service"' || 'true' }}
+            ${{ needs.detect-changes.outputs.order-service == 'true' && 'CHANGED="$CHANGED order-service"' || 'true' }}
+            ${{ needs.detect-changes.outputs.inventory-service == 'true' && 'CHANGED="$CHANGED inventory-service"' || 'true' }}
+            ${{ needs.detect-changes.outputs.payment-service == 'true' && 'CHANGED="$CHANGED payment-service"' || 'true' }}
+            ${{ needs.detect-changes.outputs.notification-service == 'true' && 'CHANGED="$CHANGED notification-service"' || 'true' }}
+            ${{ needs.detect-changes.outputs.gateway-service == 'true' && 'CHANGED="$CHANGED gateway-service"' || 'true' }}
+            ${{ needs.detect-changes.outputs.shop-ui == 'true' && 'CHANGED="$CHANGED shop-ui"' || 'true' }}
+
+            if [ -n "$CHANGED" ]; then
+              echo "Restarting:$CHANGED"
+              docker compose -f docker-compose.prod.yml \
+                up -d --no-deps --pull always $CHANGED
+            else
+              echo "No services changed — skipping restart"
+            fi
+
+            docker image prune -f
+            echo "Deploy complete"
