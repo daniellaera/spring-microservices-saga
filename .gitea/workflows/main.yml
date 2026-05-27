@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
     outputs:
-      # FIXED: Hardcoded to string 'true' to match downstream IF string conditions
       config-server: 'true'
       auth-service: 'true'
       order-service: 'true'
@@ -24,35 +23,10 @@ jobs:
       - name: Force all pipeline triggers
         run: echo "Bypassing change detection. Forcing all builds."
 
-      # Commented out for temporary manual bypass
-      # - name: Login to Gitea Registry
-      #   run: echo "${{ secrets.GIT_PASSWORD }}" | docker login 192.168.1.103:3000 -u "${{ secrets.GIT_USERNAME }}" --password-stdin
-
-      # - uses: actions/checkout@v4
-      # - uses: dorny/paths-filter@v2
-      #   id: filter
-      #   with:
-      #     filters: |
-      #       config-server:
-      #         - 'config-server/**'
-      #       auth-service:
-      #         - 'auth-service/**'
-      #       order-service:
-      #         - 'order-service/**'
-      #       inventory-service:
-      #         - 'inventory-service/**'
-      #       payment-service:
-      #         - 'payment-service/**'
-      #       notification-service:
-      #         - 'notification-service/**'
-      #       gateway-service:
-      #         - 'gateway-service/**'
-      #       shop-ui:
-      #         - 'shop-ui/**'
-
   test-backend:
     name: Test Backend Services
     runs-on: ubuntu-latest
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
     needs: detect-changes
     if: |
       needs.detect-changes.outputs.auth-service == 'true' ||
@@ -81,6 +55,7 @@ jobs:
   test-frontend:
     name: Test Frontend
     runs-on: ubuntu-latest
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
     needs: detect-changes
     if: needs.detect-changes.outputs.shop-ui == 'true'
     steps:
@@ -102,6 +77,7 @@ jobs:
   build-and-push:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
     needs: [ detect-changes, test-backend, test-frontend ]
     if: always() && !failure() && !cancelled()
     steps:
@@ -199,6 +175,7 @@ jobs:
   deploy:
     name: Deploy to infra-node1
     runs-on: ubuntu-latest
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
     needs: [ detect-changes, build-and-push ]
     if: always() && !failure() && !cancelled()
     steps:
