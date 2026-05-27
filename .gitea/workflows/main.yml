@@ -11,20 +11,20 @@ jobs:
     runs-on: ubuntu-latest
     container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
     outputs:
-      config-server: ${{ steps.filter.outputs.config-server }}
-      auth-service: ${{ steps.filter.outputs.auth-service }}
-      order-service: ${{ steps.filter.outputs.order-service }}
-      inventory-service: ${{ steps.filter.outputs.inventory-service }}
-      payment-service: ${{ steps.filter.outputs.payment-service }}
-      notification-service: ${{ steps.filter.outputs.notification-service }}
-      gateway-service: ${{ steps.filter.outputs.gateway-service }}
-      shop-ui: ${{ steps.filter.outputs.shop-ui }}
+      # FIXED: Hardcoded to string 'true' to match downstream IF string conditions
+      config-server: 'true'
+      auth-service: 'true'
+      order-service: 'true'
+      inventory-service: 'true'
+      payment-service: 'true'
+      notification-service: 'true'
+      gateway-service: 'true'
+      shop-ui: 'true'
     steps:
-      # 2. Add a dummy echo step so the runner has something to execute
       - name: Force all pipeline triggers
         run: echo "Bypassing change detection. Forcing all builds."
 
-      # 3. Comment out everything else below this line using '#'
+      # Commented out for temporary manual bypass
       # - name: Login to Gitea Registry
       #   run: echo "${{ secrets.GIT_PASSWORD }}" | docker login 192.168.1.103:3000 -u "${{ secrets.GIT_USERNAME }}" --password-stdin
 
