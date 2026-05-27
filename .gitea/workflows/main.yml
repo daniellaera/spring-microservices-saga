@@ -9,6 +9,7 @@ jobs:
   detect-changes:
     name: Detect Changed Services
     runs-on: ubuntu-latest
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
     outputs:
       config-server: ${{ steps.filter.outputs.config-server }}
       auth-service: ${{ steps.filter.outputs.auth-service }}
@@ -19,6 +20,9 @@ jobs:
       gateway-service: ${{ steps.filter.outputs.gateway-service }}
       shop-ui: ${{ steps.filter.outputs.shop-ui }}
     steps:
+      - name: Login to Gitea Registry
+        run: echo "${{ secrets.GIT_PASSWORD }}" | docker login 192.168.1.103:3000 -u "${{ secrets.GIT_USERNAME }}" --password-stdin
+
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v2
         id: filter
