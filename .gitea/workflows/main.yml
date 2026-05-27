@@ -200,17 +200,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copy compose file to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "docker-compose.prod.yml"
-          target: "/srv/online-shop/"
-
-      - name: Deploy on infra-node1
+      # FIXED: We read the file locally and write it over SSH, removing the buggy scp action entirely
+      - name: Deploy and Update Compose on infra-node1
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -218,11 +209,17 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            mkdir -p /srv/online-shop
             cd /srv/online-shop
-
+            
+            # Dynamically write the compose file directly to the host
+            cat << 'EOF' > docker-compose.prod.yml
+            ${{ cat('docker-compose.prod.yml') }}
+            EOF
+            
             echo "Pulling latest images..."
             docker compose -f docker-compose.prod.yml pull
-
+            
             echo "Restarting updated services..."
             CHANGED=""
             ${{ needs.detect-changes.outputs.config-server == 'true' && 'CHANGED="$CHANGED config-server"' || 'true' }}
@@ -233,7 +230,7 @@ jobs:
             ${{ needs.detect-changes.outputs.notification-service == 'true' && 'CHANGED="$CHANGED notification-service"' || 'true' }}
             ${{ needs.detect-changes.outputs.gateway-service == 'true' && 'CHANGED="$CHANGED gateway-service"' || 'true' }}
             ${{ needs.detect-changes.outputs.shop-ui == 'true' && 'CHANGED="$CHANGED shop-ui"' || 'true' }}
-
+            
             if [ -n "$CHANGED" ]; then
               echo "Restarting:$CHANGED"
               docker compose -f docker-compose.prod.yml \
@@ -241,6 +238,6 @@ jobs:
             else
               echo "No services changed — skipping restart"
             fi
-
+            
             docker image prune -f
             echo "Deploy complete"
