@@ -78,7 +78,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ------------------ 1. CONFIG SERVER ------------------
       - name: Build and push config-server
         if: needs.detect-changes.outputs.config-server == 'true'
         uses: docker/build-push-action@v5
@@ -92,7 +91,6 @@ jobs:
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
 
-      # ------------------ 2. AUTH SERVICE ------------------
       - name: Build and push auth-service
         if: needs.detect-changes.outputs.auth-service == 'true'
         uses: docker/build-push-action@v5
@@ -106,7 +104,6 @@ jobs:
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
 
-      # ------------------ 3. ORDER SERVICE ------------------
       - name: Build and push order-service
         if: needs.detect-changes.outputs.order-service == 'true'
         uses: docker/build-push-action@v5
@@ -120,7 +117,6 @@ jobs:
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
 
-      # ------------------ 4. INVENTORY SERVICE ------------------
       - name: Build and push inventory-service
         if: needs.detect-changes.outputs.inventory-service == 'true'
         uses: docker/build-push-action@v5
@@ -134,7 +130,6 @@ jobs:
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
 
-      # ------------------ 5. PAYMENT SERVICE ------------------
       - name: Build and push payment-service
         if: needs.detect-changes.outputs.payment-service == 'true'
         uses: docker/build-push-action@v5
@@ -148,7 +143,6 @@ jobs:
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
 
-      # ------------------ 6. NOTIFICATION SERVICE ------------------
       - name: Build and push notification-service
         if: needs.detect-changes.outputs.notification-service == 'true'
         uses: docker/build-push-action@v5
@@ -162,7 +156,6 @@ jobs:
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
 
-      # ------------------ 7. GATEWAY SERVICE ------------------
       - name: Build and push gateway-service
         if: needs.detect-changes.outputs.gateway-service == 'true'
         uses: docker/build-push-action@v5
@@ -176,7 +169,6 @@ jobs:
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
 
-      # ------------------ 8. SHOP UI ------------------
       - name: Build and push shop-ui
         if: needs.detect-changes.outputs.shop-ui == 'true'
         uses: docker/build-push-action@v5
@@ -206,33 +198,33 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            set -e
             mkdir -p /srv/online-shop
             cd /srv/online-shop
-            
-            echo "Downloading latest production compose file from Gitea..."
-            curl -sSL "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/docker-compose.yml" -o docker-compose.yml
-            
-            echo "Pulling latest images..."
+
+            echo "=== Downloading latest compose file ==="
+            curl -sSf "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/docker-compose.yml" \
+              -o docker-compose.yml
+            echo "Compose file size: $(wc -c < docker-compose.yml) bytes"
+
+            echo "=== Pulling latest images ==="
             docker compose -f docker-compose.yml pull
-            
-            echo "Restarting updated services..."
-            CHANGED=""
-            ${{ needs.detect-changes.outputs.config-server == 'true' && 'CHANGED="$CHANGED config-server"' || 'true' }}
-            ${{ needs.detect-changes.outputs.auth-service == 'true' && 'CHANGED="$CHANGED auth-service"' || 'true' }}
-            ${{ needs.detect-changes.outputs.order-service == 'true' && 'CHANGED="$CHANGED order-service"' || 'true' }}
-            ${{ needs.detect-changes.outputs.inventory-service == 'true' && 'CHANGED="$CHANGED inventory-service"' || 'true' }}
-            ${{ needs.detect-changes.outputs.payment-service == 'true' && 'CHANGED="$CHANGED payment-service"' || 'true' }}
-            ${{ needs.detect-changes.outputs.notification-service == 'true' && 'CHANGED="$CHANGED notification-service"' || 'true' }}
-            ${{ needs.detect-changes.outputs.gateway-service == 'true' && 'CHANGED="$CHANGED gateway-service"' || 'true' }}
-            ${{ needs.detect-changes.outputs.shop-ui == 'true' && 'CHANGED="$CHANGED shop-ui"' || 'true' }}
-            
-            if [ -n "$CHANGED" ]; then
-              echo "Restarting:$CHANGED"
-              docker compose -f docker-compose.yml \
-                up -d --no-deps --pull always $CHANGED
-            else
-              echo "No services changed — skipping restart"
-            fi
-            
-            docker image prune -f
-            echo "Deploy complete"
+
+            echo "=== Restarting services ==="
+            docker compose -f docker-compose.yml \
+              up -d --no-deps --pull always \
+              config-server auth-service order-service \
+              inventory-service payment-service notification-service \
+              gateway-service shop-ui
+
+            echo "=== Cleaning up ==="
+            docker container prune -f
+            docker image prune -a -f --filter "until=24h"
+
+            echo "=== Disk usage after cleanup ==="
+            df -h /
+
+            echo "=== Running containers ==="
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+
+            echo "=== Deploy complete ==="
