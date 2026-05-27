@@ -11,17 +11,36 @@ jobs:
     runs-on: ubuntu-latest
     container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
     outputs:
-      config-server: 'true'
-      auth-service: 'true'
-      order-service: 'true'
-      inventory-service: 'true'
-      payment-service: 'true'
-      notification-service: 'true'
-      gateway-service: 'true'
-      shop-ui: 'true'
+      config-server: ${{ steps.filter.outputs.config-server }}
+      auth-service: ${{ steps.filter.outputs.auth-service }}
+      order-service: ${{ steps.filter.outputs.order-service }}
+      inventory-service: ${{ steps.filter.outputs.inventory-service }}
+      payment-service: ${{ steps.filter.outputs.payment-service }}
+      notification-service: ${{ steps.filter.outputs.notification-service }}
+      gateway-service: ${{ steps.filter.outputs.gateway-service }}
+      shop-ui: ${{ steps.filter.outputs.shop-ui }}
     steps:
-      - name: Force all pipeline triggers
-        run: echo "Bypassing change detection. Forcing all builds."
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            config-server:
+              - 'config-server/**'
+            auth-service:
+              - 'auth-service/**'
+            order-service:
+              - 'order-service/**'
+            inventory-service:
+              - 'inventory-service/**'
+            payment-service:
+              - 'payment-service/**'
+            notification-service:
+              - 'notification-service/**'
+            gateway-service:
+              - 'gateway-service/**'
+            shop-ui:
+              - 'shop-ui/**'
 
   test-backend:
     name: Test Backend Services
@@ -37,7 +56,6 @@ jobs:
       needs.detect-changes.outputs.gateway-service == 'true'
     steps:
       - uses: actions/checkout@v4
-
       - name: Run backend tests
         run: |
           mvn test \
@@ -53,7 +71,6 @@ jobs:
     if: needs.detect-changes.outputs.shop-ui == 'true'
     steps:
       - uses: actions/checkout@v4
-
       - name: Install and build
         working-directory: shop-ui
         run: |
@@ -210,16 +227,28 @@ jobs:
             echo "=== Pulling latest images ==="
             docker compose -f docker-compose.yml pull
 
-            echo "=== Restarting services ==="
-            docker compose -f docker-compose.yml \
-              up -d --no-deps --pull always \
-              config-server auth-service order-service \
-              inventory-service payment-service notification-service \
-              gateway-service shop-ui
+            echo "=== Restarting changed services ==="
+            CHANGED=""
+            ${{ needs.detect-changes.outputs.config-server == 'true' && 'CHANGED="$CHANGED config-server"' || '' }}
+            ${{ needs.detect-changes.outputs.auth-service == 'true' && 'CHANGED="$CHANGED auth-service"' || '' }}
+            ${{ needs.detect-changes.outputs.order-service == 'true' && 'CHANGED="$CHANGED order-service"' || '' }}
+            ${{ needs.detect-changes.outputs.inventory-service == 'true' && 'CHANGED="$CHANGED inventory-service"' || '' }}
+            ${{ needs.detect-changes.outputs.payment-service == 'true' && 'CHANGED="$CHANGED payment-service"' || '' }}
+            ${{ needs.detect-changes.outputs.notification-service == 'true' && 'CHANGED="$CHANGED notification-service"' || '' }}
+            ${{ needs.detect-changes.outputs.gateway-service == 'true' && 'CHANGED="$CHANGED gateway-service"' || '' }}
+            ${{ needs.detect-changes.outputs.shop-ui == 'true' && 'CHANGED="$CHANGED shop-ui"' || '' }}
+
+            if [ -n "$CHANGED" ]; then
+              echo "Restarting: $CHANGED"
+              docker compose -f docker-compose.yml \
+                up -d --no-deps --pull always $CHANGED
+            else
+              echo "No services changed — skipping restart"
+            fi
 
             echo "=== Cleaning up ==="
             docker container prune -f
-            docker image prune -a -f --filter "until=24h"
+            docker image prune -a -f
 
             echo "=== Disk usage after cleanup ==="
             df -h /

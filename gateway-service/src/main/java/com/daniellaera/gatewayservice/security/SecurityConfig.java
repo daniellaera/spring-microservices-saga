@@ -1,6 +1,5 @@
 package com.daniellaera.gatewayservice.security;
 
-import com.daniellaera.gatewayservice.utils.JwtUtil;
 import com.daniellaera.gatewayservice.utils.JwtWebFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +14,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtUtil jwtUtil;
+    private final JwtWebFilter jwtWebFilter;
 
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
@@ -26,7 +25,7 @@ public class SecurityConfig {
                         .pathMatchers("/actuator/**").permitAll()
                         .anyExchange().authenticated()
                 )
-                .addFilterAt(new JwtWebFilter(jwtUtil), SecurityWebFiltersOrder.AUTHENTICATION)
+                .addFilterAt(jwtWebFilter, SecurityWebFiltersOrder.AUTHENTICATION)
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .build();

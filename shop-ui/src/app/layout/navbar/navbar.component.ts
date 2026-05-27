@@ -24,6 +24,7 @@ export class NavbarComponent implements OnInit {
   menuItems: MenuItem[] = [];
 
   isLoggedIn = this.authService.isLoggedIn;
+  isAdmin = this.authService.isAdmin;
   userInitial = this.authService.userInitial;
   currentEmail = this.authService.currentEmail;
 
@@ -45,6 +46,11 @@ export class NavbarComponent implements OnInit {
           icon: 'pi pi-list',
           routerLink: '/dashboard'
         },
+        ...(this.isAdmin() ? [{
+          label: 'Manage Products',
+          icon: 'pi pi-box',
+          routerLink: '/products'
+        }] : []),
         { separator: true },
         {
           label: 'Sign out',

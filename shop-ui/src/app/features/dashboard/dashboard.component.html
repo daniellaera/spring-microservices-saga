@@ -12,6 +12,13 @@
         {{ currentEmail() }}
       </p>
     </div>
+    @if (isAdmin()) {
+      <p-button
+        label="Manage Products"
+        icon="pi pi-box"
+        [outlined]="true"
+        routerLink="/products" />
+    }
   </div>
 
   <div class="grid">

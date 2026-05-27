@@ -21,8 +21,17 @@ public class JwtWebFilter implements WebFilter {
 
     private final JwtUtil jwtUtil;
 
-    private static final List<String> ADMIN_ONLY_PATHS = List.of(
-            "POST /products"
+    private static final List<String> ADMIN_PREFIX_PATHS = List.of(
+            "POST /products",
+            "DELETE /products",
+            "PUT /products",
+            "PATCH /products",
+            "POST /simulate",
+            "DELETE /simulate"
+    );
+
+    private static final List<String> ADMIN_EXACT_PATHS = List.of(
+            "GET /orders"
     );
 
     @Override
@@ -43,7 +52,11 @@ public class JwtWebFilter implements WebFilter {
                 String role = jwtUtil.extractRole(token);
 
                 String methodPath = method + " " + path;
-                if (ADMIN_ONLY_PATHS.stream().anyMatch(methodPath::startsWith) && !"ADMIN".equals(role)) {
+                boolean isAdminOnly =
+                        ADMIN_PREFIX_PATHS.stream().anyMatch(methodPath::startsWith) ||
+                        ADMIN_EXACT_PATHS.stream().anyMatch(methodPath::equals);
+
+                if (isAdminOnly && !"ADMIN".equals(role)) {
                     exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                     return exchange.getResponse().setComplete();
                 }

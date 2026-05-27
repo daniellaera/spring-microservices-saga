@@ -1,0 +1,131 @@
+<p-toast />
+
+<div class="p-4" style="max-width:1000px; margin:0 auto">
+
+  <div class="flex align-items-center justify-content-between mb-4">
+    <div>
+      <h2 class="text-2xl font-bold m-0">Product Catalog</h2>
+      <p class="text-color-secondary mt-1 mb-0">
+        Manage inventory and stock
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <p-button
+        label="Back"
+        icon="pi pi-arrow-left"
+        [text]="true"
+        routerLink="/dashboard" />
+      <p-button
+        label="Add product"
+        icon="pi pi-plus"
+        (onClick)="openAddDialog()" />
+    </div>
+  </div>
+
+  <p-card>
+    @if (loading) {
+      <div class="flex flex-column gap-2 p-3">
+        @for (i of [1,2,3,4,5]; track i) {
+          <p-skeleton height="2.5rem" />
+        }
+      </div>
+    }
+
+    @if (!loading) {
+      <p-table [value]="products"
+               styleClass="p-datatable-sm"
+               [tableStyle]="{'min-width':'100%'}">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Name</th>
+            <th style="width:100px">Stock</th>
+            <th style="width:120px">Price</th>
+            <th style="width:120px">Status</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-p>
+          <tr>
+            <td class="font-medium">{{ p.name }}</td>
+            <td>
+              <span [class]="p.quantity === 0 ? 'text-red-500 font-bold' :
+                             p.quantity <= 10 ? 'text-orange-500 font-semibold' : ''">
+                {{ p.quantity }}
+              </span>
+            </td>
+            <td class="font-semibold">
+              {{ p.price | number:'1.2-2' }} €
+            </td>
+            <td>
+              @if (p.quantity === 0) {
+                <p-tag value="Out of stock" severity="danger" />
+              } @else if (p.quantity <= 10) {
+                <p-tag value="Low stock" severity="warn" />
+              } @else {
+                <p-tag value="In stock" severity="success" />
+              }
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="4"
+                class="text-center text-color-secondary py-5">
+              <i class="pi pi-box text-4xl block mb-2"></i>
+              No products yet
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</div>
+
+<p-dialog
+  header="Add product"
+  [(visible)]="showAddDialog"
+  [modal]="true"
+  [style]="{width:'440px'}">
+  <div class="flex flex-column gap-4 pt-2">
+    <div class="flex flex-column gap-2">
+      <label class="font-medium text-sm">Product name</label>
+      <input
+        pInputText
+        [(ngModel)]="newName"
+        placeholder="e.g. MacBook Pro M4"
+        class="w-full"
+        [class.ng-invalid]="nameError"
+        [class.ng-dirty]="nameError" />
+      @if (nameError) {
+        <small class="text-red-500">{{ nameError }}</small>
+      }
+    </div>
+    <div class="flex gap-3">
+      <div class="flex flex-column gap-2 flex-1">
+        <label class="font-medium text-sm">Initial stock</label>
+        <p-inputNumber
+          [(ngModel)]="newQuantity"
+          [min]="1"
+          styleClass="w-full"
+          inputStyleClass="w-full" />
+      </div>
+      <div class="flex flex-column gap-2 flex-1">
+        <label class="font-medium text-sm">Price (€)</label>
+        <p-inputNumber
+          [(ngModel)]="newPrice"
+          [min]="0"
+          [minFractionDigits]="2"
+          [maxFractionDigits]="2"
+          styleClass="w-full"
+          inputStyleClass="w-full" />
+      </div>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true"
+              (onClick)="showAddDialog = false" />
+    <p-button label="Add product" icon="pi pi-plus"
+              [loading]="saving"
+              [disabled]="!newName.trim()"
+              (onClick)="addProduct()" />
+  </ng-template>
+</p-dialog>

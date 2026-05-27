@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { Observable } from 'rxjs';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -20,7 +21,7 @@ import { ProductService, ProductDto } from '../../core/services/product.service'
   selector: 'app-dashboard',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, DatePipe,
+    CommonModule, FormsModule, DatePipe, RouterModule,
     TableModule, ButtonModule, TagModule,
     CardModule, SelectModule, InputNumberModule,
     ToastModule, SkeletonModule, DividerModule
