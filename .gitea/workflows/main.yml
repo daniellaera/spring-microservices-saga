@@ -38,13 +38,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: maven
-
       - name: Run backend tests
         run: |
           mvn test \
@@ -60,13 +53,6 @@ jobs:
     if: needs.detect-changes.outputs.shop-ui == 'true'
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: shop-ui/package-lock.json
 
       - name: Install and build
         working-directory: shop-ui
@@ -92,85 +78,118 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # ------------------ 1. CONFIG SERVER ------------------
       - name: Build and push config-server
         if: needs.detect-changes.outputs.config-server == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: config-server/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: daniellaera/config-server:latest
 
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      # ------------------ 2. AUTH SERVICE ------------------
       - name: Build and push auth-service
         if: needs.detect-changes.outputs.auth-service == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: auth-service/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: daniellaera/auth-service:latest
 
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      # ------------------ 3. ORDER SERVICE ------------------
       - name: Build and push order-service
         if: needs.detect-changes.outputs.order-service == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: order-service/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: daniellaera/order-service:latest
 
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      # ------------------ 4. INVENTORY SERVICE ------------------
       - name: Build and push inventory-service
         if: needs.detect-changes.outputs.inventory-service == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: inventory-service/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: daniellaera/inventory-service:latest
 
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      # ------------------ 5. PAYMENT SERVICE ------------------
       - name: Build and push payment-service
         if: needs.detect-changes.outputs.payment-service == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: payment-service/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: daniellaera/payment-service:latest
 
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      # ------------------ 6. NOTIFICATION SERVICE ------------------
       - name: Build and push notification-service
         if: needs.detect-changes.outputs.notification-service == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: notification-service/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: daniellaera/notification-service:latest
 
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      # ------------------ 7. GATEWAY SERVICE ------------------
       - name: Build and push gateway-service
         if: needs.detect-changes.outputs.gateway-service == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: gateway-service/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: daniellaera/gateway-service:latest
 
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      # ------------------ 8. SHOP UI ------------------
       - name: Build and push shop-ui
         if: needs.detect-changes.outputs.shop-ui == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: shop-ui/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: daniellaera/shop-ui:latest
+
+      - name: Final Runner Purge
+        if: always()
+        run: docker builder prune -f && docker image prune -f
 
   deploy:
     name: Deploy to infra-node1
