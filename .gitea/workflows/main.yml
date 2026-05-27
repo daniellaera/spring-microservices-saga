@@ -198,10 +198,7 @@ jobs:
     needs: [ detect-changes, build-and-push ]
     if: always() && !failure() && !cancelled()
     steps:
-      - uses: actions/checkout@v4
-
-      # FIXED: We read the file locally and write it over SSH, removing the buggy scp action entirely
-      - name: Deploy and Update Compose on infra-node1
+      - name: Deploy on infra-node1
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -212,10 +209,8 @@ jobs:
             mkdir -p /srv/online-shop
             cd /srv/online-shop
             
-            # Dynamically write the compose file directly to the host
-            cat << 'EOF' > docker-compose.prod.yml
-            ${{ cat('docker-compose.prod.yml') }}
-            EOF
+            echo "Downloading latest production compose file from Gitea..."
+            curl -sSL "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/docker-compose.prod.yml" -o docker-compose.prod.yml
             
             echo "Pulling latest images..."
             docker compose -f docker-compose.prod.yml pull
