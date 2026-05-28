@@ -226,7 +226,7 @@ jobs:
             TOKEN=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
 
             if [ -z "$TOKEN" ]; then
-              echo "❌ Failed to authenticate with Infisical"
+              echo "❌ Failed to authenticate with Infisical!"
               exit 1
             fi
             echo "✅ Authenticated with Infisical"
