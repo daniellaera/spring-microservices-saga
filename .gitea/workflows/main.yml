@@ -219,21 +219,21 @@ jobs:
             mkdir -p /srv/online-shop
 
             echo "=== Authenticating with Infisical ==="
-            RESPONSE=$(curl -sf -X POST "${{ secrets.INFISICAL_URL }}/api/v1/auth/universal-auth/login" \
+            RESPONSE=$(curl -sf -X POST "http://192.168.1.163/api/v1/auth/universal-auth/login" \
               -H "Content-Type: application/json" \
               -d "{\"clientId\":\"${{ secrets.INFISICAL_CLIENT_ID }}\",\"clientSecret\":\"${{ secrets.INFISICAL_CLIENT_SECRET }}\"}")
 
             TOKEN=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
 
             if [ -z "$TOKEN" ]; then
-              echo "❌ Failed to authenticate with Infisical!"
+              echo "❌ Failed to authenticate with Infisical"
               exit 1
             fi
             echo "✅ Authenticated with Infisical"
 
             echo "=== Fetching secrets ==="
             curl -sf -X GET \
-              "${{ secrets.INFISICAL_URL }}/api/v3/secrets/raw?workspaceId=${{ secrets.INFISICAL_PROJECT_ID }}&environment=prod&secretPath=/" \
+              "http://192.168.1.163/api/v3/secrets/raw?workspaceId=${{ secrets.INFISICAL_PROJECT_ID }}&environment=prod&secretPath=/" \
               -H "Authorization: Bearer $TOKEN" \
               | python3 -c "
             import sys, json
@@ -258,7 +258,7 @@ jobs:
             cd /srv/online-shop
 
             echo "=== Downloading latest compose file ==="
-            curl -sSf "${{ secrets.GITEA_URL }}/daniellaera/spring-saga-store/raw/branch/main/docker-compose.yml" \
+            curl -sSf "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/docker-compose.yml" \
               -o docker-compose.yml
             echo "Compose file size: $(wc -c < docker-compose.yml) bytes"
 
