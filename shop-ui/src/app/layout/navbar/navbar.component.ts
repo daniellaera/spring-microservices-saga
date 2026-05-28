@@ -7,6 +7,7 @@ import { AvatarModule } from 'primeng/avatar';
 import { MenuModule } from 'primeng/menu';
 import { MenuItem } from 'primeng/api';
 import { AuthService } from '../../core/services/auth.service';
+import { NotificationService } from '../../core/services/notification.service';
 
 @Component({
   selector: 'app-navbar',
@@ -20,6 +21,7 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class NavbarComponent implements OnInit {
   private authService = inject(AuthService);
+  private notificationService = inject(NotificationService);
 
   menuItems: MenuItem[] = [];
 
@@ -27,6 +29,11 @@ export class NavbarComponent implements OnInit {
   isAdmin = this.authService.isAdmin;
   userInitial = this.authService.userInitial;
   currentEmail = this.authService.currentEmail;
+  notificationCount = this.notificationService.count;
+
+  clearNotifications(): void {
+    this.notificationService.clear();
+  }
 
   constructor() {
     effect(() => {

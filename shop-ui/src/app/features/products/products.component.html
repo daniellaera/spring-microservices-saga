@@ -41,6 +41,7 @@
             <th style="width:100px">Stock</th>
             <th style="width:120px">Price</th>
             <th style="width:120px">Status</th>
+            <th style="width:120px">Actions</th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-p>
@@ -64,11 +65,20 @@
                 <p-tag value="In stock" severity="success" />
               }
             </td>
+            <td>
+              <p-button
+                icon="pi pi-plus-circle"
+                label="Refill"
+                size="small"
+                [text]="true"
+                severity="success"
+                (onClick)="openRestockDialog(p)" />
+            </td>
           </tr>
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="4"
+            <td colspan="5"
                 class="text-center text-color-secondary py-5">
               <i class="pi pi-box text-4xl block mb-2"></i>
               No products yet
@@ -127,5 +137,61 @@
               [loading]="saving"
               [disabled]="!newName.trim()"
               (onClick)="addProduct()" />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  header="Refill stock"
+  [(visible)]="showRestockDialog"
+  [modal]="true"
+  [style]="{width:'380px'}">
+  <div class="flex flex-column gap-4 pt-2">
+    <div class="surface-50 border-round p-3">
+      <div class="font-semibold text-lg">
+        {{ selectedProductForRestock?.name }}
+      </div>
+      <div class="text-color-secondary text-sm mt-1">
+        Current stock:
+        <strong [class]="selectedProductForRestock?.quantity === 0 ?
+          'text-red-500' :
+          selectedProductForRestock?.quantity! <= 10 ?
+          'text-orange-500' : 'text-green-500'">
+          {{ selectedProductForRestock?.quantity }} units
+        </strong>
+      </div>
+    </div>
+
+    <div class="flex flex-column gap-2">
+      <label class="font-medium text-sm">
+        Quantity to add
+      </label>
+      <p-inputNumber
+        [(ngModel)]="restockQuantity"
+        [min]="1"
+        [max]="999"
+        styleClass="w-full"
+        inputStyleClass="w-full" />
+      <small class="text-color-secondary">
+        New total will be:
+        <strong>
+          {{ (selectedProductForRestock?.quantity ?? 0) + restockQuantity }}
+          units
+        </strong>
+      </small>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      [text]="true"
+      (onClick)="showRestockDialog = false" />
+    <p-button
+      label="Refill stock"
+      icon="pi pi-plus-circle"
+      severity="success"
+      [loading]="restocking"
+      [disabled]="restockQuantity < 1"
+      (onClick)="restock()" />
   </ng-template>
 </p-dialog>

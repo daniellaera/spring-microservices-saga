@@ -11,4 +11,5 @@ public interface ProductService {
     ProductDTO createProduct(ProductRequest request);
     List<ProductDTO> getAllProducts();
     ProductDTO getProductById(Long id);
+    ProductDTO restock(Long id, Integer quantity);
 }

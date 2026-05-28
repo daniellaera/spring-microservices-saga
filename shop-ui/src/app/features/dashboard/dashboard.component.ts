@@ -16,6 +16,7 @@ import { MessageService } from 'primeng/api';
 import { AuthService } from '../../core/services/auth.service';
 import { OrderService, OrderDto, PagedResponse } from '../../core/services/order.service';
 import { ProductService, ProductDto } from '../../core/services/product.service';
+import { NotificationService } from '../../core/services/notification.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -34,6 +35,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private orderService = inject(OrderService);
   private productService = inject(ProductService);
   private messageService = inject(MessageService);
+  private notificationService = inject(NotificationService);
 
   isAdmin = this.authService.isAdmin;
   currentEmail = this.authService.currentEmail;
@@ -92,7 +94,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loadProducts(): void {
     this.productService.getAll().subscribe({
       next: products => {
-        this.products = products;
+        this.products = products.filter(p => p.quantity > 0);
         if (products.length > 0) {
           this.selectedProduct.set(products[0]);
         }
@@ -110,14 +112,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.quantity(),
       product.price
     ).subscribe({
-      next: () => {
+      next: (newOrder: OrderDto) => {
         this.messageService.add({
-          severity: 'success',
-          summary: 'Order placed',
-          detail: 'Your order is being processed',
+          severity: 'info',
+          summary: '⏳ Order submitted',
+          detail: 'Processing your order...',
           life: 3000
         });
-        this.loadOrders(this.currentPage);
+        this.orders = [newOrder, ...this.orders];
+        this.totalElements++;
+        this.loadProducts();
         this.quantity.set(1);
         this.orderLoading = false;
       },
@@ -177,8 +181,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 const data = JSON.parse(line.slice(5).trim());
                 const order = this.orders.find(o => o.id === data.orderId);
                 if (order) {
+                  const previousStatus = order.status;
                   order.status = data.status;
                   console.log('SSE update received:', data);
+                  if (previousStatus !== data.status) {
+                    this.showOrderNotification(data.orderId, data.status, order.productName);
+                  }
                 }
               } catch {}
             }
@@ -209,6 +217,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.abortController?.abort();
     if (this.sseRetryTimeout) clearTimeout(this.sseRetryTimeout);
+  }
+
+  showOrderNotification(orderId: number, status: string, productName: string): void {
+    if (status === 'CONFIRMED') {
+      this.messageService.add({
+        severity: 'success',
+        summary: '✅ Order confirmed!',
+        detail: `${productName} has been confirmed`,
+        life: 5000,
+        sticky: false
+      });
+    } else if (status === 'CANCELLED') {
+      this.messageService.add({
+        severity: 'error',
+        summary: '❌ Order cancelled',
+        detail: `${productName} could not be processed — stock restored`,
+        life: 6000,
+        sticky: false
+      });
+    }
+    this.notificationService.add();
   }
 
   getStatusSeverity(status: string): 'success' | 'danger' | 'warn' | 'info' {

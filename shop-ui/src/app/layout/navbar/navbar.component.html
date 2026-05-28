@@ -11,7 +11,22 @@
   </ng-template>
   <ng-template pTemplate="end">
     @if (isLoggedIn()) {
-      <div class="flex align-items-center gap-2">
+      <div class="flex align-items-center gap-3">
+        <div style="position:relative; cursor:pointer"
+             (click)="clearNotifications()"
+             title="Notifications">
+          <i class="pi pi-bell text-color" style="font-size:1.2rem"></i>
+          @if (notificationCount() > 0) {
+            <span style="position:absolute; top:-6px; right:-6px;
+                         background:#e74c3c; color:white;
+                         border-radius:50%; width:18px; height:18px;
+                         font-size:.7rem; font-weight:700;
+                         display:flex; align-items:center;
+                         justify-content:center">
+              {{ notificationCount() > 9 ? '9+' : notificationCount() }}
+            </span>
+          }
+        </div>
         <p-avatar
           [label]="userInitial()"
           shape="circle"

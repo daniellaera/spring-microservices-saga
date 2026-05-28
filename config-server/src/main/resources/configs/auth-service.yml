@@ -1,0 +1,9 @@
+app:
+  jwt:
+    secret: ${JWT_SECRET:mySecretKey1234567890123456789012345678901234}
+    expiration: 86400000
+
+spring:
+  datasource:
+    username: ${DB_USER:testuser}
+    password: ${DB_PASSWORD:testpass}

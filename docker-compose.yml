@@ -218,6 +218,8 @@ services:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - CONFIG_SERVER_URI=http://config-server:8888
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
+      - GMAIL_USERNAME=${GMAIL_USERNAME}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
       - JAVA_TOOL_OPTIONS=-Xms64m -Xmx150m
     depends_on:
       kafka:

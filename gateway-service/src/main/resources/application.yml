@@ -86,30 +86,7 @@ management:
     circuitbreakers:
       enabled: true
 
-app:
-  jwt:
-    secret: ${JWT_SECRET:mySecretKey1234567890123456789012345678901234}
-
 logging:
   level:
     io.github.resilience4j: INFO
     org.springframework.boot.actuator.autoconfigure.opentelemetry: INFO
-
-resilience4j:
-  circuitbreaker:
-    instances:
-      order-cb:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 3
-      inventory-cb:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 3
-      payment-cb:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 3

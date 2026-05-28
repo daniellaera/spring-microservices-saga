@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -84,5 +85,30 @@ public class ProductControllerITTest {
                 .andExpect(jsonPath("$.price").value(999.99));
 
         assertThat(productRepository.findAll()).hasSize(2);
+    }
+
+    @Test
+    void restock_shouldIncrementQuantityAndReturn200() throws Exception {
+        Product saved = productRepository.findAll().getFirst();
+
+        mockMvc.perform(put("/products/" + saved.getId() + "/restock")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quantity\":5}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("MacBook Pro"))
+                .andExpect(jsonPath("$.quantity").value(15));
+
+        Product updated = productRepository.findById(saved.getId()).orElseThrow();
+        assertThat(updated.getQuantity()).isEqualTo(15);
+    }
+
+    @Test
+    void restock_shouldReturn404_whenProductNotFound() throws Exception {
+        mockMvc.perform(put("/products/99999/restock")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quantity\":10}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Product not found: 99999"));
     }
 }

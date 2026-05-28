@@ -36,3 +36,7 @@ build/
 ### IDE ###
 .idea
 .claude
+
+# Local config overrides — never commit
+config-server/src/main/resources/configs/*-local.yml
+config-server/src/main/resources/configs/*-dev.yml

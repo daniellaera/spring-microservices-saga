@@ -6,7 +6,7 @@
       <i class="pi pi-shopping-cart text-primary"
          style="font-size:3rem"></i>
       <h1 class="text-3xl font-bold mt-3 mb-1">Online Shop</h1>
-      <p class="text-color-secondary m-0">Sign in to your account</p>
+      <p class="text-color-secondary m-0">Create your account</p>
     </div>
     <p-card styleClass="shadow-4">
       <div class="flex flex-column gap-4">
@@ -16,9 +16,8 @@
             pInputText
             [(ngModel)]="email"
             type="email"
-            placeholder="daniel@example.com"
-            class="w-full"
-            (keyup.enter)="signIn()" />
+            placeholder="you@example.com"
+            class="w-full" />
           @if (emailError) {
             <small class="text-red-500">{{ emailError }}</small>
           }
@@ -27,40 +26,46 @@
           <label class="font-medium text-sm">Password</label>
           <p-password
             [(ngModel)]="password"
+            [toggleMask]="true"
+            styleClass="w-full"
+            inputStyleClass="w-full"
+            placeholder="••••••••" />
+        </div>
+        <div class="flex flex-column gap-2">
+          <label class="font-medium text-sm">Confirm Password</label>
+          <p-password
+            [(ngModel)]="confirmPassword"
             [feedback]="false"
             [toggleMask]="true"
             styleClass="w-full"
             inputStyleClass="w-full"
             placeholder="••••••••"
-            (keyup.enter)="signIn()" />
+            (keyup.enter)="register()" />
+          @if (passwordError) {
+            <small class="text-red-500">{{ passwordError }}</small>
+          }
         </div>
+        <p-button
+          label="Create account"
+          icon="pi pi-user-plus"
+          styleClass="w-full"
+          size="large"
+          [loading]="loading"
+          [disabled]="!email.trim() || !password || !confirmPassword"
+          (onClick)="register()" />
+        <p-divider align="center">
+          <span class="text-color-secondary text-sm">
+            Already have an account?
+          </span>
+        </p-divider>
         <p-button
           label="Sign in"
           icon="pi pi-sign-in"
           styleClass="w-full"
+          severity="secondary"
+          [outlined]="true"
           size="large"
-          [loading]="loading"
-          [disabled]="!email.trim() || !password"
-          (onClick)="signIn()" />
-        <p-divider align="center">
-          <span class="text-color-secondary text-sm">
-            Demo credentials
-          </span>
-        </p-divider>
-        <div class="surface-50 border-round p-3 text-sm
-                    text-color-secondary">
-          <div><strong>User:</strong> daniel@example.com</div>
-          <div><strong>Admin:</strong> admin@example.com</div>
-          <div class="mt-1 text-xs">Password: demo1234</div>
-        </div>
-        <p-divider />
-        <div class="text-center text-sm text-color-secondary">
-          Don't have an account?
-          <a routerLink="/register"
-             class="text-primary font-medium cursor-pointer">
-            Register
-          </a>
-        </div>
+          (onClick)="router.navigate(['/login'])" />
       </div>
     </p-card>
   </div>

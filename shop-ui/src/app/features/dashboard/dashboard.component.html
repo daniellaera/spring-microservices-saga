@@ -153,11 +153,11 @@
                 placeholder="Select a product"
                 styleClass="w-full">
                 <ng-template pTemplate="option" let-p>
-                  <div class="flex justify-content-between w-full">
+                  <div class="flex justify-content-between w-full gap-3">
                     <span>{{ p.name }}</span>
-                    <span class="text-color-secondary text-sm">
-                      {{ p.price | number:'1.2-2' }} €
-                      ({{ p.quantity }} left)
+                    <span [style.color]="p.quantity <= 10 ? '#f59e0b' : '#22c55e'" class="text-sm">
+                          {{ p.price | number:'1.2-2' }} €
+                          ({{ p.quantity }} left)
                     </span>
                   </div>
                 </ng-template>

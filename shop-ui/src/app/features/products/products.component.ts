@@ -41,6 +41,11 @@ export class ProductsComponent implements OnInit {
   newPrice = 0;
   nameError = '';
 
+  showRestockDialog = false;
+  selectedProductForRestock: ProductDto | null = null;
+  restockQuantity = 10;
+  restocking = false;
+
   ngOnInit(): void { this.loadProducts(); }
 
   loadProducts(): void {
@@ -57,6 +62,42 @@ export class ProductsComponent implements OnInit {
     this.newPrice = 0;
     this.nameError = '';
     this.showAddDialog = true;
+  }
+
+  openRestockDialog(product: ProductDto): void {
+    this.selectedProductForRestock = product;
+    this.restockQuantity = 10;
+    this.showRestockDialog = true;
+  }
+
+  restock(): void {
+    if (!this.selectedProductForRestock) return;
+    this.restocking = true;
+    this.productService.restock(
+      this.selectedProductForRestock.id,
+      this.restockQuantity
+    ).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Stock refilled',
+          detail: `${this.selectedProductForRestock!.name} restocked +${this.restockQuantity}`,
+          life: 3000
+        });
+        this.showRestockDialog = false;
+        this.restocking = false;
+        this.loadProducts();
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Failed',
+          detail: err?.error?.message || 'Could not restock',
+          life: 4000
+        });
+        this.restocking = false;
+      }
+    });
   }
 
   addProduct(): void {

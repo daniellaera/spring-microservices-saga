@@ -39,12 +39,12 @@ public class InventoryConsumer {
             productRepository.save(product);
             kafkaTemplate.send("inventory-topic", objectMapper.writeValueAsString(
                     new InventoryEvent(event.orderId(), event.productName(), event.quantity(), "APPROVED",
-                            event.price(), event.totalAmount())
+                            event.price(), event.totalAmount(), event.userEmail())
             ));
         } else {
             kafkaTemplate.send("inventory-topic", objectMapper.writeValueAsString(
                     new InventoryEvent(event.orderId(), event.productName(), 0, "REJECTED",
-                            event.price(), event.totalAmount())
+                            event.price(), event.totalAmount(), event.userEmail())
             ));
         }
     }

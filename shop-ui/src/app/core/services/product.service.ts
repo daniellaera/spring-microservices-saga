@@ -22,4 +22,10 @@ export class ProductService {
       name, quantity, price
     });
   }
+
+  restock(productId: number, quantity: number): Observable<ProductDto> {
+    return this.http.put<ProductDto>(`/products/${productId}/restock`, {
+      quantity
+    });
+  }
 }

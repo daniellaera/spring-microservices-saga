@@ -2,6 +2,7 @@ package com.daniellaera.inventoryservice.controller;
 
 import com.daniellaera.inventoryservice.dto.ProductDTO;
 import com.daniellaera.inventoryservice.dto.ProductRequest;
+import com.daniellaera.inventoryservice.dto.RestockRequest;
 import com.daniellaera.inventoryservice.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,5 +30,12 @@ public class ProductController {
     @GetMapping("/{id}")
     public ResponseEntity<ProductDTO> getProductById(@PathVariable(name = "id") Long id) {
         return ResponseEntity.ok(productService.getProductById(id));
+    }
+
+    @PutMapping("/{id}/restock")
+    public ResponseEntity<ProductDTO> restock(
+            @PathVariable(name = "id") Long id,
+            @RequestBody RestockRequest request) {
+        return ResponseEntity.ok(productService.restock(id, request.quantity()));
     }
 }

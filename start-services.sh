@@ -62,15 +62,22 @@ done
 
 start_service() {
   service=$1
+  profile=$2  # optional Spring profile, e.g. "local"
   color=$(get_color "$service")
 
   echo -e "${color}Starting $service...${RESET}"
 
   (
     cd "$BASE_DIR/$service" || exit 1
-    mvn spring-boot:run 2>&1 | while IFS= read -r line; do
-      echo -e "${color}[$service]${RESET} $line"
-    done
+    if [ -n "$profile" ]; then
+      mvn spring-boot:run -Dspring-boot.run.profiles="$profile" 2>&1 | while IFS= read -r line; do
+        echo -e "${color}[$service]${RESET} $line"
+      done
+    else
+      mvn spring-boot:run 2>&1 | while IFS= read -r line; do
+        echo -e "${color}[$service]${RESET} $line"
+      done
+    fi
   ) &
 }
 
@@ -94,15 +101,15 @@ wait_for_service "http://localhost:8888" "config-server"
 sleep 3
 
 # Start auth-service
-start_service "auth-service"
+start_service "auth-service" "local"
 wait_for_service "http://localhost:8084" "auth-service"
 sleep 2
 
 # Start business services in parallel
-start_service "order-service"
-start_service "inventory-service"
-start_service "payment-service"
-start_service "notification-service"
+start_service "order-service" "local"
+start_service "inventory-service" "local"
+start_service "payment-service" "local"
+start_service "notification-service" "local"
 
 wait_for_service "http://localhost:8081" "order-service"
 wait_for_service "http://localhost:8082" "inventory-service"
@@ -111,7 +118,7 @@ wait_for_service "http://localhost:8085" "notification-service"
 sleep 2
 
 # Start gateway last
-start_service "gateway-service"
+start_service "gateway-service" "local"
 wait_for_service "http://localhost:8080" "gateway-service"
 sleep 2
 

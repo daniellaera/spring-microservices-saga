@@ -20,9 +20,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -88,5 +90,31 @@ class ProductControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("MacBook Pro"))
                 .andExpect(jsonPath("$.quantity").value(10));
+    }
+
+    @Test
+    void restock_shouldReturn200AndUpdatedQuantity() throws Exception {
+        ProductDTO restocked = new ProductDTO(1L, "MacBook Pro", 25, BigDecimal.valueOf(1299.99), LocalDateTime.now());
+        when(productService.restock(eq(1L), eq(15))).thenReturn(restocked);
+
+        mockMvc.perform(put("/products/1/restock")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quantity\":15}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("MacBook Pro"))
+                .andExpect(jsonPath("$.quantity").value(25));
+    }
+
+    @Test
+    void restock_shouldReturn404_whenProductNotFound() throws Exception {
+        when(productService.restock(eq(999L), eq(10)))
+                .thenThrow(new ResourceNotFoundException("Product not found: 999"));
+
+        mockMvc.perform(put("/products/999/restock")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quantity\":10}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Product not found: 999"));
     }
 }

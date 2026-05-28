@@ -24,8 +24,6 @@ spring:
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/paymentdb
-    username: ${DB_USER:testuser}
-    password: ${DB_PASSWORD:testpass}
 
   jpa:
     hibernate:

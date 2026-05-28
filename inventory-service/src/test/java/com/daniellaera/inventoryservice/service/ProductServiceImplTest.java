@@ -102,4 +102,29 @@ class ProductServiceImplTest {
         assertThat(result.quantity()).isEqualTo(5);
         assertThat(result.price()).isEqualByComparingTo(BigDecimal.valueOf(999.99));
     }
+
+    @Test
+    void restock_shouldAddQuantityAndReturnUpdatedDTO() {
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        Product restocked = new Product();
+        restocked.setName("MacBook Pro");
+        restocked.setQuantity(25);
+        restocked.setPrice(BigDecimal.valueOf(1299.99));
+        when(productRepository.save(any(Product.class))).thenReturn(restocked);
+
+        ProductDTO result = productService.restock(1L, 15);
+
+        assertThat(result.quantity()).isEqualTo(25);
+        assertThat(result.name()).isEqualTo("MacBook Pro");
+        verify(productRepository).save(any(Product.class));
+    }
+
+    @Test
+    void restock_shouldThrowResourceNotFoundException_whenProductNotFound() {
+        when(productRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.restock(999L, 10))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("999");
+    }
 }

@@ -39,13 +39,13 @@ public class PaymentServiceImpl implements PaymentService {
             transaction.setStatus(PaymentStatus.SUCCESS);
             kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
                     new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "SUCCESS",
-                            event.price(), event.totalAmount())
+                            event.price(), event.totalAmount(), event.userEmail())
             ));
         } else {
             transaction.setStatus(PaymentStatus.FAILED);
             kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
                     new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "FAILED",
-                            event.price(), event.totalAmount())
+                            event.price(), event.totalAmount(), event.userEmail())
             ));
         }
         transactionRepository.save(transaction);

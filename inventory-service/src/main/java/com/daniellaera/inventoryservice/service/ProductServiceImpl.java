@@ -47,6 +47,14 @@ public class ProductServiceImpl implements ProductService {
         return toDTO(product);
     }
 
+    @Override
+    public ProductDTO restock(Long id, Integer quantity) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
+        product.setQuantity(product.getQuantity() + quantity);
+        return toDTO(productRepository.save(product));
+    }
+
     private ProductDTO toDTO(Product p) {
         return new ProductDTO(p.getId(), p.getName(), p.getQuantity(), p.getPrice(), p.getCreatedAt());
     }

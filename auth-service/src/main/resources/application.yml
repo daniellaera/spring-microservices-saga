@@ -8,8 +8,6 @@ spring:
     import: "configserver:${CONFIG_SERVER_URI:http://localhost:8888}"
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/authdb
-    username: ${DB_USER:testuser}
-    password: ${DB_PASSWORD:testpass}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -29,8 +27,3 @@ management:
   endpoint:
     health:
       show-details: always
-
-app:
-  jwt:
-    secret: ${JWT_SECRET:mySecretKey1234567890123456789012345678901234}
-    expiration: 86400000

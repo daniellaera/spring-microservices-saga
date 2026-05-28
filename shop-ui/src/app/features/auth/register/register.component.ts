@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Router, ActivatedRoute, RouterModule } from '@angular/router';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
@@ -11,58 +11,65 @@ import { ToastModule } from 'primeng/toast';
 import { DividerModule } from 'primeng/divider';
 import { PasswordModule } from 'primeng/password';
 import { MessageService } from 'primeng/api';
-import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
-  selector: 'app-login',
+  selector: 'app-register',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, RouterModule,
+    CommonModule, FormsModule,
     CardModule, ButtonModule, InputTextModule,
     ToastModule, DividerModule, PasswordModule
   ],
   providers: [MessageService],
-  templateUrl: './login.component.html'
+  templateUrl: './register.component.html'
 })
-export class LoginComponent {
+export class RegisterComponent {
   email = '';
   password = '';
+  confirmPassword = '';
   loading = false;
   emailError = '';
+  passwordError = '';
 
   constructor(
     private http: HttpClient,
-    private authService: AuthService,
-    private router: Router,
-    private route: ActivatedRoute,
+    public router: Router,
     private messageService: MessageService
   ) {}
 
-  async signIn(): Promise<void> {
+  async register(): Promise<void> {
+    this.emailError = '';
+    this.passwordError = '';
+
     if (!this.email.trim()) {
       this.emailError = 'Email is required';
       return;
     }
-    this.emailError = '';
+    if (this.password !== this.confirmPassword) {
+      this.passwordError = 'Passwords do not match';
+      return;
+    }
+
     this.loading = true;
     try {
-      const res = await firstValueFrom(
-        this.http.post<{ token: string }>('/auth/login', {
+      await firstValueFrom(
+        this.http.post('/auth/register', {
           email: this.email,
           password: this.password
         })
       );
-      const payload = JSON.parse(atob(res.token.split('.')[1]));
-      const role = payload.role ?? payload.authorities?.[0] ?? 'USER';
-      this.authService.login(res.token, this.email, role);
-      const returnUrl =
-        this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
-      this.router.navigateByUrl(decodeURIComponent(returnUrl));
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Account created',
+        detail: 'You can now sign in',
+        life: 3000
+      });
+      setTimeout(() => this.router.navigate(['/login']), 1500);
     } catch (err: any) {
       this.messageService.add({
         severity: 'error',
-        summary: 'Login failed',
-        detail: err?.error?.message || 'Invalid credentials',
+        summary: 'Registration failed',
+        detail: err?.error?.message || 'Could not create account',
         life: 4000
       });
     } finally {
