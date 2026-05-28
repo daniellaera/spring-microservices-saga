@@ -207,6 +207,48 @@ jobs:
     needs: [ detect-changes, build-and-push ]
     if: always() && !failure() && !cancelled()
     steps:
+      - name: Fetch secrets from Infisical and write .env
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          envs: INFISICAL_CLIENT_ID,INFISICAL_CLIENT_SECRET,INFISICAL_PROJECT_ID
+          script: |
+            set -e
+            mkdir -p /srv/online-shop
+
+            echo "=== Authenticating with Infisical ==="
+            TOKEN=$(curl -sf -X POST "http://192.168.1.163/api/v1/auth/universal-auth/login" \
+              -H "Content-Type: application/json" \
+              -d "{\"clientId\":\"$INFISICAL_CLIENT_ID\",\"clientSecret\":\"$INFISICAL_CLIENT_SECRET\"}" \
+              | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
+
+            if [ -z "$TOKEN" ]; then
+              echo "❌ Failed to authenticate with Infisical"
+              exit 1
+            fi
+            echo "✅ Authenticated with Infisical"
+
+            echo "=== Fetching secrets ==="
+            curl -sf -X GET \
+              "http://192.168.1.163/api/v3/secrets/raw?workspaceId=$INFISICAL_PROJECT_ID&environment=prod&secretPath=/" \
+              -H "Authorization: Bearer $TOKEN" \
+              | python3 -c "
+            import sys, json
+            data = json.load(sys.stdin)
+            secrets = data.get('secrets', [])
+            with open('/srv/online-shop/.env', 'w') as f:
+                for s in secrets:
+                    f.write(f\"{s['secretKey']}={s['secretValue']}\n\")
+            print(f'✅ Written {len(secrets)} secrets to .env')
+            "
+        env:
+          INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
+          INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+
       - name: Deploy on infra-node1
         uses: appleboy/ssh-action@v1.2.0
         with:
