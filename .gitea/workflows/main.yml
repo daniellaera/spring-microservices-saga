@@ -214,16 +214,16 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          envs: INFISICAL_CLIENT_ID,INFISICAL_CLIENT_SECRET,INFISICAL_PROJECT_ID
           script: |
             set -e
             mkdir -p /srv/online-shop
 
             echo "=== Authenticating with Infisical ==="
-            TOKEN=$(curl -sf -X POST "http://192.168.1.163/api/v1/auth/universal-auth/login" \
+            RESPONSE=$(curl -sf -X POST "${{ secrets.INFISICAL_URL }}/api/v1/auth/universal-auth/login" \
               -H "Content-Type: application/json" \
-              -d "{\"clientId\":\"$INFISICAL_CLIENT_ID\",\"clientSecret\":\"$INFISICAL_CLIENT_SECRET\"}" \
-              | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
+              -d "{\"clientId\":\"${{ secrets.INFISICAL_CLIENT_ID }}\",\"clientSecret\":\"${{ secrets.INFISICAL_CLIENT_SECRET }}\"}")
+
+            TOKEN=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
 
             if [ -z "$TOKEN" ]; then
               echo "❌ Failed to authenticate with Infisical"
@@ -233,7 +233,7 @@ jobs:
 
             echo "=== Fetching secrets ==="
             curl -sf -X GET \
-              "http://192.168.1.163/api/v3/secrets/raw?workspaceId=$INFISICAL_PROJECT_ID&environment=prod&secretPath=/" \
+              "${{ secrets.INFISICAL_URL }}/api/v3/secrets/raw?workspaceId=${{ secrets.INFISICAL_PROJECT_ID }}&environment=prod&secretPath=/" \
               -H "Authorization: Bearer $TOKEN" \
               | python3 -c "
             import sys, json
@@ -244,10 +244,6 @@ jobs:
                     f.write(f\"{s['secretKey']}={s['secretValue']}\n\")
             print(f'✅ Written {len(secrets)} secrets to .env')
             "
-        env:
-          INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
-          INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
-          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
 
       - name: Deploy on infra-node1
         uses: appleboy/ssh-action@v1.2.0
@@ -262,7 +258,7 @@ jobs:
             cd /srv/online-shop
 
             echo "=== Downloading latest compose file ==="
-            curl -sSf "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/docker-compose.yml" \
+            curl -sSf "${{ secrets.GITEA_URL }}/daniellaera/spring-saga-store/raw/branch/main/docker-compose.yml" \
               -o docker-compose.yml
             echo "Compose file size: $(wc -c < docker-compose.yml) bytes"
 
