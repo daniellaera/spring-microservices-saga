@@ -55,5 +55,13 @@ services:
       retries: 5
     restart: unless-stopped
 
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit
+    ports:
+      - "1025:1025"   # SMTP — your app sends here
+      - "8025:8025"   # Web UI — your inbox
+    restart: unless-stopped
+
 volumes:
   postgres-data:
