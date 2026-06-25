@@ -3,6 +3,7 @@ package com.daniellaera.paymentservice.controller;
 import com.daniellaera.paymentservice.dto.PaymentIntentRequest;
 import com.daniellaera.paymentservice.dto.PaymentIntentResponse;
 import com.daniellaera.paymentservice.service.StripePaymentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +20,7 @@ public class StripePaymentController {
     private final StripePaymentService stripePaymentService;
 
     @PostMapping("/create-intent")
-    public ResponseEntity<PaymentIntentResponse> createIntent(@RequestBody PaymentIntentRequest request) {
+    public ResponseEntity<PaymentIntentResponse> createIntent(@Valid @RequestBody PaymentIntentRequest request) {
         return ResponseEntity.ok(stripePaymentService.createPaymentIntent(request));
     }
 

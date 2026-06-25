@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -46,7 +47,7 @@ public class OrderController {
 
     @PostMapping
     public ResponseEntity<OrderDTO> createOrder(
-            @RequestBody OrderRequest request,
+            @Valid @RequestBody OrderRequest request,
             @RequestHeader(value = "X-User-Email", required = false) String userEmail) {
         return ResponseEntity.ok(orderService.createOrder(request, userEmail));
     }
