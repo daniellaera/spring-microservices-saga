@@ -104,3 +104,4 @@ logging:
   level:
     io.github.resilience4j: INFO
     org.springframework.boot.actuator.autoconfigure.opentelemetry: INFO
+
