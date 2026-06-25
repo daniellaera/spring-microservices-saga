@@ -23,7 +23,8 @@ public class OrderProducer {
                 order.getQuantity(),
                 order.getPrice(),
                 order.getTotalAmount(),
-                order.getUserEmail()
+                order.getUserEmail(),
+                order.getPaymentIntentId()
         ));
     }
 

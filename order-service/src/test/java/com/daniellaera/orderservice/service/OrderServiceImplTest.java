@@ -99,7 +99,7 @@ class OrderServiceImplTest {
 
     @Test
     void createOrder_shouldSaveAndPublishToOutbox() throws Exception {
-        OrderRequest request = new OrderRequest("MacBook Pro", 1, BigDecimal.valueOf(1299.99));
+        OrderRequest request = new OrderRequest("MacBook Pro", 1, BigDecimal.valueOf(1299.99), null);
         when(orderRepository.save(any(Order.class))).thenReturn(order);
         when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
         when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
@@ -115,7 +115,7 @@ class OrderServiceImplTest {
 
     @Test
     void createOrder_shouldSetUserEmail() throws Exception {
-        OrderRequest request = new OrderRequest("iPhone", 1, BigDecimal.valueOf(799.99));
+        OrderRequest request = new OrderRequest("iPhone", 1, BigDecimal.valueOf(799.99), null);
         when(orderRepository.save(any(Order.class))).thenReturn(order);
         when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
         when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());

@@ -2,3 +2,7 @@ spring:
   datasource:
     username: ${DB_USER:testuser}
     password: ${DB_PASSWORD:testpass}
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  publishable-key: ${STRIPE_PUBLISHABLE_KEY:}

@@ -1,6 +1,6 @@
 package com.daniellaera.paymentservice.service;
 
-import com.daniellaera.paymentservice.dto.InventoryEvent;
+import com.daniellaera.paymentservice.dto.InventoryResultEvent;
 import com.daniellaera.paymentservice.dto.PaymentEvent;
 import com.daniellaera.paymentservice.dto.TransactionDTO;
 import com.daniellaera.paymentservice.enums.PaymentStatus;
@@ -25,30 +25,41 @@ public class PaymentServiceImpl implements PaymentService {
     private final TransactionRepository transactionRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final StripePaymentService stripePaymentService;
 
     @Override
     @KafkaListener(topics = "inventory-topic", groupId = "payment-group")
-    public void handleInventoryEvent(String message) throws Exception {
-        InventoryEvent event = objectMapper.readValue(message, InventoryEvent.class);
+    public void handleInventoryResult(String message) throws Exception {
+        InventoryResultEvent event = objectMapper.readValue(message, InventoryResultEvent.class);
+        log.info("=== Payment: received inventory result orderId={} status={}",
+                event.orderId(), event.status());
+
+        boolean paymentSucceeded = false;
+
+        if ("APPROVED".equals(event.status())) {
+            if (event.paymentIntentId() != null && !event.paymentIntentId().isBlank()) {
+                paymentSucceeded = stripePaymentService.confirmPayment(event.paymentIntentId());
+                log.info("=== Payment: Stripe verification orderId={}: {}",
+                        event.orderId(), paymentSucceeded ? "SUCCESS" : "FAILED");
+            } else {
+                paymentSucceeded = true;
+                log.info("=== Payment: no paymentIntentId for orderId {} — auto-approving", event.orderId());
+            }
+        } else {
+            log.warn("=== Payment: skipping payment for orderId={} — inventory REJECTED", event.orderId());
+        }
 
         Transaction transaction = new Transaction();
         transaction.setOrderId(event.orderId());
         transaction.setTotalAmount(event.totalAmount());
-
-        if ("APPROVED".equals(event.status())) {
-            transaction.setStatus(PaymentStatus.SUCCESS);
-            kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
-                    new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "SUCCESS",
-                            event.price(), event.totalAmount(), event.userEmail())
-            ));
-        } else {
-            transaction.setStatus(PaymentStatus.FAILED);
-            kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
-                    new PaymentEvent(event.orderId(), event.productName(), event.quantity(), "FAILED",
-                            event.price(), event.totalAmount(), event.userEmail())
-            ));
-        }
+        transaction.setStatus(paymentSucceeded ? PaymentStatus.SUCCESS : PaymentStatus.FAILED);
         transactionRepository.save(transaction);
+
+        kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
+                new PaymentEvent(event.orderId(), event.productName(), event.quantity(),
+                        paymentSucceeded ? "SUCCESS" : "FAILED",
+                        event.price(), event.totalAmount(), event.userEmail())
+        ));
     }
 
     @DltHandler

@@ -188,7 +188,7 @@
               styleClass="w-full"
               [loading]="orderLoading"
               [disabled]="!selectedProduct()"
-              (onClick)="placeOrder()" />
+              (onClick)="openPaymentDialog()" />
 
           </div>
         </p-card>
@@ -197,3 +197,44 @@
 
   </div>
 </div>
+
+<p-dialog
+  header="Complete your payment"
+  [(visible)]="showPaymentDialog"
+  [modal]="true"
+  [closable]="false"
+  [style]="{width:'480px'}">
+
+  <div class="flex flex-column gap-4 pt-2">
+
+    @if (currentPaymentIntent) {
+      <div class="surface-50 border-round p-3">
+        <div class="font-semibold text-lg">{{ selectedProduct()?.name }}</div>
+        <div class="text-color-secondary text-sm mt-1">
+          {{ quantity() }} × {{ selectedProduct()?.price | number:'1.2-2' }} € = {{ estimatedTotal() }} €
+        </div>
+      </div>
+    }
+
+    <div id="stripe-payment-element" style="min-height:200px"></div>
+
+    <div class="text-xs text-color-secondary text-center">
+      <i class="pi pi-lock mr-1"></i>
+      Secured by Stripe — test card: 4242 4242 4242 4242
+    </div>
+
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      [text]="true"
+      severity="secondary"
+      (onClick)="cancelPayment()" />
+    <p-button
+      label="Pay now"
+      icon="pi pi-credit-card"
+      [loading]="paymentLoading"
+      (onClick)="confirmStripePayment()" />
+  </ng-template>
+</p-dialog>

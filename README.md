@@ -1,309 +1,209 @@
-# Online Shop Microservices
+# Online Shop — Microservices Platform
 
-A production-ready microservices-based online shop built with Spring Boot 4, demonstrating enterprise-grade patterns including event-driven saga, JWT authentication with RBAC, distributed tracing, centralized configuration, API gateway, circuit breaker, rate limiting, Redis caching, and full test coverage with Testcontainers.
-
-![Architecture](./docs/architecture_overview_banner.svg)
-![Saga Flow](./docs/saga_flow_banner.svg)
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Architecture](./docs/ARCHITECTURE.md) | System design, flows, and tech decisions |
-| [Roadmap](./docs/ROADMAP.md) | What's done and what's coming |
+A production-grade microservices e-commerce platform built on Java 21 and Spring Boot 4, demonstrating enterprise patterns including event-driven saga choreography, transactional outbox, real-time SSE updates, JWT gateway authentication, and Stripe payment processing. Deployed on a self-hosted Proxmox homelab with Gitea Actions CI/CD and Infisical secrets management.
 
 ---
 
 ## Architecture
 
 ```
-Client / Frontend UI :8090
-         │ JWT
-         ▼
-Spring Cloud Gateway :8080
-  JWT Validation · RBAC · Routing · Circuit Breaker · Rate Limiting
-         │
-         ├── /auth/**         → Auth Service :8084
-         ├── /orders/**       → Order Service :8081
-         ├── /products/**     → Inventory Service :8082
-         └── /transactions/** → Payment Service :8083
+┌─────────────┐     ┌──────────────────────────────────────┐
+│   shop-ui   │────▶│           gateway-service            │
+│  Angular 21 │◀────│  Spring Cloud Gateway · JWT · RBAC   │
+│ PrimeNG/SSE │     │  Circuit Breaker · Rate Limiter       │
+└─────────────┘     └──────┬───────────────────┬────────────┘
+                           │                   │
+          ┌────────────────┼──────────┐         ▼
+          ▼                ▼          ▼    ┌─────────────┐
+  ┌──────────────┐  ┌──────────┐  ┌──────────────┐      │  auth-service │
+  │order-service │  │inventory │  │   payment    │      │  JWT + BCrypt │
+  │  Outbox +    │  │  :8082   │  │   :8083      │      └──────────────┘
+  │  SSE :8081   │  │  Redis   │  │   Stripe     │
+  └──────┬───────┘  │  cache   │  │   SDK        │
+         │          └──────────┘  └──────┬───────┘
+         │                               │
+  ┌──────▼───────────────────────────────▼──────────────────┐
+  │                  Apache Kafka 4.2 (KRaft)                │
+  │       orders-topic → inventory-topic → payment-topic     │
+  └──────────────────────────┬──────────────────────────────┘
+                             │
+              ┌──────────────▼──────────────┐
+              │     notification-service     │
+              │     :8085 · Gmail SMTP       │
+              └─────────────────────────────┘
 
-Config Server :8888  ← all services fetch config at startup
-Grafana LGTM  :3000  ← traces, metrics, logs via OpenTelemetry
-Redis         :6379  ← rate limiting + product cache
+  ┌─────────────────────────────────────────────────────────┐
+  │                     INFRASTRUCTURE                       │
+  │  config-server :8888   Grafana LGTM :3000   Redis :6379 │
+  │  Spring Cloud Config   Tempo·Loki·Mimir     rate limit  │
+  │                                             + cache      │
+  └─────────────────────────────────────────────────────────┘
 ```
-
-### Saga Flow (Event-Driven)
-```
-POST /orders
-  → order-service → [orders-topic]
-    → inventory-service → checks stock → [inventory-topic]
-      → payment-service → processes payment → [payment-topic]
-        → order-service → CONFIRMED or FAILED
-        → notification-service → logs confirmation
-```
-
-### Authentication & Authorization
-```
-POST /auth/register → auth-service → BCrypt → JWT (role=USER)
-POST /auth/login    → auth-service → validate → JWT (role from DB)
-GET  /products      → gateway validates JWT → forward
-POST /products      → gateway checks role=ADMIN → 403 if USER
-GET  /orders        → no token → 401 Unauthorized
-```
-
-**Roles:**
-- `USER` — default role on register, can view products, create orders
-- `ADMIN` — can create products, full access
-
-**Creating the first ADMIN:**
-The Flyway migration only seeds USER accounts. To create an ADMIN, use the provided script:
-```bash
-./scripts/create-admin.sh admin@shop.com yourPassword
-```
-See [Architecture — Admin User Provisioning](./docs/ARCHITECTURE.md#admin-user-provisioning) for details.
-
-## Demo accounts
-
-| Email | Password | Role |
-|-------|----------|------|
-| daniel@example.com | password123 | USER |
-| admin@example.com | password123 | ADMIN |
-
-> These accounts are seeded by Flyway on first startup.
-> Never use these credentials in production.
 
 ---
 
 ## Tech Stack
 
+### Backend
 | Technology | Version | Usage |
 |------------|---------|-------|
-| Java | 21 | Virtual threads, records, sealed classes |
+| Java | 21 | Virtual threads, records |
 | Spring Boot | 4.0.2 | Core framework |
-| Spring Cloud Gateway | 2025.1.1 | API gateway, routing, JWT validation, RBAC |
+| Spring Cloud Gateway | 2025.1.1 | API gateway, routing, JWT, RBAC |
 | Spring Cloud Config | 2025.1.1 | Centralized configuration |
-| Spring Security | 7 | JWT authentication, role-based authorization |
-| Resilience4j | latest | Circuit Breaker (CLOSED/OPEN/HALF_OPEN) |
-| Apache Kafka | 4.2.0 | Event-driven communication (KRaft, no Zookeeper) |
-| PostgreSQL | 17 | Database per service pattern |
+| Spring Security | 7 | JWT authentication, RBAC |
+| Resilience4j | latest | Circuit Breaker (CLOSED / OPEN / HALF_OPEN) |
+| Apache Kafka | 4.2.0 | Event-driven saga (KRaft — no Zookeeper) |
+| PostgreSQL | 17 | Database per service |
 | Redis | 8 | Rate limiting (token bucket) + product cache |
 | Flyway | 11 | Database migrations |
-| OpenTelemetry | latest | Distributed tracing + metrics |
-| Grafana LGTM | latest | Observability (Tempo, Loki, Mimir) |
-| Angular 21 + PrimeNG | latest | Frontend UI (shop-ui) |
-| Testcontainers | 1.21.4 | Integration tests with real PostgreSQL + Kafka |
-| JUnit 5 + Mockito | latest | Unit tests |
-| Docker | latest | Multi-arch images (amd64 + arm64) |
-| Lombok | latest | Boilerplate reduction |
-| Springdoc OpenAPI | 3 | Swagger UI per service |
+| Stripe SDK | latest | Test-mode PaymentIntent API |
+| OpenTelemetry | latest | Distributed traces + metrics + logs |
+| Grafana LGTM | latest | Tempo + Loki + Mimir in one container |
+| Testcontainers | 1.21.4 | Integration tests — real PostgreSQL + Kafka |
+
+### Frontend
+| Technology | Version | Usage |
+|------------|---------|-------|
+| Angular | 21 | Single-page application |
+| PrimeNG | 21 | UI components (Aura theme) |
+| Stripe Elements | latest | Embedded, PCI-compliant payment UI |
+
+### Infrastructure
+| Technology | Usage |
+|------------|-------|
+| Docker Compose | Local dev + prod profiles |
+| Gitea Actions | CI/CD pipeline |
+| Infisical (self-hosted) | Secrets management |
+| Proxmox | Homelab deployment (infra-node1) |
 
 ---
 
 ## Services
 
-| Service | Port | Database | Description |
-|---------|------|----------|-------------|
-| gateway-service | 8080 | - | API Gateway, JWT, RBAC, Circuit Breaker, Rate Limiter |
-| auth-service | 8084 | authdb | Register, login, JWT generation with role claim |
-| order-service | 8081 | orderdb | Manages orders, publishes to orders-topic |
-| inventory-service | 8082 | inventorydb | Stock management, Redis cache, consumes orders-topic |
-| payment-service | 8083 | paymentdb | Payment processing, consumes inventory-topic |
-| notification-service | 8085 | - | Consumes payment-topic, logs confirmations |
-| shop-ui | 4200 | - | Angular UI |
-| config-server | 8888 | - | Centralized Spring Cloud Config Server |
-| uptime-kuma | 3001 | - | Service uptime monitoring + Telegram alerts |
+| Service | Port | Description |
+|---------|------|-------------|
+| shop-ui | 80 | Angular 21 frontend — PrimeNG Aura UI |
+| gateway-service | 8080 | Spring Cloud Gateway — JWT, rate limiting, circuit breaker |
+| auth-service | 8084 | User registration, JWT tokens, BCrypt |
+| order-service | 8081 | Order management, Outbox pattern, SSE push |
+| inventory-service | 8082 | Product catalog, stock management, Redis cache |
+| payment-service | 8083 | Stripe PaymentIntent integration, Kafka saga |
+| notification-service | 8085 | Order confirmation emails via Gmail SMTP |
+| config-server | 8888 | Centralized Spring Cloud Config Server |
 
 ---
 
-## Testing
+## Key Architectural Patterns
 
-Every service includes **unit tests** (JUnit 5 + Mockito) and **integration tests** (Testcontainers with real PostgreSQL / Kafka / Redis).
+### Saga Pattern (Choreography)
+Order placement triggers a distributed saga across three services via Kafka:
+1. `order-service` creates order (PENDING) → publishes to `orders-topic`
+2. `inventory-service` validates and reserves stock → publishes to `inventory-topic`
+3. `payment-service` verifies Stripe PaymentIntent → publishes to `payment-topic`
+4. `order-service` receives result → marks order CONFIRMED or FAILED
+5. On failure: automatic compensation — stock restored, order cancelled
+
+### Transactional Outbox
+Prevents dual-write between PostgreSQL and Kafka. The order and its `OutboxEvent` are written in a single database transaction. A scheduler polls the outbox table and publishes pending events to Kafka, guaranteeing at-least-once delivery even if the broker is temporarily unavailable.
+
+### Real-time Updates (SSE)
+The browser holds one persistent Server-Sent Events connection to `order-service`. When an order changes state (PENDING → CONFIRMED / FAILED), the update is pushed instantly — no polling, no WebSocket handshake overhead.
+
+### JWT Gateway Authentication
+All JWT validation happens at the gateway. Downstream services receive `X-User-Email` and `X-User-Role` headers injected by the gateway — they never inspect the token directly. RBAC rules (e.g. `POST /products` requires `ADMIN`) are enforced before a request reaches any microservice.
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Java 21
+- Node 24 (nvm recommended)
+- Docker + Docker Compose
+- Maven 3.9+
+
+### Local Development
 
 ```bash
-# Run all tests across all modules
-mvn test
+# Start infrastructure (Kafka, PostgreSQL, Redis, Grafana, Mailpit)
+docker compose -f docker-compose.local.yml up -d
 
-# Run tests for a specific service
-cd order-service && mvn test
+# Start all backend services
+./start-services.sh
 
-# Run a specific test class
-mvn test -Dtest=ProductControllerITTest
+# Start the frontend (separate terminal)
+cd shop-ui && npx ng serve
 ```
 
-**IT tests spin up real containers** — no H2 or embedded Kafka. This ensures test behavior matches production exactly.
+Frontend available at `http://localhost:4200`
+
+### Demo Credentials
+
+| User | Email | Password | Role |
+|------|-------|----------|------|
+| User | daniel@example.com | demo1234 | USER |
+| Admin | admin@example.com | demo1234 | ADMIN |
+
+> Seeded by Flyway on first startup. Do not use in production.
+
+To provision a new ADMIN after deployment:
+```bash
+./scripts/create-admin.sh admin@shop.com yourPassword
+```
+
+### Test Payment (Stripe test mode)
+
+| Card number | Result |
+|-------------|--------|
+| 4242 4242 4242 4242 | Payment succeeds |
+| 4000 0000 0000 0002 | Card declined |
+| 4000 0025 0000 3155 | Requires 3D Secure |
+
+Use any future expiry and any 3-digit CVC.
+
+---
+
+## CI/CD Pipeline
+
+Gitea Actions with path-based change detection — only changed services are rebuilt:
+- Docker images built for `linux/amd64` + `linux/arm64`, pushed to Docker Hub
+- Secrets fetched from self-hosted Infisical via Machine Identity (Universal Auth)
+- Services deployed to Proxmox homelab (`infra-node1`) via SSH
 
 ---
 
 ## Observability
 
-Every request is automatically traced end-to-end across all services using OpenTelemetry.
+| Signal | Backend | How |
+|--------|---------|-----|
+| Distributed traces | Grafana Tempo | OpenTelemetry OTLP |
+| Metrics | Grafana Mimir | Micrometer OTLP registry |
+| Logs | Grafana Loki | OpenTelemetry Logback appender |
+| Uptime | Uptime Kuma | `/actuator/health` every 60 s + Telegram alerts |
 
-- **Traces** → Grafana Tempo
-- **Metrics** → Grafana Mimir
-- **Logs** → Grafana Loki
-
-Each log line includes a `traceId` for correlation:
-```
-[order-service] [nio-8081-exec-1] [f9b4100b3004d2e68a306bf2862c67f1-7b3daefca6eeca53] ...
-```
-
-Access Grafana at `http://localhost:3000`
-
-## Uptime Monitoring
-
-All services are monitored via **Uptime Kuma** on infra-node1, with instant **Telegram alerts** on DOWN/UP events.
-
-- Access dashboard at `http://infra-node1:3001`
-- Each service monitored via `/actuator/health` every 60s
-- Notifications sent to Telegram on status change
+Every log line carries a `traceId` for cross-service correlation. Access Grafana at `http://localhost:3000`.
 
 ---
 
-## Centralized Configuration
+## API Reference
 
-All services fetch config from the Config Server at startup. Dev/prod profiles managed centrally.
+All requests go through the gateway at port `8080`.
 
 ```
-config-server
-  └── configs/
-       ├── application.yml        ← shared: OpenTelemetry, tracing
-       ├── application-dev.yml    ← shared dev: DEBUG logging
-       ├── gateway-service.yml
-       ├── order-service.yml
-       ├── inventory-service.yml
-       ├── payment-service.yml
-       ├── auth-service.yml
-       ├── notification-service.yml
-       └── shop-ui.yml
-```
+POST /auth/register       — register (returns JWT, role=USER)
+POST /auth/login          — login   (returns JWT)
 
----
+GET  /products            — list products (Redis-cached)
+POST /products            — create product (ADMIN only)
 
-## Prerequisites
+POST /orders              — place order
+GET  /orders              — list orders for authenticated user
+GET  /orders/{id}         — get order by ID
+GET  /orders/sse          — SSE stream for real-time order updates
 
-- Java 21
-- Docker + Docker Compose
-- Maven 3.9+
-
----
-
-## Running Locally
-
-### Option 1 — Docker Compose (full stack)
-```bash
-docker compose -f docker-compose.yml up --build
-```
-
-### Option 2 — IntelliJ + local infrastructure
-
-Start infrastructure (Kafka, PostgreSQL, Grafana, Redis):
-```bash
-docker compose -f docker-compose.local.yml up
-```
-
-Then run services from IntelliJ or use the startup script:
-```bash
-chmod +x start-services.sh
-./start-services.sh
-```
-
-**Startup order:**
-1. `config-server`
-2. `auth-service`, `order-service`, `inventory-service`, `payment-service`, `notification-service`
-3. `gateway-service`
-4. `shop-ui` → UI at `http://localhost:4200`
-
-### Start the frontend
-```bash
-cd shop-ui && npx ng serve
-```
-
-Frontend runs at `http://localhost:4200`
-Proxies API calls to gateway at `http://localhost:8080`
-
-### Create an ADMIN user (first-time setup)
-After services are running, provision the first admin:
-```bash
-./scripts/create-admin.sh admin@shop.com yourPassword
-```
-
----
-
-## API Endpoints
-
-All requests go through the gateway on port `8080`.
-
-### Authentication (public)
-```
-POST   http://localhost:8080/auth/register    ← returns JWT token (role=USER)
-POST   http://localhost:8080/auth/login       ← returns JWT token (role from DB)
-```
-
-### Orders (requires JWT — USER or ADMIN)
-```
-POST   http://localhost:8080/orders
-GET    http://localhost:8080/orders
-GET    http://localhost:8080/orders/{id}
-```
-
-### Products (read: any authenticated user · write: ADMIN only)
-```
-GET    http://localhost:8080/products         ← cached in Redis
-GET    http://localhost:8080/products/{id}
-POST   http://localhost:8080/products         ← ADMIN only, 403 for USER
-```
-
-### Transactions (requires JWT)
-```
-GET    http://localhost:8080/transactions
-GET    http://localhost:8080/transactions/{id}
-```
-
-### Example usage
-```bash
-# 1. Register and get USER token
-USER_TOKEN=$(curl -s -X POST http://localhost:8080/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"firstName": "Daniel", "lastName": "Laera", "email": "daniel@test.com", "password": "password123"}' \
-  | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-
-# 2. Login as ADMIN (previously provisioned via create-admin.sh)
-ADMIN_TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@shop.com", "password": "yourPassword"}' \
-  | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-
-# 3. ADMIN creates a product (200 OK)
-curl -X POST http://localhost:8080/products \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"name": "MacBook Pro M4", "quantity": 10}'
-
-# 4. USER tries to create a product (403 Forbidden)
-curl -i -X POST http://localhost:8080/products \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $USER_TOKEN" \
-  -d '{"name": "iPhone", "quantity": 5}'
-
-# 5. USER places an order (200 OK)
-curl -X POST http://localhost:8080/orders \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $USER_TOKEN" \
-  -d '{"productName": "MacBook Pro M4", "quantity": 1}'
-
-# 6. Check orders
-curl http://localhost:8080/orders \
-  -H "Authorization: Bearer $USER_TOKEN"
-
-# 7. Test rate limiting (sends 25 parallel requests)
-for i in {1..25}; do
-  curl -s -o /dev/null -w "Request $i: %{http_code}\n" http://localhost:8080/orders \
-    -H "Authorization: Bearer $USER_TOKEN" &
-done
-wait
+GET  /transactions        — list payment transactions
+GET  /transactions/{id}   — get transaction by ID
 ```
 
 ### Swagger UI (direct service access)
@@ -315,31 +215,30 @@ http://localhost:8083/swagger-ui.html  — Payment Service
 
 ---
 
-## Circuit Breaker
+## Project Structure
 
-```bash
-# Check circuit breaker states
-curl http://localhost:8080/actuator/circuitbreakers
+```
+online-shop/
+├── auth-service/
+├── config-server/
+├── gateway-service/
+├── inventory-service/
+├── notification-service/
+├── order-service/
+├── payment-service/
+├── shop-ui/
+├── docs/
+│   ├── ARCHITECTURE.md       ← design, flows, ADRs
+│   └── ROADMAP.md
+├── scripts/
+│   └── create-admin.sh       ← provision first ADMIN post-deployment
+├── docker-compose.yml        ← full stack (prod-like)
+├── docker-compose.local.yml  ← infrastructure only (dev)
+├── start-services.sh
+└── pom.xml
 ```
 
-States: `CLOSED` → `OPEN` (>50% failures) → `HALF_OPEN` (after 10s) → `CLOSED`
-
----
-
-## Rate Limiting
-
-```bash
-# Test rate limiting (429 after burst capacity exceeded)
-for i in {1..25}; do
-  curl -s -o /dev/null -w "Request $i: %{http_code}\n" http://localhost:8080/orders \
-    -H "Authorization: Bearer $USER_TOKEN" &
-done
-wait
-```
-
----
-
-## Docker Hub Images
+## Docker Hub
 
 ```
 daniellaera/config-server:latest
@@ -354,28 +253,4 @@ daniellaera/shop-ui:latest
 
 ---
 
-## Project Structure
-
-```
-online-shop/
-├── auth-service/
-├── config-server/
-├── shop-ui/
-├── gateway-service/
-├── inventory-service/
-├── notification-service/
-├── order-service/
-├── payment-service/
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── ROADMAP.md
-│   ├── architecture_overview_banner.svg
-│   └── saga_flow_banner.svg
-├── scripts/
-│   └── create-admin.sh       ← provisions first ADMIN user post-deployment
-├── docker-compose.yml        ← full stack (prod-like)
-├── docker-compose.local.yml  ← infrastructure only (dev)
-├── push-to-dockerhub.sh
-├── start-services.sh
-└── pom.xml
-```
+See [Architecture](./docs/ARCHITECTURE.md) for detailed flow diagrams and architectural decision records.

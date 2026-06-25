@@ -33,23 +33,26 @@ public class OrderConsumer {
                     order.setStatus(OrderStatus.CANCELLED);
                 }
                 orderRepository.save(order);
+                log.info("=== Order: status updated to {} for orderId {}", order.getStatus(), order.getId());
 
-                OrderStatusUpdate update = new OrderStatusUpdate(
-                        order.getId(),
-                        order.getStatus().name(),
-                        order.getUserEmail()
-                );
-
-                if (order.getUserEmail() != null) {
-                    sseEmitterRegistry.pushToUser(order.getUserEmail(), update);
-                } else {
-                    sseEmitterRegistry.pushToAll(update);
+                try {
+                    OrderStatusUpdate update = new OrderStatusUpdate(
+                            order.getId(),
+                            order.getStatus().name(),
+                            order.getUserEmail()
+                    );
+                    if (order.getUserEmail() != null) {
+                        sseEmitterRegistry.pushToUser(order.getUserEmail(), update);
+                    } else {
+                        sseEmitterRegistry.pushToAll(update);
+                    }
+                    log.info("=== SSE: pushed status {} for orderId {}", order.getStatus(), order.getId());
+                } catch (Exception e) {
+                    log.warn("=== SSE: push failed for orderId {}: {}", order.getId(), e.getMessage());
                 }
-
-                log.info("=== SSE: pushed status {} for orderId {}", order.getStatus(), order.getId());
             });
         } catch (Exception e) {
-            log.error("Failed to process payment event: {}", e.getMessage());
+            log.error("=== Kafka: failed to process payment event: {}", e.getMessage());
         }
     }
 

@@ -47,7 +47,7 @@ class OrderControllerTest {
     void createOrder_withUserEmailHeader_storesEmailOnOrder() throws Exception {
         OrderDTO dto = new OrderDTO(1L, "MacBook Pro", 1,
                 BigDecimal.valueOf(999.99), BigDecimal.valueOf(999.99),
-                OrderStatus.PENDING, "user@test.com", null);
+                OrderStatus.PENDING, "user@test.com", null, null);
         when(orderService.createOrder(any(OrderRequest.class), eq("user@test.com"))).thenReturn(dto);
 
         mockMvc.perform(post("/orders")
@@ -64,7 +64,7 @@ class OrderControllerTest {
         List<OrderDTO> orders = List.of(
                 new OrderDTO(1L, "MacBook Pro", 1,
                         BigDecimal.valueOf(999.99), BigDecimal.valueOf(999.99),
-                        OrderStatus.PENDING, "user@test.com", null)
+                        OrderStatus.PENDING, "user@test.com", null, null)
         );
         PagedResponse<OrderDTO> paged = new PagedResponse<>(orders, 0, 1, 1L, false, false);
         when(orderService.getMyOrdersPaged("user@test.com", 0, 10)).thenReturn(paged);
@@ -87,10 +87,10 @@ class OrderControllerTest {
         List<OrderDTO> orders = List.of(
                 new OrderDTO(1L, "MacBook Pro", 1,
                         BigDecimal.valueOf(999.99), BigDecimal.valueOf(999.99),
-                        OrderStatus.PENDING, "user1@test.com", null),
+                        OrderStatus.PENDING, "user1@test.com", null, null),
                 new OrderDTO(2L, "iPhone", 1,
                         BigDecimal.valueOf(799.99), BigDecimal.valueOf(799.99),
-                        OrderStatus.CONFIRMED, "user2@test.com", null)
+                        OrderStatus.CONFIRMED, "user2@test.com", null, null)
         );
         PagedResponse<OrderDTO> paged = new PagedResponse<>(orders, 0, 1, 2L, false, false);
         when(orderService.getAllOrdersPaged(0, 10)).thenReturn(paged);

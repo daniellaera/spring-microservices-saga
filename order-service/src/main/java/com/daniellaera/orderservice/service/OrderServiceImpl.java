@@ -49,10 +49,11 @@ public class OrderServiceImpl implements OrderService {
         order.setTotalAmount(totalAmount);
         order.setStatus(OrderStatus.PENDING);
         order.setUserEmail(userEmail);
+        order.setPaymentIntentId(request.paymentIntentId());
         Order saved = orderRepository.save(order);
 
         OrderEvent orderEvent = new OrderEvent(saved.getId(), saved.getProductName(), saved.getQuantity(),
-                saved.getPrice(), saved.getTotalAmount(), saved.getUserEmail());
+                saved.getPrice(), saved.getTotalAmount(), saved.getUserEmail(), saved.getPaymentIntentId());
 
         try {
             OutboxEvent outboxEvent = new OutboxEvent();
@@ -139,6 +140,6 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private OrderDTO toDTO(Order o) {
-        return new OrderDTO(o.getId(), o.getProductName(), o.getQuantity(), o.getPrice(), o.getTotalAmount(), o.getStatus(), o.getUserEmail(), o.getCreatedAt());
+        return new OrderDTO(o.getId(), o.getProductName(), o.getQuantity(), o.getPrice(), o.getTotalAmount(), o.getStatus(), o.getUserEmail(), o.getCreatedAt(), o.getPaymentIntentId());
     }
 }

@@ -12,11 +12,13 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { ToastModule } from 'primeng/toast';
 import { SkeletonModule } from 'primeng/skeleton';
 import { DividerModule } from 'primeng/divider';
+import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { AuthService } from '../../core/services/auth.service';
 import { OrderService, OrderDto, PagedResponse } from '../../core/services/order.service';
 import { ProductService, ProductDto } from '../../core/services/product.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { PaymentService, PaymentIntentResponse } from '../../core/services/payment.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -25,7 +27,7 @@ import { NotificationService } from '../../core/services/notification.service';
     CommonModule, FormsModule, DatePipe, RouterModule,
     TableModule, ButtonModule, TagModule,
     CardModule, SelectModule, InputNumberModule,
-    ToastModule, SkeletonModule, DividerModule
+    ToastModule, SkeletonModule, DividerModule, DialogModule
   ],
   providers: [MessageService],
   templateUrl: './dashboard.component.html'
@@ -36,6 +38,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private productService = inject(ProductService);
   private messageService = inject(MessageService);
   private notificationService = inject(NotificationService);
+  private paymentService = inject(PaymentService);
 
   isAdmin = this.authService.isAdmin;
   currentEmail = this.authService.currentEmail;
@@ -53,6 +56,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private abortController: AbortController | null = null;
   private sseRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // payment dialog state
+  showPaymentDialog = false;
+  paymentLoading = false;
+  currentPaymentIntent: PaymentIntentResponse | null = null;
+  private stripeElements: any = null;
+  private cardElement: any = null;
 
   // place order form
   selectedProduct = signal<ProductDto | null>(null);
@@ -78,7 +88,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     obs.subscribe({
       next: (data) => {
-        console.log('Orders loaded:', data);
         this.orders = data.content;
         this.currentPage = data.currentPage;
         this.totalPages = data.totalPages;
@@ -103,38 +112,119 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  placeOrder(): void {
+  // Step 1: user clicks "Place order" → create PaymentIntent and open dialog
+  async openPaymentDialog(): Promise<void> {
     const product = this.selectedProduct();
     if (!product) return;
+
     this.orderLoading = true;
-    this.orderService.createOrder(
-      product.name,
-      this.quantity(),
-      product.price
-    ).subscribe({
-      next: (newOrder: OrderDto) => {
-        this.messageService.add({
-          severity: 'info',
-          summary: '⏳ Order submitted',
-          detail: 'Processing your order...',
-          life: 3000
-        });
-        this.orders = [newOrder, ...this.orders];
-        this.totalElements++;
-        this.loadProducts();
-        this.quantity.set(1);
+    const amountInCents = Math.round(product.price * this.quantity() * 100);
+
+    this.paymentService.createPaymentIntent(amountInCents, 'eur', product.name).subscribe({
+      next: async (intent) => {
+        this.currentPaymentIntent = intent;
+        this.showPaymentDialog = true;
         this.orderLoading = false;
+        setTimeout(() => this.mountStripeCard(intent), 300);
       },
-      error: (err) => {
+      error: () => {
         this.messageService.add({
           severity: 'error',
-          summary: 'Failed',
-          detail: err?.error?.message || 'Could not place order',
+          summary: 'Payment setup failed',
+          detail: 'Could not initialize payment',
           life: 4000
         });
         this.orderLoading = false;
       }
     });
+  }
+
+  async mountStripeCard(intent: PaymentIntentResponse): Promise<void> {
+    const stripe = await this.paymentService.getStripe(intent.publishableKey);
+    if (!stripe) return;
+
+    this.stripeElements = stripe.elements({ clientSecret: intent.clientSecret });
+    this.cardElement = this.stripeElements.create('payment');
+    this.cardElement.mount('#stripe-payment-element');
+  }
+
+  // Step 2: user enters card and clicks Pay → confirm with Stripe, then create order
+  async confirmStripePayment(): Promise<void> {
+    if (!this.stripeElements || !this.currentPaymentIntent) return;
+    this.paymentLoading = true;
+
+    const stripe = await this.paymentService.getStripe(this.currentPaymentIntent.publishableKey);
+    if (!stripe) return;
+
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements: this.stripeElements,
+      confirmParams: { return_url: window.location.href },
+      redirect: 'if_required'
+    });
+
+    if (error) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Payment failed',
+        detail: error.message || 'Card was declined',
+        life: 5000
+      });
+      this.paymentLoading = false;
+      return;
+    }
+
+    if (paymentIntent?.status === 'succeeded') {
+      this.placeOrderAfterPayment(paymentIntent.id);
+    }
+  }
+
+  // Step 3: payment confirmed → create the order with paymentIntentId
+  placeOrderAfterPayment(paymentIntentId: string): void {
+    const product = this.selectedProduct();
+    if (!product) return;
+
+    this.orderService.createOrder(
+      product.name,
+      this.quantity(),
+      product.price,
+      paymentIntentId
+    ).subscribe({
+      next: (newOrder: OrderDto) => {
+        this.showPaymentDialog = false;
+        this.paymentLoading = false;
+        this.orders = [newOrder, ...this.orders];
+        this.totalElements++;
+        this.quantity.set(1);
+        this.loadProducts();
+        this.messageService.add({
+          severity: 'info',
+          summary: '⏳ Order submitted',
+          detail: 'Payment confirmed — processing your order...',
+          life: 3000
+        });
+        this.cardElement?.destroy();
+        this.cardElement = null;
+        this.stripeElements = null;
+        this.currentPaymentIntent = null;
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Order creation failed',
+          detail: err?.error?.message || 'Payment succeeded but order failed',
+          life: 5000
+        });
+        this.paymentLoading = false;
+      }
+    });
+  }
+
+  cancelPayment(): void {
+    this.showPaymentDialog = false;
+    this.cardElement?.destroy();
+    this.cardElement = null;
+    this.stripeElements = null;
+    this.currentPaymentIntent = null;
   }
 
   connectSSE(): void {
@@ -183,7 +273,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 if (order) {
                   const previousStatus = order.status;
                   order.status = data.status;
-                  console.log('SSE update received:', data);
                   if (previousStatus !== data.status) {
                     this.showOrderNotification(data.orderId, data.status, order.productName);
                   }

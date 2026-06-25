@@ -33,4 +33,7 @@ public class Order extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OrderStatus status;
+
+    @Column(name = "payment_intent_id")
+    private String paymentIntentId;
 }

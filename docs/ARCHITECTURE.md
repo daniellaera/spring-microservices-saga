@@ -5,8 +5,8 @@
 ```
    ┌──────────────────────────────────────────┐
    │                 Clients                   │
-   │   Browser / curl · Frontend UI :8090      │
-   │           Thymeleaf + HTMX                │
+   │   Browser · Angular 21 + PrimeNG :4200   │
+   │      Server-Sent Events (SSE)             │
    └──────────────────────────────────────────┘
                        │ JWT
                        ▼
@@ -26,13 +26,14 @@
                       └───────────┴─────────────┘
                                   │ Kafka Topics
                   ┌───────────────▼──────────────────┐
-                  │          Apache Kafka :9092        │
-                  │  orders-topic · inventory-topic    │
-                  │  payment-topic                     │
+                  │      Apache Kafka 4.2 (KRaft)     │
+                  │  orders-topic · inventory-topic   │
+                  │  payment-topic                    │
                   └──────┬────────────────────────────┘
                          │
                ┌─────────▼──────────┐
                │  Notification :8085 │
+               │   Gmail SMTP        │
                └────────────────────┘
 
    ┌──────────────────────────────────────────────────────┐
@@ -47,14 +48,18 @@
    └──────────────────────────────────────────────────────┘
 ```
 
+---
+
 ## Authentication Flow
 
 ```
 POST /auth/register → auth-service → BCrypt hash → save user (role=USER) → return JWT
 POST /auth/login    → auth-service → validate credentials → return JWT (with role claim)
-GET  /orders        → gateway validates JWT → forward to order-service
+GET  /orders        → gateway validates JWT → inject X-User-Email, X-User-Role → forward
 GET  /orders        → gateway (no token) → 401 Unauthorized
 ```
+
+---
 
 ## Role-Based Access Control (RBAC)
 
@@ -83,29 +88,80 @@ Gateway JwtWebFilter:
 
 ### Admin User Provisioning
 
-The Flyway migration seeds initial users with `role=USER` by default. **No ADMIN user is seeded automatically** — this is intentional for security reasons (avoid committing default admin credentials to the repo).
+Flyway seeds initial users with `role=USER` by default. No ADMIN user is seeded automatically — committing default admin credentials to the repo would be a security risk.
 
-To create the first ADMIN user after DB initialization, use the provided script:
+To create the first ADMIN user after DB initialization:
 
 ```bash
 ./scripts/create-admin.sh admin@shop.com myPassword123
 ```
 
-The script generates a bcrypt hash and inserts the admin directly into `authdb` via `docker exec`. Once at least one ADMIN exists, future admins will be creatable via a secured endpoint (upcoming: `POST /auth/admin` protected by ADMIN-only RBAC).
+The script generates a bcrypt hash and inserts the admin directly into `authdb` via `docker exec`.
+
+---
 
 ## Saga Flow (Event-Driven)
 
 ```
 POST /orders
-  └── order-service        → saves order (PENDING)
+  └── order-service        → saves order (PENDING) + OutboxEvent (atomic)
         └── [orders-topic]
-              └── inventory-service  → checks stock → updates quantity
+              └── inventory-service  → validates stock → reserves quantity
                     └── [inventory-topic]
-                          └── payment-service  → processes payment
+                          └── payment-service  → verifies Stripe PaymentIntent
                                 └── [payment-topic]
                                       ├── order-service      → CONFIRMED / FAILED
-                                      └── notification-service → logs confirmation
+                                      └── notification-service → email confirmation
 ```
+
+**Compensation (failure path):**
+- If payment verification fails → `payment-topic` carries `FAILED` status
+- `inventory-service` restores reserved stock
+- `order-service` marks order FAILED
+- User receives real-time update via SSE
+
+---
+
+## Transactional Outbox
+
+Prevents the dual-write problem between PostgreSQL and Kafka.
+
+```
+POST /orders (single DB transaction)
+  ├── INSERT INTO orders (status=PENDING)
+  └── INSERT INTO outbox_events (event_type, payload, published=false)
+
+Scheduler (every 1s)
+  ├── SELECT * FROM outbox_events WHERE published=false
+  ├── kafkaTemplate.send(topic, payload)
+  └── UPDATE outbox_events SET published=true
+```
+
+Even if the Kafka broker is temporarily unavailable, events are not lost — they remain in the outbox until successfully published.
+
+---
+
+## Real-time Updates (SSE)
+
+```
+Browser                         order-service
+  │                                   │
+  ├── GET /orders/sse ──────────────▶  │ SseEmitterRegistry.register(userEmail)
+  │   (persistent connection)         │
+  │                                   │
+  │   [Kafka: payment-topic arrives]  │
+  │                                   │ emitter.send(OrderStatusEvent)
+  │ ◀── data: {"orderId":1,           │
+  │            "status":"CONFIRMED"}  │
+  │                                   │
+  │   [client disconnect]             │
+  │   AsyncRequestNotUsableException  │ SseEmitterRegistry.remove(userEmail)
+                                      │ (silenced — expected lifecycle)
+```
+
+Each authenticated user has at most one active SSE emitter. The registry maps `userEmail → SseEmitter`.
+
+---
 
 ## Circuit Breaker
 
@@ -116,20 +172,22 @@ Gateway → Resilience4j Circuit Breaker per route
   └── payment-cb    → fallback: /fallback/transactions → 503
 
 States:
-  CLOSED → normal operation, counts failures
-  OPEN   → all requests rejected immediately (after >50% failures on 10 calls)
-  HALF_OPEN → tests 3 calls after 10s wait → CLOSED or back to OPEN
+  CLOSED    → normal operation, counts failures
+  OPEN      → all requests rejected immediately (after >50% failures on 10 calls)
+  HALF_OPEN → tests 3 calls after 10 s wait → CLOSED or back to OPEN
 
 Metrics: GET http://localhost:8080/actuator/circuitbreakers
 ```
+
+---
 
 ## Rate Limiting
 
 ```
 Gateway → Redis RequestRateLimiter (token bucket algorithm)
-  ├── replenishRate:  10 req/s  (sustained rate)
-  ├── burstCapacity:  20        (peak allowed)
-  └── requestedTokens: 1        (cost per request)
+  ├── replenishRate:    10 req/s  (sustained rate)
+  ├── burstCapacity:    20        (peak allowed)
+  └── requestedTokens:  1        (cost per request)
 
 KeyResolver:
   ├── With JWT token  → rate limit per user (substring of token)
@@ -138,16 +196,14 @@ KeyResolver:
 Response when exceeded: 429 Too Many Requests
 ```
 
+---
+
 ## Redis Cache (Inventory Service)
 
 ```
 GET /products
   ├── Cache HIT  → return from Redis (no DB query)
   └── Cache MISS → query DB → store in Redis → return
-  
-GET /products/{id}
-  └── no cache — direct DB query
-  └── 404 if not found → GlobalExceptionHandler → ErrorResponse
 
 POST /products
   └── Create product → @CacheEvict → invalidate "products" cache
@@ -155,6 +211,8 @@ POST /products
 Redis key: "products::SimpleKey []"
 TTL: none (evicted on write)
 ```
+
+---
 
 ## Testing Strategy
 
@@ -166,17 +224,20 @@ Each service
 Testcontainers setup:
   ├── @ServiceConnection PostgreSQLContainer → auto-wires datasource
   ├── @ServiceConnection KafkaContainer      → auto-wires bootstrap-servers
-  └── application.yml in src/test/resources  → overrides main config
-      (disables Config Server, cache, and remote deps)
+  └── src/test/resources/application.yml     → disables Config Server + remote deps
 ```
+
+No H2, no embedded Kafka — tests run against the same engines as production.
+
+---
 
 ## Centralized Configuration
 
 ```
-config-server (8888)
+config-server :8888
   └── configs/
-       ├── application.yml        ← shared: OpenTelemetry, tracing, logging
-       ├── application-dev.yml    ← shared dev: DEBUG logging
+       ├── application.yml         ← shared: OpenTelemetry, tracing, logging
+       ├── application-dev.yml     ← shared dev: DEBUG logging
        ├── auth-service.yml
        ├── order-service.yml
        ├── inventory-service.yml
@@ -186,9 +247,11 @@ config-server (8888)
        └── shop-ui.yml
 
 Profile activation:
-  dev  → spring.profiles.active=dev  (local IntelliJ)
-  prod → no profile (Docker compose, default application.yml)
+  dev  → spring.profiles.active=dev  (local IntelliJ / docker-compose.local.yml)
+  prod → no profile                  (docker-compose.yml — production)
 ```
+
+---
 
 ## Observability Stack
 
@@ -203,22 +266,26 @@ Every log line includes traceId:
 [order-service] [nio-8081-exec-1] [f9b4100b3004d2e68a306bf2862c67f1] ...
 ```
 
+---
+
 ## Uptime Monitoring
 
 ```
 Uptime Kuma :3001
-  └── HTTP monitor per service (every 60s)
-        ├── gateway-service    → http://gateway-service:8080/actuator/health
-        ├── auth-service       → http://auth-service:8084/actuator/health
-        ├── order-service      → http://order-service:8081/actuator/health
-        ├── inventory-service  → http://inventory-service:8082/actuator/health
-        ├── payment-service    → http://payment-service:8083/actuator/health
+  └── HTTP monitor per service (every 60 s)
+        ├── gateway-service      → http://gateway-service:8080/actuator/health
+        ├── auth-service         → http://auth-service:8084/actuator/health
+        ├── order-service        → http://order-service:8081/actuator/health
+        ├── inventory-service    → http://inventory-service:8082/actuator/health
+        ├── payment-service      → http://payment-service:8083/actuator/health
         ├── notification-service → http://notification-service:8085/actuator/health
-        └── shop-ui            → http://shop-ui:4200/actuator/health
+        └── shop-ui              → http://shop-ui:80
 
 Notifications:
   └── Telegram → instant alert on DOWN / UP events
 ```
+
+---
 
 ## Infrastructure (infra-node1 — Production)
 
@@ -229,8 +296,10 @@ Internet → Nginx (:80) → Gateway (:8080)
                               ├── Inventory (:8082)
                               ├── Payment (:8083)
                               ├── Notification (:8085)
-                              └── Frontend (:8090)
+                              └── shop-ui (:80)
 ```
+
+---
 
 ## Database per Service
 
@@ -241,34 +310,115 @@ Internet → Nginx (:80) → Gateway (:8080)
 | inventory-service | inventorydb | Flyway |
 | payment-service | paymentdb | Flyway |
 
-## Tech Decisions
+---
 
-### Why Kafka over REST between services?
-Kafka decouples services in time — if payment-service is down, the message stays in the topic and is consumed when it comes back. With REST, a failed call means a lost event. Kafka also enables multiple consumers on the same topic (order-service + notification-service both consume payment-topic).
+## Architectural Decision Records (ADRs)
 
-### Why Spring Cloud Config?
-Centralizes configuration across all services. One change in `configs/application.yml` propagates to all services on restart. Dev/prod profiles managed centrally — no need to touch individual service YMLs.
+---
 
-### Why a dedicated auth-service instead of auth in the gateway?
-The gateway is WebFlux (reactive). Putting user management (DB access, BCrypt) in the gateway would mix concerns. The auth-service is standard WebMVC with JPA — simpler and independently deployable.
+### ADR-001 — Real-time Updates via SSE over Polling
 
-### Why RBAC at the gateway, not in each service?
-The gateway is the single entry point for all HTTP traffic. Centralizing RBAC there means downstream services don't need to know about authentication — they focus on business logic. This also makes it trivial to add new role-based rules without touching microservice code.
+**Context**
+Orders flow through an async Kafka saga that can take several seconds to complete. Users need to see their order status update without refreshing the page.
 
-### Why no seeded ADMIN user in Flyway?
-Seeding an ADMIN with default credentials would commit secrets into the repo. Instead, the migration only creates USER accounts, and ADMIN users are provisioned post-deployment via a script (`create-admin.sh`). Future work: ADMIN-only `POST /auth/admin` endpoint for self-service admin provisioning.
+**Decision**
+Use Server-Sent Events (SSE) from `order-service` rather than client-side polling or WebSocket.
 
-### Why Resilience4j Circuit Breaker only on the gateway?
-Services communicate via Kafka (async) — Circuit Breaker is most valuable on synchronous HTTP calls. The gateway is the single entry point for all HTTP traffic, making it the right place for resilience patterns. Adding Circuit Breaker inside each service too would create double-retry issues.
+**Flow**
+- Browser opens one persistent `GET /orders/sse` connection on login
+- `order-service` holds an `SseEmitter` per authenticated user in `SseEmitterRegistry`
+- When a Kafka consumer updates order status, it looks up the emitter and pushes the event
+- Client receives `{orderId, status}` and updates the UI instantly
 
-### Why Redis for rate limiting AND caching?
-Redis is already required by Spring Cloud Gateway's `RequestRateLimiter`. Adding product caching in inventory-service reuses the same infrastructure with zero added complexity. One Redis instance, two use cases.
+**Why SSE over WebSocket?**
+Order updates are server-to-client only — there is no need for bidirectional messaging. SSE is simpler: plain HTTP, built-in reconnect, no upgrade handshake, and no additional library on the frontend.
 
-### Why Thymeleaf + HTMX for the frontend?
-No build toolchain, no heavy framework, no separate deployment. HTMX enables dynamic interactions via HTML attributes. The frontend is a simple Spring Boot service that calls the gateway — consistent with the rest of the architecture.
+**Why SSE over polling?**
+Polling adds unnecessary DB load and latency. SSE delivers the event the moment it is available with zero overhead on the client side.
 
-### Why Grafana LGTM?
-Single Docker image bundling Loki + Grafana + Tempo + Mimir. Zero configuration needed for a full observability stack in dev. In prod, each component could be deployed separately for scalability.
+---
 
-### Why Testcontainers over H2 for IT tests?
-H2 doesn't faithfully reproduce PostgreSQL behavior (dialect differences, JSON support, migrations). Testcontainers spins up real PostgreSQL + Kafka containers for each test run — same engine as production, zero surprises when deploying.
+### ADR-002 — Event-Driven Communication via Kafka
+
+**Context**
+Order processing requires coordinating three independent services (order, inventory, payment). Direct REST calls would create tight coupling and risk lost events on service downtime.
+
+**Decision**
+Use Apache Kafka for all inter-service communication in the order saga. Services publish to topics and consume asynchronously.
+
+**Why Kafka over REST?**
+Kafka decouples services in time — if `payment-service` is down, the message stays in the topic and is consumed when it comes back. With REST, a failed call means a lost event. Kafka also enables multiple consumers on the same topic (`order-service` and `notification-service` both consume `payment-topic`).
+
+**Why KRaft (no Zookeeper)?**
+Kafka 4.x ships with KRaft mode as the default. It eliminates the Zookeeper dependency, reducing operational complexity for local development and production deployment.
+
+---
+
+### ADR-003 — Centralized Configuration via Spring Cloud Config
+
+**Context**
+Eight services each have their own configuration. Managing per-service YMLs independently leads to drift and makes cross-cutting changes (e.g. updating the OTLP endpoint) error-prone.
+
+**Decision**
+Run a dedicated `config-server` that serves all service configurations from a central `configs/` directory. Services fetch their config at startup via Spring Cloud Config Client.
+
+**Why Spring Cloud Config?**
+One change in `configs/application.yml` propagates to all services on restart. Dev/prod profiles are managed centrally — no need to touch individual service YMLs for environment-specific settings.
+
+---
+
+### ADR-004 — RBAC at the Gateway Layer
+
+**Context**
+Role-based access control needs to be enforced consistently. Implementing it in every microservice creates duplication and risk of inconsistency.
+
+**Decision**
+All RBAC enforcement happens in the gateway's `JwtWebFilter`. Downstream services receive `X-User-Role` as a trusted header — they never inspect the JWT.
+
+**Why not in each service?**
+The gateway is the single entry point for all HTTP traffic. Centralizing RBAC there means downstream services focus purely on business logic. Adding new role-based rules requires a change in one place, not eight.
+
+**Why not a separate auth middleware service?**
+The gateway is already the right boundary — it handles routing, circuit breaking, and rate limiting. Adding RBAC there is a natural fit. A dedicated auth middleware would add a network hop on every request.
+
+---
+
+### ADR-005 — Stripe Payment Integration
+
+**Context**
+Payment processing needed to be real, testable against live card scenarios, and safe — no storing raw card data.
+
+**Decision**
+Use Stripe in test mode with the PaymentIntent API. The UI embeds Stripe Elements, which handles card collection entirely on Stripe's infrastructure (PCI scope never reaches this application).
+
+**Flow**
+1. User fills cart → frontend calls `POST /payments/create-intent` → `payment-service` creates a `PaymentIntent` via Stripe API → returns `clientSecret`
+2. User submits card via Stripe Elements → Stripe confirms payment client-side
+3. User proceeds → `POST /orders` includes `paymentIntentId`
+4. `order-service` starts the saga → `payment-service` Kafka consumer calls `GET /payments/confirm/{paymentIntentId}` → verifies `PaymentIntent.status == "succeeded"` via Stripe API
+5. On success → order CONFIRMED; on failure → compensation triggered
+
+**Why payment before order?**
+Prevents orphan orders — orders that exist in the DB but were never paid. No order row is written until payment is confirmed. This simplifies the saga: by the time Kafka fires, the payment is already verified.
+
+**Why verify the PaymentIntent server-side?**
+The client-side Stripe confirmation could be spoofed. Verifying via the Stripe API in `payment-service` ensures the payment status is authoritative regardless of what the client claims.
+
+---
+
+### ADR-006 — Infisical Self-Hosted Secrets Management
+
+**Context**
+Production secrets (DB passwords, JWT signing key, Stripe API key, Gmail credentials) must not be committed to git or hardcoded in Docker Compose files. The project runs on a personal homelab, so cost and operational complexity matter.
+
+**Decision**
+Self-hosted Infisical on a dedicated Proxmox LXC container (infra-node1). The Gitea Actions pipeline authenticates via Machine Identity (Universal Auth) and writes secrets to a `.env` file on the deploy host before each deployment.
+
+**Why not HashiCorp Vault?**
+Vault's complexity (initialization, unsealing, policy authoring) is disproportionate for a personal homelab. Infisical offers equivalent secret storage and access control with a much simpler setup — Docker Compose deployment in under 10 minutes, web UI included.
+
+**Why self-hosted over Infisical Cloud?**
+Full control over secret data, no third-party dependency, and zero cost. The homelab already runs Proxmox with spare capacity.
+
+**Why not environment variables directly in Docker Compose?**
+Committing secrets in Compose files, even in a private repo, is a security risk. Infisical provides audit logs, secret versioning, and machine-identity-scoped access that plain env files cannot.

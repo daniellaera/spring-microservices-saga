@@ -11,6 +11,7 @@ export interface OrderDto {
   status: string;
   userEmail: string;
   createdAt: string;
+  paymentIntentId?: string;
 }
 
 export interface PagedResponse<T> {
@@ -34,9 +35,7 @@ export class OrderService {
     return this.http.get<PagedResponse<OrderDto>>(`/orders?page=${page}&size=${size}`);
   }
 
-  createOrder(productName: string, quantity: number, price: number): Observable<OrderDto> {
-    return this.http.post<OrderDto>('/orders', {
-      productName, quantity, price
-    });
+  createOrder(productName: string, quantity: number, price: number, paymentIntentId: string = ''): Observable<OrderDto> {
+    return this.http.post<OrderDto>('/orders', { productName, quantity, price, paymentIntentId });
   }
 }

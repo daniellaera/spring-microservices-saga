@@ -60,6 +60,20 @@ spring:
                     redis-rate-limiter.replenishRate: 10
                     redis-rate-limiter.burstCapacity: 20
                     redis-rate-limiter.requestedTokens: 1
+            - id: stripe-payment-service
+              uri: ${PAYMENT_SERVICE_URI:http://localhost:8083}
+              predicates:
+                - Path=/payments/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: payment-cb
+                    fallbackUri: forward:/fallback/payments
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 10
+                    redis-rate-limiter.burstCapacity: 20
+                    redis-rate-limiter.requestedTokens: 1
 
   application:
     name: gateway-service

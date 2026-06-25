@@ -1,6 +1,6 @@
 package com.daniellaera.inventoryservice.consumer;
 
-import com.daniellaera.inventoryservice.dto.InventoryEvent;
+import com.daniellaera.inventoryservice.dto.InventoryResultEvent;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
 import com.daniellaera.inventoryservice.dto.PaymentEvent;
 import com.daniellaera.inventoryservice.model.CompensationLog;
@@ -15,7 +15,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -28,24 +27,49 @@ public class InventoryConsumer {
     private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = "orders-topic", groupId = "inventory-group")
-    public void consumeOrder(String message) throws Exception {
-        OrderEvent event = objectMapper.readValue(message, OrderEvent.class);
+    public void consumeOrder(String message) {
+        try {
+            OrderEvent event = objectMapper.readValue(message, OrderEvent.class);
+            log.info("=== Inventory: received order {} for {} x{}",
+                    event.orderId(), event.productName(), event.quantity());
 
-        Optional<Product> productOpt = productRepository.findByName(event.productName());
+            Product product = productRepository
+                    .findByName(event.productName())
+                    .orElseThrow(() -> new RuntimeException("Product not found: " + event.productName()));
 
-        if (productOpt.isPresent() && productOpt.get().getQuantity() >= event.quantity()) {
-            Product product = productOpt.get();
-            product.setQuantity(product.getQuantity() - event.quantity());
-            productRepository.save(product);
-            kafkaTemplate.send("inventory-topic", objectMapper.writeValueAsString(
-                    new InventoryEvent(event.orderId(), event.productName(), event.quantity(), "APPROVED",
-                            event.price(), event.totalAmount(), event.userEmail())
-            ));
-        } else {
-            kafkaTemplate.send("inventory-topic", objectMapper.writeValueAsString(
-                    new InventoryEvent(event.orderId(), event.productName(), 0, "REJECTED",
-                            event.price(), event.totalAmount(), event.userEmail())
-            ));
+            String status;
+            int reservedQuantity;
+            if (product.getQuantity() >= event.quantity()) {
+                product.setQuantity(product.getQuantity() - event.quantity());
+                productRepository.save(product);
+                status = "APPROVED";
+                reservedQuantity = event.quantity();
+                log.info("=== Inventory: stock reserved for orderId {} — {} units remaining",
+                        event.orderId(), product.getQuantity());
+            } else {
+                status = "REJECTED";
+                reservedQuantity = 0;
+                log.warn("=== Inventory: insufficient stock for orderId {} — {} requested, {} available",
+                        event.orderId(), event.quantity(), product.getQuantity());
+            }
+
+            InventoryResultEvent result = new InventoryResultEvent(
+                    event.orderId(),
+                    status,
+                    event.productName(),
+                    reservedQuantity,
+                    event.price(),
+                    event.totalAmount(),
+                    event.userEmail(),
+                    event.paymentIntentId()
+            );
+
+            kafkaTemplate.send("inventory-topic", objectMapper.writeValueAsString(result));
+            log.info("=== Inventory: published {} to inventory-topic for orderId {}",
+                    status, event.orderId());
+
+        } catch (Exception e) {
+            log.error("=== Inventory: failed to process order event: {}", e.getMessage());
         }
     }
 

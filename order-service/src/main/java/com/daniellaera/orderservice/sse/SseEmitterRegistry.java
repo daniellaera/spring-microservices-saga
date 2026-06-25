@@ -57,7 +57,9 @@ public class SseEmitterRegistry {
                 dead.add(emitter);
             }
         }
-        dead.forEach(e -> removeEmitter(userEmail, e));
+        dead.forEach(e -> {
+            try { removeEmitter(userEmail, e); } catch (Exception ignored) {}
+        });
     }
 
     public void pushToAll(Object data) {
