@@ -191,6 +191,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - CONFIG_SERVER_URI=http://config-server:8888
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
       - JAVA_TOOL_OPTIONS=-Xms64m -Xmx150m
     depends_on:
       kafka:
