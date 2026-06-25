@@ -3,6 +3,7 @@ name: Build and Deploy Online Shop
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
 
