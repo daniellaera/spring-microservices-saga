@@ -1,7 +1,7 @@
 import { Component, NgZone, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { Observable } from 'rxjs';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -40,6 +40,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private notificationService = inject(NotificationService);
   private paymentService = inject(PaymentService);
   private zone = inject(NgZone);
+  private router = inject(Router);
 
   isAdmin = this.authService.isAdmin;
   currentEmail = this.authService.currentEmail;
@@ -76,6 +77,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    if (this.authService.isTokenExpired()) {
+      this.authService.logout();
+      this.router.navigate(['/login']);
+      return;
+    }
     this.loadProducts();
     this.loadOrders(0);
     this.connectSSE();

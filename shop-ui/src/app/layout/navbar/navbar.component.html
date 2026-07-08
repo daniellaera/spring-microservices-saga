@@ -12,6 +12,12 @@
   <ng-template pTemplate="end">
     @if (isLoggedIn()) {
       <div class="flex align-items-center gap-3">
+        <div class="flex align-items-center gap-1 text-sm"
+             [style.color]="sessionTimeLow() ? '#e74c3c' : 'var(--text-color-secondary)'"
+             title="Session time remaining">
+          <i class="pi pi-clock" style="font-size:0.9rem"></i>
+          <span class="font-mono">{{ sessionTime() }}</span>
+        </div>
         <div style="position:relative; cursor:pointer"
              (click)="clearNotifications()"
              title="Notifications">

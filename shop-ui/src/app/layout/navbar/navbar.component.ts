@@ -30,6 +30,8 @@ export class NavbarComponent implements OnInit {
   userInitial = this.authService.userInitial;
   currentEmail = this.authService.currentEmail;
   notificationCount = this.notificationService.count;
+  sessionTime = this.authService.sessionTimeRemaining;
+  sessionTimeLow = this.authService.sessionTimeLow;
 
   clearNotifications(): void {
     this.notificationService.clear();
