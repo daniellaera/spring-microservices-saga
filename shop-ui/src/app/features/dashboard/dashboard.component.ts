@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, NgZone, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -39,6 +39,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private messageService = inject(MessageService);
   private notificationService = inject(NotificationService);
   private paymentService = inject(PaymentService);
+  private zone = inject(NgZone);
 
   isAdmin = this.authService.isAdmin;
   currentEmail = this.authService.currentEmail;
@@ -269,14 +270,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
             if (line.startsWith('data:')) {
               try {
                 const data = JSON.parse(line.slice(5).trim());
-                const order = this.orders.find(o => o.id === data.orderId);
-                if (order) {
-                  const previousStatus = order.status;
-                  order.status = data.status;
-                  if (previousStatus !== data.status) {
-                    this.showOrderNotification(data.orderId, data.status, order.productName);
+                this.zone.run(() => {
+                  const order = this.orders.find(o => o.id === data.orderId);
+                  if (order) {
+                    const previousStatus = order.status;
+                    if (previousStatus !== data.status) {
+                      this.orders = this.orders.map(o =>
+                        o.id === data.orderId ? { ...o, status: data.status } : o
+                      );
+                      this.showOrderNotification(data.orderId, data.status, order.productName);
+                    }
+                  } else {
+                    console.warn('SSE: order not found in list', data.orderId);
                   }
-                }
+                });
               } catch {}
             }
           }
