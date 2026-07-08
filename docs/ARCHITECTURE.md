@@ -264,6 +264,8 @@ Each service
 
 Every log line includes traceId:
 [order-service] [nio-8081-exec-1] [f9b4100b3004d2e68a306bf2862c67f1] ...
+
+Dozzle :9999 — real-time Docker log viewer for all container logs in one UI.
 ```
 
 ---

@@ -91,6 +91,7 @@ A production-grade microservices e-commerce platform built on Java 21 and Spring
 | payment-service | 8083 | Stripe PaymentIntent integration, Kafka saga |
 | notification-service | 8085 | Order confirmation emails via Gmail SMTP |
 | config-server | 8888 | Centralized Spring Cloud Config Server |
+| dozzle | 9999 | Real-time Docker log viewer — all container logs in one UI |
 
 ---
 
@@ -181,6 +182,7 @@ Gitea Actions with path-based change detection — only changed services are reb
 | Metrics | Grafana Mimir | Micrometer OTLP registry |
 | Logs | Grafana Loki | OpenTelemetry Logback appender |
 | Uptime | Uptime Kuma | `/actuator/health` every 60 s + Telegram alerts |
+| Real-time logs | Dozzle (http://infra-node1:9999) | unified log viewer for all containers |
 
 Every log line carries a `traceId` for cross-service correlation. Access Grafana at `http://localhost:3000`.
 
