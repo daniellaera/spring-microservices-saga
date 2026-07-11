@@ -14,5 +14,5 @@ WORKDIR /app
 # Copy the JAR of THIS service
 COPY --from=maven-builder /app/order-service/target/order-service.jar order-service.jar
 
-EXPOSE 8080
+EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "order-service.jar"]

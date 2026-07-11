@@ -14,5 +14,5 @@ WORKDIR /app
 # Copy the JAR of THIS service
 COPY --from=maven-builder /app/notification-service/target/notification-service.jar notification-service.jar
 
-EXPOSE 8080
+EXPOSE 8085
 ENTRYPOINT ["java", "-jar", "notification-service.jar"]

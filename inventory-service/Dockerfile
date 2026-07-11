@@ -14,5 +14,5 @@ WORKDIR /app
 # Copy the JAR of THIS service
 COPY --from=maven-builder /app/inventory-service/target/inventory-service.jar inventory-service.jar
 
-EXPOSE 8080
+EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "inventory-service.jar"]

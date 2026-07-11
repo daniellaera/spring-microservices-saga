@@ -33,6 +33,21 @@
             </span>
           }
         </div>
+        <div style="position:relative; cursor:pointer"
+             (click)="toggleCart()"
+             title="Shopping cart">
+          <i class="pi pi-shopping-cart text-color" style="font-size:1.2rem"></i>
+          @if (cartCount() > 0) {
+            <span style="position:absolute; top:-6px; right:-6px;
+                         background:#3b82f6; color:white;
+                         border-radius:50%; width:18px; height:18px;
+                         font-size:.7rem; font-weight:700;
+                         display:flex; align-items:center;
+                         justify-content:center">
+              {{ cartCount() > 9 ? '9+' : cartCount() }}
+            </span>
+          }
+        </div>
         <p-avatar
           [label]="userInitial()"
           shape="circle"

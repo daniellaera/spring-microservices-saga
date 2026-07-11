@@ -137,4 +137,65 @@ public class OrderControllerITTest {
         mockMvc.perform(get("/orders/stream"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void createOrder_withMultipleItems_shouldPersistAllItemsAndSumTotal() throws Exception {
+        mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"items":[
+                                  {"productName":"iPhone 16","quantity":2,"price":999.99},
+                                  {"productName":"AirPods","quantity":1,"price":249.99}
+                                ]}""")
+                        .header("X-User-Email", "bob@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.productName").value("iPhone 16"))
+                .andExpect(jsonPath("$.totalAmount").value(2249.97))
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].productName").value("iPhone 16"))
+                .andExpect(jsonPath("$.items[1].productName").value("AirPods"));
+
+        Order saved = orderRepository.findByUserEmail("bob@example.com").get(0);
+        assertThat(saved.getItems()).hasSize(2);
+        assertThat(saved.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(2249.97));
+    }
+
+    @Test
+    void createOrder_withEmptyItemsAndNoLegacyFields_shouldReturn400() throws Exception {
+        mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[]}"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(orderRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    void createOrder_withNegativeQuantityItem_shouldReturn400() throws Exception {
+        mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"items":[
+                                  {"productName":"iPhone 16","quantity":-1,"price":999.99}
+                                ]}"""))
+                .andExpect(status().isBadRequest());
+
+        assertThat(orderRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    void getAllOrders_paged_shouldReturnAllOrders() throws Exception {
+        Order second = new Order();
+        second.setProductName("iPad");
+        second.setQuantity(1);
+        second.setPrice(BigDecimal.valueOf(599.99));
+        second.setTotalAmount(BigDecimal.valueOf(599.99));
+        second.setStatus(OrderStatus.PENDING);
+        orderRepository.save(second);
+
+        mockMvc.perform(get("/orders").param("page", "0").param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
 }

@@ -1,6 +1,7 @@
 package com.daniellaera.paymentservice.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record OrderEvent(
         Long orderId,
@@ -9,5 +10,6 @@ public record OrderEvent(
         BigDecimal price,
         BigDecimal totalAmount,
         String userEmail,
-        String paymentIntentId
+        String paymentIntentId,
+        List<OrderItemEvent> items
 ) {}

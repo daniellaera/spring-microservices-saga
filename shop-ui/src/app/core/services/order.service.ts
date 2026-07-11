@@ -2,6 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export interface OrderItemDto {
+  id: number;
+  productName: string;
+  quantity: number;
+  price: number;
+  totalAmount: number;
+}
+
 export interface OrderDto {
   id: number;
   productName: string;
@@ -12,6 +20,7 @@ export interface OrderDto {
   userEmail: string;
   createdAt: string;
   paymentIntentId?: string;
+  items: OrderItemDto[];
 }
 
 export interface PagedResponse<T> {
@@ -21,6 +30,12 @@ export interface PagedResponse<T> {
   totalElements: number;
   hasNext: boolean;
   hasPrevious: boolean;
+}
+
+export interface OrderItemInput {
+  productName: string;
+  quantity: number;
+  price: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -35,7 +50,7 @@ export class OrderService {
     return this.http.get<PagedResponse<OrderDto>>(`/orders?page=${page}&size=${size}`);
   }
 
-  createOrder(productName: string, quantity: number, price: number, paymentIntentId: string = ''): Observable<OrderDto> {
-    return this.http.post<OrderDto>('/orders', { productName, quantity, price, paymentIntentId });
+  createOrder(items: OrderItemInput[], paymentIntentId: string = ''): Observable<OrderDto> {
+    return this.http.post<OrderDto>('/orders', { items, paymentIntentId });
   }
 }

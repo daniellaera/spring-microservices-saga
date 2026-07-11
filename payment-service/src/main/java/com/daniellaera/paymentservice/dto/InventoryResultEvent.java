@@ -1,6 +1,7 @@
 package com.daniellaera.paymentservice.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record InventoryResultEvent(
         Long orderId,
@@ -10,5 +11,6 @@ public record InventoryResultEvent(
         BigDecimal price,
         BigDecimal totalAmount,
         String userEmail,
-        String paymentIntentId
+        String paymentIntentId,
+        List<OrderItemEvent> items
 ) {}

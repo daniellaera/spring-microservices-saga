@@ -1,5 +1,11 @@
 # Online Shop — Microservices Platform
 
+![Coverage](https://img.shields.io/badge/coverage-83%25-brightgreen)
+![Tests](https://img.shields.io/badge/tests-158%20passing-brightgreen)
+![Java](https://img.shields.io/badge/Java-21-blue)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
+![Angular](https://img.shields.io/badge/Angular-21-red)
+
 A production-grade microservices e-commerce platform built on Java 21 and Spring Boot 4, demonstrating enterprise patterns including event-driven saga choreography, transactional outbox, real-time SSE updates, JWT gateway authentication, and Stripe payment processing. Deployed on a self-hosted Proxmox homelab with Gitea Actions CI/CD and Infisical secrets management.
 
 ---

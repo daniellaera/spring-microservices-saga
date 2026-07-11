@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: cart-service
+  config:
+    import: "optional:configserver:"
+
+server:
+  port: 8086

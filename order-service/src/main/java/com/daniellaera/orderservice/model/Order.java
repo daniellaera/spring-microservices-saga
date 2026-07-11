@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "orders")
@@ -15,6 +17,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class Order extends BaseEntity {
 
+    // Legacy single-item fields — represent the FIRST item for backward compat.
     @Column(nullable = false)
     private String productName;
 
@@ -36,4 +39,7 @@ public class Order extends BaseEntity {
 
     @Column(name = "payment_intent_id")
     private String paymentIntentId;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    private List<OrderItem> items = new ArrayList<>();
 }

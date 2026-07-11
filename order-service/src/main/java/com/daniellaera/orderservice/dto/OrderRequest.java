@@ -1,23 +1,33 @@
 package com.daniellaera.orderservice.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record OrderRequest(
-    @NotBlank(message = "Product name is required")
+    // Legacy single-item fields — kept for backward compat when items is absent.
     String productName,
 
-    @NotNull(message = "Quantity is required")
     @Min(value = 1, message = "Quantity must be at least 1")
     Integer quantity,
 
-    @NotNull(message = "Price is required")
     @DecimalMin(value = "0.01", message = "Price must be greater than 0")
     BigDecimal price,
 
-    String paymentIntentId
-) {}
+    String paymentIntentId,
+
+    List<@Valid OrderItemRequest> items
+) {
+    public List<OrderItemRequest> resolvedItems() {
+        if (items != null && !items.isEmpty()) {
+            return items;
+        }
+        if (productName != null && quantity != null) {
+            return List.of(new OrderItemRequest(productName, quantity, price));
+        }
+        return List.of();
+    }
+}

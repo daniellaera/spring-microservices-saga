@@ -13,12 +13,15 @@ import { ToastModule } from 'primeng/toast';
 import { SkeletonModule } from 'primeng/skeleton';
 import { DividerModule } from 'primeng/divider';
 import { DialogModule } from 'primeng/dialog';
+import { DrawerModule } from 'primeng/drawer';
+import { BadgeModule } from 'primeng/badge';
 import { MessageService } from 'primeng/api';
 import { AuthService } from '../../core/services/auth.service';
 import { OrderService, OrderDto, PagedResponse } from '../../core/services/order.service';
 import { ProductService, ProductDto } from '../../core/services/product.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { PaymentService, PaymentIntentResponse } from '../../core/services/payment.service';
+import { CartService } from '../../core/services/cart.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -27,7 +30,8 @@ import { PaymentService, PaymentIntentResponse } from '../../core/services/payme
     CommonModule, FormsModule, DatePipe, RouterModule,
     TableModule, ButtonModule, TagModule,
     CardModule, SelectModule, InputNumberModule,
-    ToastModule, SkeletonModule, DividerModule, DialogModule
+    ToastModule, SkeletonModule, DividerModule, DialogModule,
+    DrawerModule, BadgeModule
   ],
   providers: [MessageService],
   templateUrl: './dashboard.component.html'
@@ -41,6 +45,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private paymentService = inject(PaymentService);
   private zone = inject(NgZone);
   private router = inject(Router);
+  cartService = inject(CartService);
 
   isAdmin = this.authService.isAdmin;
   currentEmail = this.authService.currentEmail;
@@ -63,6 +68,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showPaymentDialog = false;
   paymentLoading = false;
   currentPaymentIntent: PaymentIntentResponse | null = null;
+  cartCheckoutIntent: PaymentIntentResponse | null = null;
+  isCartCheckout = false;
   private stripeElements: any = null;
   private cardElement: any = null;
 
@@ -84,7 +91,83 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     this.loadProducts();
     this.loadOrders(0);
+    this.loadCart();
     this.connectSSE();
+  }
+
+  loadCart(): void {
+    this.cartService.getCart().subscribe();
+  }
+
+  addToCart(product: ProductDto): void {
+    this.cartService.addItem(product.name, this.quantity(), product.price).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: '🛒 Added to cart',
+          detail: `${product.name} added`,
+          life: 2000
+        });
+        this.cartService.cartVisible.set(true);
+      },
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Failed',
+          detail: 'Could not add to cart',
+          life: 3000
+        });
+      }
+    });
+  }
+
+  removeFromCart(productName: string): void {
+    this.cartService.removeItem(productName).subscribe();
+  }
+
+  updateCartQuantity(productName: string, quantity: number): void {
+    this.cartService.updateQuantity(productName, quantity).subscribe();
+  }
+
+  clearCart(): void {
+    this.cartService.clearCart().subscribe(() => {
+      this.cartService.cartVisible.set(false);
+    });
+  }
+
+  checkoutCart(): void {
+    const cart = this.cartService.cart();
+    if (!cart || cart.items.length === 0) return;
+
+    this.isCartCheckout = true;
+    this.orderLoading = true;
+    const amountInCents = Math.round(
+      cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 100
+    );
+
+    this.paymentService.createPaymentIntent(
+      amountInCents,
+      'eur',
+      cart.items.map(i => i.productName).join(', ')
+    ).subscribe({
+      next: async (intent) => {
+        this.currentPaymentIntent = intent;
+        this.cartCheckoutIntent = intent;
+        this.showPaymentDialog = true;
+        this.cartService.cartVisible.set(false);
+        this.orderLoading = false;
+        setTimeout(() => this.mountStripeCard(intent), 300);
+      },
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Payment setup failed',
+          detail: 'Could not initialize payment',
+          life: 4000
+        });
+        this.orderLoading = false;
+      }
+    });
   }
 
   loadOrders(page: number = 0): void {
@@ -124,6 +207,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const product = this.selectedProduct();
     if (!product) return;
 
+    this.isCartCheckout = false;
     this.orderLoading = true;
     const amountInCents = Math.round(product.price * this.quantity() * 100);
 
@@ -181,7 +265,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     if (paymentIntent?.status === 'succeeded') {
-      this.placeOrderAfterPayment(paymentIntent.id);
+      if (this.isCartCheckout) {
+        this.placeCartOrdersAfterPayment(paymentIntent.id);
+      } else {
+        this.placeOrderAfterPayment(paymentIntent.id);
+      }
     }
   }
 
@@ -191,9 +279,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!product) return;
 
     this.orderService.createOrder(
-      product.name,
-      this.quantity(),
-      product.price,
+      [{ productName: product.name, quantity: this.quantity(), price: product.price }],
       paymentIntentId
     ).subscribe({
       next: (newOrder: OrderDto) => {
@@ -203,6 +289,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.totalElements++;
         this.quantity.set(1);
         this.loadProducts();
+        this.cartService.clearCart().subscribe();
+        this.cartService.cartVisible.set(false);
         this.messageService.add({
           severity: 'info',
           summary: '⏳ Order submitted',
@@ -226,12 +314,60 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Step 3b: cart checkout — create ONE order containing all cart items
+  placeCartOrdersAfterPayment(paymentIntentId: string): void {
+    const cart = this.cartService.cart();
+    if (!cart || cart.items.length === 0) return;
+
+    const items = cart.items.map(i => ({
+      productName: i.productName,
+      quantity: i.quantity,
+      price: i.price
+    }));
+
+    this.orderService.createOrder(items, paymentIntentId).subscribe({
+      next: (newOrder: OrderDto) => {
+        this.showPaymentDialog = false;
+        this.paymentLoading = false;
+        this.isCartCheckout = false;
+        this.orders = [newOrder, ...this.orders];
+        this.totalElements++;
+        this.cartService.clearCart().subscribe();
+        this.cartService.cartVisible.set(false);
+        this.quantity.set(1);
+        this.loadProducts();
+        this.cardElement?.destroy();
+        this.cardElement = null;
+        this.stripeElements = null;
+        this.currentPaymentIntent = null;
+        this.cartCheckoutIntent = null;
+        this.messageService.add({
+          severity: 'info',
+          summary: '⏳ Order submitted',
+          detail: `${cart.items.length} items — processing...`,
+          life: 3000
+        });
+      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Order creation failed',
+          detail: err?.error?.message || 'Payment succeeded but order failed',
+          life: 5000
+        });
+        this.paymentLoading = false;
+      }
+    });
+  }
+
   cancelPayment(): void {
     this.showPaymentDialog = false;
     this.cardElement?.destroy();
     this.cardElement = null;
     this.stripeElements = null;
     this.currentPaymentIntent = null;
+    this.cartCheckoutIntent = null;
+    this.isCartCheckout = false;
   }
 
   connectSSE(): void {

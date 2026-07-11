@@ -105,6 +105,60 @@ public class JwtWebFilterTest {
     }
 
     @Test
+    void filter_shouldPass_whenAdminTokenAccessesAdminPath() {
+        String token = "admin-token";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        when(request.getPath()).thenReturn(org.springframework.http.server.RequestPath.parse(org.springframework.web.util.pattern.PathPatternParser.defaultInstance.parse("/products").getPatternString(), "/products"));
+        when(request.getMethod()).thenReturn(org.springframework.http.HttpMethod.POST);
+        when(request.getHeaders()).thenReturn(headers);
+        when(jwtUtil.isTokenValid(token)).thenReturn(true);
+        when(jwtUtil.extractEmail(token)).thenReturn("admin@test.com");
+        when(jwtUtil.extractRole(token)).thenReturn("ADMIN");
+
+        ServerHttpRequest.Builder builder = mock(ServerHttpRequest.Builder.class);
+        when(request.mutate()).thenReturn(builder);
+        when(builder.header(any(), any())).thenReturn(builder);
+        when(builder.build()).thenReturn(request);
+
+        ServerWebExchange.Builder exchangeBuilder = mock(ServerWebExchange.Builder.class);
+        when(exchange.mutate()).thenReturn(exchangeBuilder);
+        when(exchangeBuilder.request(any(ServerHttpRequest.class))).thenReturn(exchangeBuilder);
+        when(exchangeBuilder.build()).thenReturn(exchange);
+
+        when(chain.filter(any(ServerWebExchange.class))).thenReturn(Mono.empty());
+
+        StepVerifier.create(jwtWebFilter.filter(exchange, chain))
+                .verifyComplete();
+
+        verify(chain).filter(any(ServerWebExchange.class));
+        verify(exchange, never()).getResponse();
+    }
+
+    @Test
+    void filter_shouldReturnUnauthorized_whenTokenIsExpiredOrInvalid() {
+        String token = "expired-token";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        when(request.getPath()).thenReturn(org.springframework.http.server.RequestPath.parse(org.springframework.web.util.pattern.PathPatternParser.defaultInstance.parse("/products").getPatternString(), "/products"));
+        when(request.getMethod()).thenReturn(org.springframework.http.HttpMethod.GET);
+        when(request.getHeaders()).thenReturn(headers);
+        when(jwtUtil.isTokenValid(token)).thenReturn(false);
+        when(exchange.getResponse()).thenReturn(response);
+        when(response.setStatusCode(HttpStatus.UNAUTHORIZED)).thenReturn(true);
+        when(response.setComplete()).thenReturn(Mono.empty());
+
+        StepVerifier.create(jwtWebFilter.filter(exchange, chain))
+                .verifyComplete();
+
+        verify(response).setStatusCode(HttpStatus.UNAUTHORIZED);
+        verify(response).setComplete();
+        verify(jwtUtil, never()).extractEmail(any());
+    }
+
+    @Test
     void filter_shouldReturnForbidden_whenUserAccessesAdminPath() {
         String token = "valid-token";
         HttpHeaders headers = new HttpHeaders();

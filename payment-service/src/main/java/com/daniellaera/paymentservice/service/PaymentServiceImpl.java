@@ -58,7 +58,7 @@ public class PaymentServiceImpl implements PaymentService {
         kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
                 new PaymentEvent(event.orderId(), event.productName(), event.quantity(),
                         paymentSucceeded ? "SUCCESS" : "FAILED",
-                        event.price(), event.totalAmount(), event.userEmail())
+                        event.price(), event.totalAmount(), event.userEmail(), event.items())
         ));
     }
 

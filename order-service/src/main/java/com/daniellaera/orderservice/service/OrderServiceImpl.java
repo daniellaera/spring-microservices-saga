@@ -2,11 +2,15 @@ package com.daniellaera.orderservice.service;
 
 import com.daniellaera.orderservice.dto.OrderDTO;
 import com.daniellaera.orderservice.dto.OrderEvent;
+import com.daniellaera.orderservice.dto.OrderItemDTO;
+import com.daniellaera.orderservice.dto.OrderItemEvent;
+import com.daniellaera.orderservice.dto.OrderItemRequest;
 import com.daniellaera.orderservice.dto.OrderRequest;
 import com.daniellaera.orderservice.dto.PagedResponse;
 import com.daniellaera.orderservice.enums.OrderStatus;
 import com.daniellaera.orderservice.exception.ResourceNotFoundException;
 import com.daniellaera.orderservice.model.Order;
+import com.daniellaera.orderservice.model.OrderItem;
 import com.daniellaera.orderservice.model.OutboxEvent;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,6 +24,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
@@ -39,21 +45,47 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDTO createOrder(OrderRequest request, String userEmail) {
-        BigDecimal price = request.price() != null ? request.price() : BigDecimal.ZERO;
-        BigDecimal totalAmount = price.multiply(BigDecimal.valueOf(request.quantity()));
+        List<OrderItemRequest> itemRequests = request.resolvedItems();
+        if (itemRequests.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order must have at least one item");
+        }
+
+        BigDecimal totalAmount = itemRequests.stream()
+                .map(i -> i.price().multiply(BigDecimal.valueOf(i.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        OrderItemRequest firstItem = itemRequests.get(0);
 
         Order order = new Order();
-        order.setProductName(request.productName());
-        order.setQuantity(request.quantity());
-        order.setPrice(price);
+        order.setProductName(firstItem.productName());
+        order.setQuantity(firstItem.quantity());
+        order.setPrice(firstItem.price());
         order.setTotalAmount(totalAmount);
         order.setStatus(OrderStatus.PENDING);
         order.setUserEmail(userEmail);
         order.setPaymentIntentId(request.paymentIntentId());
+
+        List<OrderItem> orderItems = itemRequests.stream()
+                .map(itemReq -> {
+                    OrderItem item = new OrderItem();
+                    item.setOrder(order);
+                    item.setProductName(itemReq.productName());
+                    item.setQuantity(itemReq.quantity());
+                    item.setPrice(itemReq.price());
+                    item.setTotalAmount(itemReq.price().multiply(BigDecimal.valueOf(itemReq.quantity())));
+                    return item;
+                })
+                .toList();
+        order.setItems(orderItems);
+
         Order saved = orderRepository.save(order);
 
+        List<OrderItemEvent> itemEvents = saved.getItems().stream()
+                .map(i -> new OrderItemEvent(i.getProductName(), i.getQuantity(), i.getPrice(), i.getTotalAmount()))
+                .toList();
+
         OrderEvent orderEvent = new OrderEvent(saved.getId(), saved.getProductName(), saved.getQuantity(),
-                saved.getPrice(), saved.getTotalAmount(), saved.getUserEmail(), saved.getPaymentIntentId());
+                saved.getPrice(), saved.getTotalAmount(), saved.getUserEmail(), saved.getPaymentIntentId(), itemEvents);
 
         try {
             OutboxEvent outboxEvent = new OutboxEvent();
@@ -140,6 +172,12 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private OrderDTO toDTO(Order o) {
-        return new OrderDTO(o.getId(), o.getProductName(), o.getQuantity(), o.getPrice(), o.getTotalAmount(), o.getStatus(), o.getUserEmail(), o.getCreatedAt(), o.getPaymentIntentId());
+        List<OrderItemDTO> items = o.getItems() == null
+                ? List.of()
+                : o.getItems().stream()
+                    .map(i -> new OrderItemDTO(i.getId(), i.getProductName(), i.getQuantity(), i.getPrice(), i.getTotalAmount()))
+                    .toList();
+
+        return new OrderDTO(o.getId(), o.getProductName(), o.getQuantity(), o.getPrice(), o.getTotalAmount(), o.getStatus(), o.getUserEmail(), o.getCreatedAt(), o.getPaymentIntentId(), items);
     }
 }

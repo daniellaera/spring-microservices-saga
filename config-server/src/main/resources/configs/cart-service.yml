@@ -1,0 +1,1 @@
+# cart-service config — no secrets needed; Redis connection comes from application.yml env vars

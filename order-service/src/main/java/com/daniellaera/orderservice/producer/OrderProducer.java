@@ -1,12 +1,15 @@
 package com.daniellaera.orderservice.producer;
 
 import com.daniellaera.orderservice.dto.OrderEvent;
+import com.daniellaera.orderservice.dto.OrderItemEvent;
 import com.daniellaera.orderservice.model.Order;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +20,12 @@ public class OrderProducer {
     private final ObjectMapper objectMapper;
 
     public void sendOrder(Order order) {
+        List<OrderItemEvent> items = order.getItems() == null
+                ? List.of()
+                : order.getItems().stream()
+                    .map(i -> new OrderItemEvent(i.getProductName(), i.getQuantity(), i.getPrice(), i.getTotalAmount()))
+                    .toList();
+
         sendOrderEvent(new OrderEvent(
                 order.getId(),
                 order.getProductName(),
@@ -24,7 +33,8 @@ public class OrderProducer {
                 order.getPrice(),
                 order.getTotalAmount(),
                 order.getUserEmail(),
-                order.getPaymentIntentId()
+                order.getPaymentIntentId(),
+                items
         ));
     }
 

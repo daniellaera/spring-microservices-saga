@@ -33,6 +33,7 @@ get_color() {
     "auth-service")        echo "\033[0;35m" ;;  # purple
     "order-service")       echo "\033[0;32m" ;;  # green
     "inventory-service")   echo "\033[0;33m" ;;  # yellow
+    "cart-service")        echo "\033[0;96m" ;;  # light cyan
     "payment-service")     echo "\033[0;34m" ;;  # blue
     "notification-service") echo "\033[0;31m" ;; # red
     "gateway-service")     echo "\033[0;37m" ;;  # white
@@ -56,7 +57,7 @@ sleep 3
 
 # --- 2. Kill Existing Local Services ---
 echo "Killing existing local services running on ports..."
-for port in 8888 8080 8081 8082 8083 8084 8085 4200; do
+for port in 8888 8080 8081 8082 8083 8084 8085 8086 4200; do
   kill -9 $(lsof -t -i:$port) 2>/dev/null || true
 done
 
@@ -110,11 +111,13 @@ start_service "order-service" "local"
 start_service "inventory-service" "local"
 start_service "payment-service" "local"
 start_service "notification-service" "local"
+start_service "cart-service" "local"
 
 wait_for_service "http://localhost:8081" "order-service"
 wait_for_service "http://localhost:8082" "inventory-service"
 wait_for_service "http://localhost:8083" "payment-service"
 wait_for_service "http://localhost:8085" "notification-service"
+wait_for_service "http://localhost:8086" "cart-service"
 sleep 2
 
 # Start gateway last

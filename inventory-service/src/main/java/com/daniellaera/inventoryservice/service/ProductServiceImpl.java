@@ -20,6 +20,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
 
     @Override
+    @CacheEvict(value = "products", allEntries = true)
     public ProductDTO createProduct(ProductRequest request) {
         if (productRepository.existsByName(request.name())) {
             throw new ResourceAlreadyExistsException("Product already exists: " + request.name());
@@ -33,6 +34,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Cacheable(value = "products", unless = "#result.isEmpty()")
     public List<ProductDTO> getAllProducts() {
         return productRepository.findAll()
                 .stream()
@@ -48,6 +50,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @CacheEvict(value = "products", allEntries = true)
     public ProductDTO restock(Long id, Integer quantity) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));

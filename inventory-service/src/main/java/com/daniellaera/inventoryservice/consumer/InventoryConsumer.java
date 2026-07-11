@@ -2,6 +2,7 @@ package com.daniellaera.inventoryservice.consumer;
 
 import com.daniellaera.inventoryservice.dto.InventoryResultEvent;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
+import com.daniellaera.inventoryservice.dto.OrderItemEvent;
 import com.daniellaera.inventoryservice.dto.PaymentEvent;
 import com.daniellaera.inventoryservice.model.CompensationLog;
 import com.daniellaera.inventoryservice.model.Product;
@@ -14,6 +15,9 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 
 @Service
@@ -30,27 +34,42 @@ public class InventoryConsumer {
     public void consumeOrder(String message) {
         try {
             OrderEvent event = objectMapper.readValue(message, OrderEvent.class);
-            log.info("=== Inventory: received order {} for {} x{}",
-                    event.orderId(), event.productName(), event.quantity());
+            List<OrderItemEvent> items = resolveItems(event.items(), event.productName(), event.quantity(),
+                    event.price(), event.totalAmount());
+            log.info("=== Inventory: received order {} with {} item(s)", event.orderId(), items.size());
 
-            Product product = productRepository
-                    .findByName(event.productName())
-                    .orElseThrow(() -> new RuntimeException("Product not found: " + event.productName()));
+            // resolve products up front — product-not-found aborts processing entirely (no publish)
+            List<Product> products = items.stream()
+                    .map(item -> productRepository.findByName(item.productName())
+                            .orElseThrow(() -> new RuntimeException("Product not found: " + item.productName())))
+                    .toList();
+
+            boolean sufficientStock = true;
+            for (int i = 0; i < items.size(); i++) {
+                if (products.get(i).getQuantity() < items.get(i).quantity()) {
+                    sufficientStock = false;
+                    break;
+                }
+            }
 
             String status;
             int reservedQuantity;
-            if (product.getQuantity() >= event.quantity()) {
-                product.setQuantity(product.getQuantity() - event.quantity());
-                productRepository.save(product);
+            if (sufficientStock) {
+                for (int i = 0; i < items.size(); i++) {
+                    Product product = products.get(i);
+                    OrderItemEvent item = items.get(i);
+                    product.setQuantity(product.getQuantity() - item.quantity());
+                    productRepository.save(product);
+                    log.info("=== Inventory: deducted {} x{} — {} remaining",
+                            item.productName(), item.quantity(), product.getQuantity());
+                }
                 status = "APPROVED";
                 reservedQuantity = event.quantity();
-                log.info("=== Inventory: stock reserved for orderId {} — {} units remaining",
-                        event.orderId(), product.getQuantity());
+                log.info("=== Inventory: stock reserved for orderId {}", event.orderId());
             } else {
                 status = "REJECTED";
                 reservedQuantity = 0;
-                log.warn("=== Inventory: insufficient stock for orderId {} — {} requested, {} available",
-                        event.orderId(), event.quantity(), product.getQuantity());
+                log.warn("=== Inventory: insufficient stock for orderId {} — REJECTING order", event.orderId());
             }
 
             InventoryResultEvent result = new InventoryResultEvent(
@@ -61,7 +80,8 @@ public class InventoryConsumer {
                     event.price(),
                     event.totalAmount(),
                     event.userEmail(),
-                    event.paymentIntentId()
+                    event.paymentIntentId(),
+                    items
             );
 
             kafkaTemplate.send("inventory-topic", objectMapper.writeValueAsString(result));
@@ -71,6 +91,14 @@ public class InventoryConsumer {
         } catch (Exception e) {
             log.error("=== Inventory: failed to process order event: {}", e.getMessage());
         }
+    }
+
+    private List<OrderItemEvent> resolveItems(List<OrderItemEvent> items, String productName, Integer quantity,
+                                               BigDecimal price, BigDecimal totalAmount) {
+        if (items != null && !items.isEmpty()) {
+            return items;
+        }
+        return List.of(new OrderItemEvent(productName, quantity, price, totalAmount));
     }
 
     @KafkaListener(topics = "payment-topic", groupId = "inventory-compensation-group")
@@ -89,23 +117,26 @@ public class InventoryConsumer {
             return;
         }
 
-        log.info("=== Payment FAILED — compensating: restoring {} units of {}", event.quantity(), event.productName());
+        List<OrderItemEvent> items = resolveItems(event.items(), event.productName(), event.quantity(),
+                event.price(), event.totalAmount());
+        log.info("=== Payment FAILED — compensating {} item(s) for orderId {}", items.size(), event.orderId());
 
-        productRepository.findByName(event.productName()).ifPresentOrElse(
-                product -> {
-                    product.setQuantity(product.getQuantity() + event.quantity());
-                    productRepository.save(product);
+        for (OrderItemEvent item : items) {
+            productRepository.findByName(item.productName()).ifPresentOrElse(
+                    product -> {
+                        product.setQuantity(product.getQuantity() + item.quantity());
+                        productRepository.save(product);
+                        log.info("=== Compensation SUCCESS — {} stock restored to {}", item.productName(), product.getQuantity());
+                    },
+                    () -> log.error("=== Compensation FAILED — product {} not found", item.productName())
+            );
+        }
 
-                    CompensationLog entry = new CompensationLog();
-                    entry.setOrderId(event.orderId());
-                    entry.setProductName(event.productName());
-                    entry.setQuantity(event.quantity());
-                    compensationLogRepository.save(entry);
-
-                    log.info("=== Compensation SUCCESS — {} stock restored to {}", event.productName(), product.getQuantity());
-                },
-                () -> log.error("=== Compensation FAILED — product {} not found", event.productName())
-        );
+        CompensationLog entry = new CompensationLog();
+        entry.setOrderId(event.orderId());
+        entry.setProductName(event.productName());
+        entry.setQuantity(event.quantity());
+        compensationLogRepository.save(entry);
     }
 
     @DltHandler

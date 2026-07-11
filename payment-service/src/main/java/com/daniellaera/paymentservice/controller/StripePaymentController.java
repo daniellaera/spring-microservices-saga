@@ -25,7 +25,7 @@ public class StripePaymentController {
     }
 
     @GetMapping("/confirm/{paymentIntentId}")
-    public ResponseEntity<Map<String, Boolean>> confirmPayment(@PathVariable String paymentIntentId) {
+    public ResponseEntity<Map<String, Boolean>> confirmPayment(@PathVariable("paymentIntentId") String paymentIntentId) {
         boolean success = stripePaymentService.confirmPayment(paymentIntentId);
         return ResponseEntity.ok(Map.of("success", success));
     }

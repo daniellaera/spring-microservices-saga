@@ -8,6 +8,7 @@ import { MenuModule } from 'primeng/menu';
 import { MenuItem } from 'primeng/api';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { CartService } from '../../core/services/cart.service';
 
 @Component({
   selector: 'app-navbar',
@@ -22,6 +23,7 @@ import { NotificationService } from '../../core/services/notification.service';
 export class NavbarComponent implements OnInit {
   private authService = inject(AuthService);
   private notificationService = inject(NotificationService);
+  private cartService = inject(CartService);
 
   menuItems: MenuItem[] = [];
 
@@ -32,9 +34,14 @@ export class NavbarComponent implements OnInit {
   notificationCount = this.notificationService.count;
   sessionTime = this.authService.sessionTimeRemaining;
   sessionTimeLow = this.authService.sessionTimeLow;
+  cartCount = this.cartService.itemCount;
 
   clearNotifications(): void {
     this.notificationService.clear();
+  }
+
+  toggleCart(): void {
+    this.cartService.toggleCart();
   }
 
   constructor() {

@@ -9,11 +9,11 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/authdb
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
   flyway:
     enabled: true
     locations: classpath:db/migration

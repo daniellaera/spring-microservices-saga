@@ -75,4 +75,15 @@ class PaymentControllerTest {
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Transaction not found with id: 999"));
     }
+
+    @Test
+    void getAllTransactions_shouldReturn500_onUnexpectedException() throws Exception {
+        when(paymentService.getAllTransactions()).thenThrow(new RuntimeException("db down"));
+
+        mockMvc.perform(get("/transactions")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.message").value("Internal server error"));
+    }
 }

@@ -74,7 +74,20 @@
                     {{ order.userEmail || 'unknown' }}
                   </td>
                 }
-                <td class="font-medium">{{ order.productName }}</td>
+                <td class="font-medium">
+                  @if (order.items && order.items.length > 1) {
+                    <div class="flex flex-column gap-1">
+                      @for (item of order.items; track item.id) {
+                        <span class="text-sm">
+                          {{ item.productName }}
+                          <span class="text-color-secondary">x{{ item.quantity }}</span>
+                        </span>
+                      }
+                    </div>
+                  } @else {
+                    {{ order.productName }}
+                  }
+                </td>
                 <td class="text-center">{{ order.quantity }}</td>
                 <td class="font-semibold">
                   {{ order.totalAmount | number:'1.2-2' }} €
@@ -182,13 +195,23 @@
               </strong>
             </div>
 
-            <p-button
-              label="Place order"
-              icon="pi pi-shopping-cart"
-              styleClass="w-full"
-              [loading]="orderLoading"
-              [disabled]="!selectedProduct()"
-              (onClick)="openPaymentDialog()" />
+            <div class="flex gap-2">
+              <p-button
+                label="Add to cart"
+                icon="pi pi-shopping-cart"
+                severity="secondary"
+                styleClass="w-full"
+                [disabled]="!selectedProduct()"
+                (onClick)="addToCart(selectedProduct()!)" />
+
+              <p-button
+                label="Buy now"
+                icon="pi pi-bolt"
+                styleClass="w-full"
+                [loading]="orderLoading"
+                [disabled]="!selectedProduct()"
+                (onClick)="openPaymentDialog()" />
+            </div>
 
           </div>
         </p-card>
@@ -209,10 +232,22 @@
 
     @if (currentPaymentIntent) {
       <div class="surface-50 border-round p-3">
-        <div class="font-semibold text-lg">{{ selectedProduct()?.name }}</div>
-        <div class="text-color-secondary text-sm mt-1">
-          {{ quantity() }} × {{ selectedProduct()?.price | number:'1.2-2' }} € = {{ estimatedTotal() }} €
-        </div>
+        @if (isCartCheckout && cartService.cart()) {
+          @for (item of cartService.cart()!.items; track item.productName) {
+            <div class="flex justify-content-between text-sm mb-1">
+              <span>{{ item.quantity }} × {{ item.productName }}</span>
+              <span>{{ (item.quantity * item.price) | number:'1.2-2' }} €</span>
+            </div>
+          }
+          <div class="font-semibold text-lg mt-2 pt-2 border-top-1 surface-border">
+            Total: {{ cartService.cart()!.total | number:'1.2-2' }} €
+          </div>
+        } @else {
+          <div class="font-semibold text-lg">{{ selectedProduct()?.name }}</div>
+          <div class="text-color-secondary text-sm mt-1">
+            {{ quantity() }} × {{ selectedProduct()?.price | number:'1.2-2' }} € = {{ estimatedTotal() }} €
+          </div>
+        }
       </div>
     }
 
@@ -238,3 +273,90 @@
       (onClick)="confirmStripePayment()" />
   </ng-template>
 </p-dialog>
+
+<p-drawer
+  [visible]="cartService.cartVisible()"
+  (visibleChange)="cartService.cartVisible.set($event)"
+  header="Your Cart"
+  position="right"
+  [style]="{width:'400px'}">
+
+  @if (cartService.cart() && cartService.cart()!.items.length > 0) {
+    <div class="flex flex-column gap-3">
+
+      <!-- TTL indicator -->
+      <div class="surface-50 border-round p-2 text-sm
+                  text-color-secondary flex align-items-center gap-2">
+        <i class="pi pi-clock"></i>
+        Cart expires in: <strong>{{ cartService.cart()!.expiresIn }}</strong>
+      </div>
+
+      <!-- Cart items -->
+      @for (item of cartService.cart()!.items; track item.productName) {
+        <div class="flex align-items-center justify-content-between
+                    surface-50 border-round p-3">
+          <div class="flex flex-column gap-1">
+            <span class="font-medium">{{ item.productName }}</span>
+            <span class="text-sm text-color-secondary">
+              {{ item.price | number:'1.2-2' }} € each
+            </span>
+          </div>
+          <div class="flex align-items-center gap-2">
+            <p-button
+              icon="pi pi-minus"
+              [text]="true"
+              size="small"
+              (onClick)="updateCartQuantity(item.productName, item.quantity - 1)" />
+            <span class="font-bold w-2rem text-center">
+              {{ item.quantity }}
+            </span>
+            <p-button
+              icon="pi pi-plus"
+              [text]="true"
+              size="small"
+              (onClick)="updateCartQuantity(item.productName, item.quantity + 1)" />
+            <p-button
+              icon="pi pi-trash"
+              [text]="true"
+              size="small"
+              severity="danger"
+              (onClick)="removeFromCart(item.productName)" />
+          </div>
+        </div>
+      }
+
+      <!-- Total -->
+      <div class="flex justify-content-between align-items-center
+                  font-bold text-lg p-2"
+           style="border-top:1px solid var(--surface-border)">
+        <span>Total</span>
+        <span class="text-primary">
+          {{ cartService.cart()!.total | number:'1.2-2' }} €
+        </span>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-2">
+        <p-button
+          label="Clear cart"
+          icon="pi pi-trash"
+          severity="danger"
+          [text]="true"
+          styleClass="w-full"
+          (onClick)="clearCart()" />
+        <p-button
+          label="Checkout"
+          icon="pi pi-credit-card"
+          styleClass="w-full"
+          (onClick)="checkoutCart()" />
+      </div>
+    </div>
+  } @else {
+    <div class="flex flex-column align-items-center
+                justify-content-center h-full gap-3
+                text-color-secondary">
+      <i class="pi pi-shopping-cart text-5xl"></i>
+      <p class="text-lg">Your cart is empty</p>
+    </div>
+  }
+</p-drawer>

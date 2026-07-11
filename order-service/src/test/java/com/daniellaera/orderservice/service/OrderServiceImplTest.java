@@ -2,6 +2,7 @@ package com.daniellaera.orderservice.service;
 
 import com.daniellaera.orderservice.dto.OrderDTO;
 import com.daniellaera.orderservice.dto.OrderEvent;
+import com.daniellaera.orderservice.dto.OrderItemRequest;
 import com.daniellaera.orderservice.dto.OrderRequest;
 import com.daniellaera.orderservice.dto.PagedResponse;
 import com.daniellaera.orderservice.enums.OrderStatus;
@@ -14,9 +15,11 @@ import com.daniellaera.orderservice.repository.OutboxEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.ObjectMapper;
 
 import org.springframework.data.domain.Page;
@@ -99,7 +102,7 @@ class OrderServiceImplTest {
 
     @Test
     void createOrder_shouldSaveAndPublishToOutbox() throws Exception {
-        OrderRequest request = new OrderRequest("MacBook Pro", 1, BigDecimal.valueOf(1299.99), null);
+        OrderRequest request = new OrderRequest("MacBook Pro", 1, BigDecimal.valueOf(1299.99), null, null);
         when(orderRepository.save(any(Order.class))).thenReturn(order);
         when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
         when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
@@ -115,7 +118,7 @@ class OrderServiceImplTest {
 
     @Test
     void createOrder_shouldSetUserEmail() throws Exception {
-        OrderRequest request = new OrderRequest("iPhone", 1, BigDecimal.valueOf(799.99), null);
+        OrderRequest request = new OrderRequest("iPhone", 1, BigDecimal.valueOf(799.99), null, null);
         when(orderRepository.save(any(Order.class))).thenReturn(order);
         when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
         when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
@@ -123,6 +126,71 @@ class OrderServiceImplTest {
         OrderDTO result = orderService.createOrder(request, "user@test.com");
 
         assertThat(result.userEmail()).isEqualTo("user@test.com");
+    }
+
+    @Test
+    void createOrder_withMultipleItems_shouldSumTotalAndPersistAllItems() throws Exception {
+        OrderRequest request = new OrderRequest(null, null, null, null, List.of(
+                new OrderItemRequest("iPhone 16", 2, BigDecimal.valueOf(999.99)),
+                new OrderItemRequest("AirPods", 1, BigDecimal.valueOf(249.99)),
+                new OrderItemRequest("Case", 3, BigDecimal.valueOf(19.99))
+        ));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
+        when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
+
+        OrderDTO result = orderService.createOrder(request, "user@test.com");
+
+        BigDecimal expectedTotal = BigDecimal.valueOf(999.99).multiply(BigDecimal.valueOf(2))
+                .add(BigDecimal.valueOf(249.99))
+                .add(BigDecimal.valueOf(19.99).multiply(BigDecimal.valueOf(3)));
+        assertThat(result.totalAmount()).isEqualByComparingTo(expectedTotal);
+        assertThat(result.items()).hasSize(3);
+    }
+
+    @Test
+    void createOrder_shouldPersistOrderItemsOnSavedOrder() throws Exception {
+        OrderRequest request = new OrderRequest(null, null, null, null, List.of(
+                new OrderItemRequest("iPhone 16", 2, BigDecimal.valueOf(999.99)),
+                new OrderItemRequest("AirPods", 1, BigDecimal.valueOf(249.99))
+        ));
+        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        when(orderRepository.save(orderCaptor.capture())).thenAnswer(inv -> inv.getArgument(0));
+        when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
+        when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
+
+        orderService.createOrder(request, "user@test.com");
+
+        Order savedOrder = orderCaptor.getValue();
+        assertThat(savedOrder.getItems()).hasSize(2);
+        assertThat(savedOrder.getItems().get(0).getProductName()).isEqualTo("iPhone 16");
+        assertThat(savedOrder.getItems().get(0).getTotalAmount())
+                .isEqualByComparingTo(BigDecimal.valueOf(1999.98));
+    }
+
+    @Test
+    void createOrder_shouldSaveOutboxEventAfterOrderInSameCreateOrderCall() throws Exception {
+        OrderRequest request = new OrderRequest("MacBook Pro", 1, BigDecimal.valueOf(1299.99), null, null);
+        when(orderRepository.save(any(Order.class))).thenReturn(order);
+        when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
+        when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
+
+        orderService.createOrder(request, "user@test.com");
+
+        var inOrder = inOrder(orderRepository, outboxEventRepository);
+        inOrder.verify(orderRepository).save(any(Order.class));
+        inOrder.verify(outboxEventRepository).save(any(OutboxEvent.class));
+    }
+
+    @Test
+    void createOrder_withNoItemsAndNoLegacyFields_shouldThrowBadRequest() {
+        OrderRequest request = new OrderRequest(null, null, null, null, List.of());
+
+        assertThatThrownBy(() -> orderService.createOrder(request, "user@test.com"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("at least one item");
+
+        verifyNoInteractions(orderRepository, outboxEventRepository);
     }
 
     @Test

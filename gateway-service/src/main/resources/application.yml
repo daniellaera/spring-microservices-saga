@@ -74,6 +74,20 @@ spring:
                     redis-rate-limiter.replenishRate: 10
                     redis-rate-limiter.burstCapacity: 20
                     redis-rate-limiter.requestedTokens: 1
+            - id: cart-service
+              uri: ${CART_SERVICE_URI:http://localhost:8086}
+              predicates:
+                - Path=/cart/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: cart-cb
+                    fallbackUri: forward:/fallback/cart
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
 
   application:
     name: gateway-service

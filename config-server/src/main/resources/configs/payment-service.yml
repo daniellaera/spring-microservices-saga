@@ -1,7 +1,7 @@
 spring:
   datasource:
     username: ${DB_USER:testuser}
-    password: ${DB_PASSWORD:testpass}
+    password: ${DB_PASSWORD}
 
 stripe:
   secret-key: ${STRIPE_SECRET_KEY:}

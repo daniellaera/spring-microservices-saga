@@ -40,3 +40,10 @@ build/
 # Local config overrides — never commit
 config-server/src/main/resources/configs/*-local.yml
 config-server/src/main/resources/configs/*-dev.yml
+
+# Environment secrets — never commit
+.env
+
+# JaCoCo
+**/target/site/
+**/jacoco.exec

@@ -41,7 +41,7 @@ class NotificationConsumerTest {
     void handlePaymentEvent_SUCCESS_callsSendOrderConfirmed() {
         PaymentEvent event = new PaymentEvent(1L, "MacBook Pro", 2,
                 new BigDecimal("1299.99"), new BigDecimal("2599.98"),
-                "SUCCESS", "buyer@test.com");
+                "SUCCESS", "buyer@test.com", null);
 
         consumer.handlePaymentEvent(toJson(event));
 
@@ -53,7 +53,7 @@ class NotificationConsumerTest {
     void handlePaymentEvent_FAILED_callsSendOrderCancelled() {
         PaymentEvent event = new PaymentEvent(1L, "MacBook Pro", 2,
                 new BigDecimal("1299.99"), new BigDecimal("2599.98"),
-                "FAILED", "buyer@test.com");
+                "FAILED", "buyer@test.com", null);
 
         consumer.handlePaymentEvent(toJson(event));
 
@@ -65,7 +65,7 @@ class NotificationConsumerTest {
     void handlePaymentEvent_unknownStatus_callsNeither() {
         PaymentEvent event = new PaymentEvent(1L, "MacBook Pro", 2,
                 new BigDecimal("1299.99"), new BigDecimal("2599.98"),
-                "PENDING", "buyer@test.com");
+                "PENDING", "buyer@test.com", null);
 
         consumer.handlePaymentEvent(toJson(event));
 
@@ -83,7 +83,7 @@ class NotificationConsumerTest {
     void handlePaymentEvent_nullUserEmail_stillRoutesCorrectly() {
         PaymentEvent event = new PaymentEvent(1L, "MacBook Pro", 2,
                 new BigDecimal("1299.99"), new BigDecimal("2599.98"),
-                "SUCCESS", null);
+                "SUCCESS", null, null);
 
         consumer.handlePaymentEvent(toJson(event));
 

@@ -238,6 +238,31 @@ services:
       start_period: 40s
     restart: unless-stopped
 
+  cart-service:
+    image: daniellaera/cart-service:latest
+    container_name: cart-service
+    ports:
+      - "8086:8086"
+    environment:
+      - CONFIG_SERVER_URI=http://config-server:8888
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
+      - REDIS_HOST=redis
+      - JAVA_TOOL_OPTIONS=-Xms64m -Xmx150m
+    depends_on:
+      config-server:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
   gateway-service:
     image: daniellaera/gateway-service:latest
     container_name: gateway-service
@@ -248,6 +273,7 @@ services:
       - ORDER_SERVICE_URI=http://order-service:8081
       - INVENTORY_SERVICE_URI=http://inventory-service:8082
       - PAYMENT_SERVICE_URI=http://payment-service:8083
+      - CART_SERVICE_URI=http://cart-service:8086
       - CONFIG_SERVER_URI=http://config-server:8888
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
       - JWT_SECRET=${JWT_SECRET}
@@ -261,6 +287,8 @@ services:
       inventory-service:
         condition: service_started
       payment-service:
+        condition: service_started
+      cart-service:
         condition: service_started
       config-server:
         condition: service_healthy

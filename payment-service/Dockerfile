@@ -14,5 +14,5 @@ WORKDIR /app
 # Copy the JAR of THIS service
 COPY --from=maven-builder /app/payment-service/target/payment-service.jar payment-service.jar
 
-EXPOSE 8080
+EXPOSE 8083
 ENTRYPOINT ["java", "-jar", "payment-service.jar"]

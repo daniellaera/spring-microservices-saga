@@ -13,5 +13,5 @@ WORKDIR /app
 
 COPY --from=maven-builder /app/auth-service/target/auth-service.jar auth-service.jar
 
-EXPOSE 8080
+EXPOSE 8084
 ENTRYPOINT ["java", "-jar", "auth-service.jar"]

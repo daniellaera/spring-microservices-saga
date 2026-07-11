@@ -1,5 +1,6 @@
 package com.daniellaera.notificationservice.service;
 
+import com.daniellaera.notificationservice.dto.OrderItemEvent;
 import com.daniellaera.notificationservice.dto.PaymentEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -37,7 +39,7 @@ class EmailNotificationServiceTest {
     void sendOrderConfirmed_sendsEmailWithCorrectFields() {
         PaymentEvent event = new PaymentEvent(1L, "MacBook Pro", 2,
                 new BigDecimal("1299.99"), new BigDecimal("2599.98"),
-                "SUCCESS", "buyer@test.com");
+                "SUCCESS", "buyer@test.com", null);
 
         emailNotificationService.sendOrderConfirmed(event);
 
@@ -54,7 +56,7 @@ class EmailNotificationServiceTest {
     void sendOrderConfirmed_skipsEmail_whenUserEmailIsNull() {
         PaymentEvent event = new PaymentEvent(1L, "MacBook Pro", 2,
                 new BigDecimal("1299.99"), new BigDecimal("2599.98"),
-                "SUCCESS", null);
+                "SUCCESS", null, null);
 
         emailNotificationService.sendOrderConfirmed(event);
 
@@ -65,7 +67,7 @@ class EmailNotificationServiceTest {
     void sendOrderConfirmed_skipsEmail_whenUserEmailIsBlank() {
         PaymentEvent event = new PaymentEvent(1L, "MacBook Pro", 2,
                 new BigDecimal("1299.99"), new BigDecimal("2599.98"),
-                "SUCCESS", "  ");
+                "SUCCESS", "  ", null);
 
         emailNotificationService.sendOrderConfirmed(event);
 
@@ -75,7 +77,7 @@ class EmailNotificationServiceTest {
     @Test
     void sendOrderConfirmed_handlesNullPriceAndTotal_withZero() {
         PaymentEvent event = new PaymentEvent(1L, "Widget", 1,
-                null, null, "SUCCESS", "buyer@test.com");
+                null, null, "SUCCESS", "buyer@test.com", null);
 
         emailNotificationService.sendOrderConfirmed(event);
 
@@ -88,7 +90,7 @@ class EmailNotificationServiceTest {
     void sendOrderConfirmed_swallowsSmtpException() {
         PaymentEvent event = new PaymentEvent(1L, "iPad", 1,
                 new BigDecimal("599.99"), new BigDecimal("599.99"),
-                "SUCCESS", "buyer@test.com");
+                "SUCCESS", "buyer@test.com", null);
         doThrow(new RuntimeException("SMTP down")).when(mailSender).send(any(SimpleMailMessage.class));
 
         assertThatCode(() -> emailNotificationService.sendOrderConfirmed(event))
@@ -96,10 +98,94 @@ class EmailNotificationServiceTest {
     }
 
     @Test
+    void sendOrderConfirmed_multiItem_bodyContainsAllItemsAndSubjectSaysItemCount() {
+        List<OrderItemEvent> items = List.of(
+                new OrderItemEvent("MacBook Pro", 1, new BigDecimal("1299.99"), new BigDecimal("1299.99")),
+                new OrderItemEvent("AirPods", 2, new BigDecimal("249.99"), new BigDecimal("499.98")),
+                new OrderItemEvent("iPhone 16", 1, new BigDecimal("999.99"), new BigDecimal("999.99"))
+        );
+        PaymentEvent event = new PaymentEvent(1L, "MacBook Pro", 1,
+                new BigDecimal("1299.99"), new BigDecimal("2799.96"),
+                "SUCCESS", "buyer@test.com", items);
+
+        emailNotificationService.sendOrderConfirmed(event);
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        SimpleMailMessage sent = captor.getValue();
+        assertThat(sent.getSubject()).isEqualTo("✅ Order confirmed — 3 items");
+        assertThat(sent.getText())
+                .contains("MacBook Pro").contains("AirPods").contains("iPhone 16")
+                .contains("2799.96");
+    }
+
+    @Test
+    void sendOrderConfirmed_emptyItemsList_fallsBackToLegacyProductName() {
+        PaymentEvent event = new PaymentEvent(1L, "MacBook Pro", 2,
+                new BigDecimal("1299.99"), new BigDecimal("2599.98"),
+                "SUCCESS", "buyer@test.com", List.of());
+
+        emailNotificationService.sendOrderConfirmed(event);
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        SimpleMailMessage sent = captor.getValue();
+        assertThat(sent.getSubject()).isEqualTo("✅ Order confirmed — MacBook Pro");
+        assertThat(sent.getText()).contains("MacBook Pro");
+    }
+
+    @Test
+    void sendOrderConfirmed_singleItem_subjectUsesProductName() {
+        PaymentEvent event = new PaymentEvent(1L, "MacBook Pro", 1,
+                new BigDecimal("1299.99"), new BigDecimal("1299.99"),
+                "SUCCESS", "buyer@test.com", null);
+
+        emailNotificationService.sendOrderConfirmed(event);
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        assertThat(captor.getValue().getSubject()).isEqualTo("✅ Order confirmed — MacBook Pro");
+    }
+
+    @Test
+    void sendOrderCancelled_multiItem_bodyContainsAllItemsAndSubjectSaysItemCount() {
+        List<OrderItemEvent> items = List.of(
+                new OrderItemEvent("MacBook Pro", 1, new BigDecimal("1299.99"), new BigDecimal("1299.99")),
+                new OrderItemEvent("AirPods", 2, new BigDecimal("249.99"), new BigDecimal("499.98"))
+        );
+        PaymentEvent event = new PaymentEvent(2L, "MacBook Pro", 1,
+                new BigDecimal("1299.99"), new BigDecimal("1799.97"),
+                "FAILED", "buyer@test.com", items);
+
+        emailNotificationService.sendOrderCancelled(event);
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        SimpleMailMessage sent = captor.getValue();
+        assertThat(sent.getSubject()).isEqualTo("❌ Order cancelled — 2 items");
+        assertThat(sent.getText()).contains("MacBook Pro").contains("AirPods");
+    }
+
+    @Test
+    void sendOrderCancelled_nullItemsList_fallsBackToLegacyProductName() {
+        PaymentEvent event = new PaymentEvent(2L, "iPhone 16", 1,
+                new BigDecimal("999.99"), new BigDecimal("999.99"),
+                "FAILED", "buyer@test.com", null);
+
+        emailNotificationService.sendOrderCancelled(event);
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        SimpleMailMessage sent = captor.getValue();
+        assertThat(sent.getSubject()).isEqualTo("❌ Order cancelled — iPhone 16");
+        assertThat(sent.getText()).contains("iPhone 16");
+    }
+
+    @Test
     void sendOrderCancelled_sendsEmailWithCorrectFields() {
         PaymentEvent event = new PaymentEvent(2L, "iPhone 16", 1,
                 new BigDecimal("999.99"), new BigDecimal("999.99"),
-                "FAILED", "buyer@test.com");
+                "FAILED", "buyer@test.com", null);
 
         emailNotificationService.sendOrderCancelled(event);
 
@@ -116,7 +202,7 @@ class EmailNotificationServiceTest {
     void sendOrderCancelled_skipsEmail_whenUserEmailIsNull() {
         PaymentEvent event = new PaymentEvent(2L, "iPhone 16", 1,
                 new BigDecimal("999.99"), new BigDecimal("999.99"),
-                "FAILED", null);
+                "FAILED", null, null);
 
         emailNotificationService.sendOrderCancelled(event);
 
@@ -127,7 +213,7 @@ class EmailNotificationServiceTest {
     void sendOrderCancelled_skipsEmail_whenUserEmailIsBlank() {
         PaymentEvent event = new PaymentEvent(2L, "iPhone 16", 1,
                 new BigDecimal("999.99"), new BigDecimal("999.99"),
-                "FAILED", "");
+                "FAILED", "", null);
 
         emailNotificationService.sendOrderCancelled(event);
 
@@ -137,7 +223,7 @@ class EmailNotificationServiceTest {
     @Test
     void sendOrderCancelled_handlesNullTotal_withZero() {
         PaymentEvent event = new PaymentEvent(2L, "Widget", 1,
-                new BigDecimal("9.99"), null, "FAILED", "buyer@test.com");
+                new BigDecimal("9.99"), null, "FAILED", "buyer@test.com", null);
 
         emailNotificationService.sendOrderCancelled(event);
 
@@ -150,7 +236,7 @@ class EmailNotificationServiceTest {
     void sendOrderCancelled_swallowsSmtpException() {
         PaymentEvent event = new PaymentEvent(2L, "iPad", 1,
                 new BigDecimal("599.99"), new BigDecimal("599.99"),
-                "FAILED", "buyer@test.com");
+                "FAILED", "buyer@test.com", null);
         doThrow(new RuntimeException("SMTP down")).when(mailSender).send(any(SimpleMailMessage.class));
 
         assertThatCode(() -> emailNotificationService.sendOrderCancelled(event))

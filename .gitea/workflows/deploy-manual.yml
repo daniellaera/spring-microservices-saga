@@ -64,7 +64,8 @@ jobs:
             echo "=== Restarting ALL services ==="
             docker compose -f docker-compose.yml up -d --force-recreate \
               config-server auth-service order-service inventory-service \
-              payment-service notification-service gateway-service shop-ui
+              payment-service notification-service gateway-service \
+              cart-service shop-ui
 
             echo "=== Running containers ==="
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"

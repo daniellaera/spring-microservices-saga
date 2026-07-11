@@ -6,7 +6,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import com.daniellaera.notificationservice.dto.OrderItemEvent;
 import com.daniellaera.notificationservice.dto.PaymentEvent;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -24,27 +28,23 @@ public class EmailNotificationService {
             return;
         }
 
-        String subject = "✅ Order confirmed — " + event.productName();
+        String subject = "✅ Order confirmed — " + itemsSummary(event);
         String body = """
                 Hi,
 
                 Great news! Your order has been confirmed.
 
                 Order details:
-                ─────────────────────────
-                Product:   %s
-                Quantity:  %d
-                Price:     %.2f €
+                ─────────────────────────────────────
+                %s
+                ─────────────────────────────────────
                 Total:     %.2f €
-                ─────────────────────────
 
                 Thank you for your purchase!
 
                 — Online Shop
                 """.formatted(
-                event.productName(),
-                event.quantity(),
-                event.price() != null ? event.price().doubleValue() : 0.0,
+                itemsTable(event),
                 event.totalAmount() != null ? event.totalAmount().doubleValue() : 0.0
         );
 
@@ -57,30 +57,54 @@ public class EmailNotificationService {
             return;
         }
 
-        String subject = "❌ Order cancelled — " + event.productName();
+        String subject = "❌ Order cancelled — " + itemsSummary(event);
         String body = """
                 Hi,
 
                 Unfortunately your order could not be processed.
 
                 Order details:
-                ─────────────────────────
-                Product:   %s
-                Quantity:  %d
+                ─────────────────────────────────────
+                %s
+                ─────────────────────────────────────
                 Total:     %.2f €
-                ─────────────────────────
 
                 Your inventory has been automatically restored.
                 Please try again or contact support.
 
                 — Online Shop
                 """.formatted(
-                event.productName(),
-                event.quantity(),
+                itemsTable(event),
                 event.totalAmount() != null ? event.totalAmount().doubleValue() : 0.0
         );
 
         send(event.userEmail(), subject, body);
+    }
+
+    private List<OrderItemEvent> getItems(PaymentEvent event) {
+        if (event.items() != null && !event.items().isEmpty()) {
+            return event.items();
+        }
+        return List.of(new OrderItemEvent(event.productName(), event.quantity(), event.price(), event.totalAmount()));
+    }
+
+    private String itemsSummary(PaymentEvent event) {
+        List<OrderItemEvent> items = getItems(event);
+        if (items.size() == 1) {
+            return items.get(0).productName();
+        }
+        return items.size() + " items";
+    }
+
+    private String itemsTable(PaymentEvent event) {
+        StringBuilder table = new StringBuilder();
+        for (OrderItemEvent item : getItems(event)) {
+            BigDecimal unitPrice = item.price() != null ? item.price() : BigDecimal.ZERO;
+            BigDecimal lineTotal = item.totalAmount() != null ? item.totalAmount() : BigDecimal.ZERO;
+            table.append(String.format("  • %-30s x%d  @ %.2f €  = %.2f €%n",
+                    item.productName(), item.quantity(), unitPrice.doubleValue(), lineTotal.doubleValue()));
+        }
+        return table.toString();
     }
 
     private void send(String to, String subject, String body) {

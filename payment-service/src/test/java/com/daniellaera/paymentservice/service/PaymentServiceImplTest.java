@@ -1,6 +1,8 @@
 package com.daniellaera.paymentservice.service;
 
 import com.daniellaera.paymentservice.dto.InventoryResultEvent;
+import com.daniellaera.paymentservice.dto.OrderItemEvent;
+import com.daniellaera.paymentservice.dto.PaymentEvent;
 import com.daniellaera.paymentservice.dto.TransactionDTO;
 import com.daniellaera.paymentservice.enums.PaymentStatus;
 import com.daniellaera.paymentservice.exception.ResourceNotFoundException;
@@ -86,7 +88,7 @@ class PaymentServiceImplTest {
     @Test
     void handleInventoryResult_approved_stripeSuccess_savesSuccessTransactionAndPublishes() throws Exception {
         InventoryResultEvent event = new InventoryResultEvent(1L, "APPROVED", "MacBook Pro", 1,
-                BigDecimal.valueOf(1299.99), BigDecimal.valueOf(1299.99), "user@test.com", "pi_123");
+                BigDecimal.valueOf(1299.99), BigDecimal.valueOf(1299.99), "user@test.com", "pi_123", null);
         when(objectMapper.readValue(anyString(), eq(InventoryResultEvent.class))).thenReturn(event);
         when(stripePaymentService.confirmPayment("pi_123")).thenReturn(true);
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
@@ -104,9 +106,27 @@ class PaymentServiceImplTest {
     }
 
     @Test
+    void handleInventoryResult_approved_itemsListPassedThroughToPaymentEvent() throws Exception {
+        List<OrderItemEvent> items = List.of(
+                new OrderItemEvent("MacBook Pro", 1, BigDecimal.valueOf(1299.99), BigDecimal.valueOf(1299.99)));
+        InventoryResultEvent event = new InventoryResultEvent(5L, "APPROVED", "MacBook Pro", 1,
+                BigDecimal.valueOf(1299.99), BigDecimal.valueOf(1299.99), "user@test.com", "pi_999", items);
+        when(objectMapper.readValue(anyString(), eq(InventoryResultEvent.class))).thenReturn(event);
+        when(stripePaymentService.confirmPayment("pi_999")).thenReturn(true);
+        when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+
+        paymentService.handleInventoryResult("{}");
+
+        ArgumentCaptor<PaymentEvent> eventCaptor = ArgumentCaptor.forClass(PaymentEvent.class);
+        verify(objectMapper).writeValueAsString(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().items()).isEqualTo(items);
+        assertThat(eventCaptor.getValue().orderId()).isEqualTo(5L);
+    }
+
+    @Test
     void handleInventoryResult_approved_stripeFailure_savesFailedTransactionAndPublishes() throws Exception {
         InventoryResultEvent event = new InventoryResultEvent(2L, "APPROVED", "iPhone", 1,
-                BigDecimal.valueOf(999.99), BigDecimal.valueOf(999.99), "user@test.com", "pi_456");
+                BigDecimal.valueOf(999.99), BigDecimal.valueOf(999.99), "user@test.com", "pi_456", null);
         when(objectMapper.readValue(anyString(), eq(InventoryResultEvent.class))).thenReturn(event);
         when(stripePaymentService.confirmPayment("pi_456")).thenReturn(false);
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
@@ -124,7 +144,7 @@ class PaymentServiceImplTest {
     @Test
     void handleInventoryResult_approved_noPaymentIntentId_autoApprovesWithoutStripe() throws Exception {
         InventoryResultEvent event = new InventoryResultEvent(3L, "APPROVED", "AirPods", 1,
-                BigDecimal.valueOf(249.99), BigDecimal.valueOf(249.99), "user@test.com", null);
+                BigDecimal.valueOf(249.99), BigDecimal.valueOf(249.99), "user@test.com", null, null);
         when(objectMapper.readValue(anyString(), eq(InventoryResultEvent.class))).thenReturn(event);
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
 
@@ -142,7 +162,7 @@ class PaymentServiceImplTest {
     @Test
     void handleInventoryResult_rejected_skipStripeAndSavesFailed() throws Exception {
         InventoryResultEvent event = new InventoryResultEvent(4L, "REJECTED", "MacBook Pro", 0,
-                BigDecimal.valueOf(1299.99), BigDecimal.valueOf(1299.99), "user@test.com", "pi_789");
+                BigDecimal.valueOf(1299.99), BigDecimal.valueOf(1299.99), "user@test.com", "pi_789", null);
         when(objectMapper.readValue(anyString(), eq(InventoryResultEvent.class))).thenReturn(event);
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
 
