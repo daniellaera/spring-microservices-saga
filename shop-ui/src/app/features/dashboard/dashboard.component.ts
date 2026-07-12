@@ -63,6 +63,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private abortController: AbortController | null = null;
   private sseRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private pendingSSEUpdates = new Map<number, string>();
 
   // payment dialog state
   showPaymentDialog = false;
@@ -287,6 +288,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.paymentLoading = false;
         this.orders = [newOrder, ...this.orders];
         this.totalElements++;
+        this.applyPendingSSEUpdate(newOrder.id);
         this.quantity.set(1);
         this.loadProducts();
         this.cartService.clearCart().subscribe();
@@ -332,6 +334,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.isCartCheckout = false;
         this.orders = [newOrder, ...this.orders];
         this.totalElements++;
+        this.applyPendingSSEUpdate(newOrder.id);
         this.cartService.clearCart().subscribe();
         this.cartService.cartVisible.set(false);
         this.quantity.set(1);
@@ -423,7 +426,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
                       this.showOrderNotification(data.orderId, data.status, order.productName);
                     }
                   } else {
-                    console.warn('SSE: order not found in list', data.orderId);
+                    this.pendingSSEUpdates.set(data.orderId, data.status);
+                    console.log('SSE: order not found yet, storing pending update', data.orderId, data.status);
                   }
                 });
               } catch {}
@@ -452,9 +456,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.sseRetryTimeout = setTimeout(() => this.connectSSE(), 3000);
   }
 
+  applyPendingSSEUpdate(orderId: number): void {
+    const pendingStatus = this.pendingSSEUpdates.get(orderId);
+    if (pendingStatus) {
+      this.pendingSSEUpdates.delete(orderId);
+      const order = this.orders.find(o => o.id === orderId);
+      if (order && order.status !== pendingStatus) {
+        this.orders = this.orders.map(o =>
+          o.id === orderId ? { ...o, status: pendingStatus } : o
+        );
+        this.showOrderNotification(orderId, pendingStatus, order.productName);
+        console.log('SSE: applied pending update for order', orderId, pendingStatus);
+      }
+    }
+  }
+
   ngOnDestroy(): void {
     this.abortController?.abort();
     if (this.sseRetryTimeout) clearTimeout(this.sseRetryTimeout);
+    this.pendingSSEUpdates.clear();
   }
 
   showOrderNotification(orderId: number, status: string, productName: string): void {
