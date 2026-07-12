@@ -13,9 +13,12 @@ export class AuthService {
 
   isLoggedIn = this.loggedIn.asReadonly();
   currentEmail = this.emailSignal.asReadonly();
-  userInitial = computed(() =>
-    this.emailSignal()?.charAt(0)?.toUpperCase() ?? 'U'
-  );
+  displayName = signal<string>('');
+  userInitial = computed(() => {
+    const name = this.displayName();
+    if (name) return name.charAt(0).toUpperCase();
+    return this.emailSignal()?.charAt(0)?.toUpperCase() ?? 'U';
+  });
   isAdmin = computed(() => this.roleSignal() === 'ADMIN');
 
   sessionTimeRemaining = signal('');
@@ -27,6 +30,7 @@ export class AuthService {
       this.logout();
     } else if (this.loggedIn()) {
       this.startSessionTimer();
+      this.displayName.set(this.emailSignal()?.split('@')[0] ?? '');
     }
   }
 
@@ -111,6 +115,7 @@ export class AuthService {
     this.loggedIn.set(true);
     this.emailSignal.set(email);
     this.roleSignal.set(role);
+    this.displayName.set(email.split('@')[0] ?? '');
     this.startSessionTimer();
   }
 
@@ -121,6 +126,7 @@ export class AuthService {
     this.loggedIn.set(false);
     this.emailSignal.set(null);
     this.roleSignal.set('USER');
+    this.displayName.set('');
     this.stopSessionTimer();
     this.router.navigate(['/login']);
   }

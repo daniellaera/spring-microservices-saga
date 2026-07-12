@@ -64,3 +64,50 @@
     }
   </ng-template>
 </p-toolbar>
+
+<p-dialog
+  header="My Profile"
+  [(visible)]="showProfileDialog"
+  [modal]="true"
+  [style]="{width:'420px'}">
+
+  <div class="flex flex-column gap-4 pt-2">
+
+    <div class="surface-50 border-round p-3 text-sm text-color-secondary">
+      <i class="pi pi-envelope mr-2"></i>
+      {{ authService.currentEmail() }}
+    </div>
+
+    <div class="flex flex-column gap-2">
+      <label class="font-medium text-sm">First name</label>
+      <input
+        pInputText
+        [(ngModel)]="profileFirstName"
+        placeholder="Your first name"
+        class="w-full" />
+    </div>
+
+    <div class="flex flex-column gap-2">
+      <label class="font-medium text-sm">Last name</label>
+      <input
+        pInputText
+        [(ngModel)]="profileLastName"
+        placeholder="Your last name"
+        class="w-full" />
+    </div>
+
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      [text]="true"
+      severity="secondary"
+      (onClick)="showProfileDialog = false" />
+    <p-button
+      label="Save"
+      icon="pi pi-check"
+      [loading]="savingProfile"
+      (onClick)="saveProfile()" />
+  </ng-template>
+</p-dialog>

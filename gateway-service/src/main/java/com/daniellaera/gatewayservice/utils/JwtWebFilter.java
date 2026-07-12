@@ -39,7 +39,8 @@ public class JwtWebFilter implements WebFilter {
         String path = exchange.getRequest().getPath().value();
         String method = exchange.getRequest().getMethod().name();
 
-        if (path.startsWith("/auth") || path.startsWith("/actuator") || path.startsWith("/fallback")) {
+        if (path.equals("/auth/login") || path.equals("/auth/register")
+                || path.startsWith("/actuator") || path.startsWith("/fallback")) {
             return chain.filter(exchange);
         }
 

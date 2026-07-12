@@ -44,8 +44,6 @@ class AuthControllerTest {
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {
-                                  "firstName": "John",
-                                  "lastName": "Doe",
                                   "email": "john@test.com",
                                   "password": "password123"
                                 }
