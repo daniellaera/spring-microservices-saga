@@ -1,4 +1,6 @@
 export const environment = {
   production: false,
-  apiUrl: ''
+  apiUrl: '',
+  version: 'dev',
+  buildNumber: 'local'
 };

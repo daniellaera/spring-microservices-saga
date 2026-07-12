@@ -8,6 +8,12 @@
       <i class="pi pi-shopping-cart text-primary text-2xl"></i>
       <span class="text-xl font-bold text-color">Online Shop</span>
     </a>
+    <span
+      class="text-xs text-color-secondary font-mono"
+      style="opacity:0.6"
+      title="Build: {{ buildNumber }}">
+      {{ version }} · {{ buildNumber }}
+    </span>
   </ng-template>
   <ng-template pTemplate="end">
     @if (isLoggedIn()) {

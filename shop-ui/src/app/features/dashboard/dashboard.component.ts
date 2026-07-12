@@ -22,6 +22,7 @@ import { ProductService, ProductDto } from '../../core/services/product.service'
 import { NotificationService } from '../../core/services/notification.service';
 import { PaymentService, PaymentIntentResponse } from '../../core/services/payment.service';
 import { CartService } from '../../core/services/cart.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-dashboard',
@@ -46,6 +47,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private zone = inject(NgZone);
   private router = inject(Router);
   cartService = inject(CartService);
+
+  environment = environment;
 
   isAdmin = this.authService.isAdmin;
   currentEmail = this.authService.currentEmail;
@@ -428,6 +431,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
                   } else {
                     this.pendingSSEUpdates.set(data.orderId, data.status);
                     console.log('SSE: order not found yet, storing pending update', data.orderId, data.status);
+                    setTimeout(() => {
+                      this.zone.run(() => {
+                        const stillMissing = !this.orders.find(o => o.id === data.orderId);
+                        if (stillMissing) {
+                          this.loadOrders(0);
+                        }
+                      });
+                    }, 3000);
                   }
                 });
               } catch {}
@@ -467,6 +478,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
         );
         this.showOrderNotification(orderId, pendingStatus, order.productName);
         console.log('SSE: applied pending update for order', orderId, pendingStatus);
+      } else if (!order) {
+        setTimeout(() => {
+          this.zone.run(() => {
+            this.loadOrders(0);
+          });
+        }, 2000);
       }
     }
   }

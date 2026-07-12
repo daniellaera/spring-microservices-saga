@@ -13,6 +13,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { CartService } from '../../core/services/cart.service';
 import { ProfileService } from '../../core/services/profile.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-navbar',
@@ -46,6 +47,9 @@ export class NavbarComponent implements OnInit {
   profileFirstName = '';
   profileLastName = '';
   savingProfile = false;
+
+  version = environment.version;
+  buildNumber = environment.buildNumber;
 
   clearNotifications(): void {
     this.notificationService.clear();
