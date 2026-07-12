@@ -25,7 +25,8 @@ public class SseEmitterRegistry {
         List<SseEmitter> existing = emitters.computeIfAbsent(
                 userEmail, k -> Collections.synchronizedList(new ArrayList<>()));
 
-        while (existing.size() >= 2) {
+        // keep only 1 emitter per user — complete and remove all old ones
+        while (!existing.isEmpty()) {
             SseEmitter old = existing.remove(0);
             try { old.complete(); } catch (Exception ignored) {}
         }
@@ -45,8 +46,8 @@ public class SseEmitterRegistry {
 
     public void pushToUser(String userEmail, Object data) {
         List<SseEmitter> userEmitters = emitters.getOrDefault(userEmail, List.of());
-
         List<SseEmitter> dead = new ArrayList<>();
+
         for (SseEmitter emitter : userEmitters) {
             try {
                 emitter.send(SseEmitter.event()
@@ -57,6 +58,7 @@ public class SseEmitterRegistry {
                 dead.add(emitter);
             }
         }
+
         dead.forEach(e -> {
             try { removeEmitter(userEmail, e); } catch (Exception ignored) {}
         });

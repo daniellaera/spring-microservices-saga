@@ -42,11 +42,11 @@ class SseEmitterRegistryTest {
     }
 
     @Test
-    void register_supportsMultipleEmittersPerUser() {
+    void register_replacesExistingEmitterForSameUser() {
         registry.register("user@test.com");
         registry.register("user@test.com");
 
-        assertThat(registry.totalConnections()).isEqualTo(2);
+        assertThat(registry.totalConnections()).isEqualTo(1);
     }
 
     @Test
@@ -55,7 +55,7 @@ class SseEmitterRegistryTest {
         registry.register("user1@test.com");
         registry.register("user2@test.com");
 
-        assertThat(registry.totalConnections()).isEqualTo(3);
+        assertThat(registry.totalConnections()).isEqualTo(2);
     }
 
     @Test
