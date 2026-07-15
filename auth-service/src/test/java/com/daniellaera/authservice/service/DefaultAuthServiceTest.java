@@ -6,6 +6,7 @@ import com.daniellaera.authservice.dto.ProfileRequest;
 import com.daniellaera.authservice.dto.ProfileResponse;
 import com.daniellaera.authservice.dto.RegisterRequest;
 import com.daniellaera.authservice.enums.Role;
+import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.model.User;
 import com.daniellaera.authservice.repository.UserRepository;
 import com.daniellaera.authservice.util.JwtUtil;
@@ -33,6 +34,7 @@ class DefaultAuthServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtUtil jwtUtil;
     @Mock private AuthenticationManager authenticationManager;
+    @Mock private RefreshTokenService refreshTokenService;
 
     @InjectMocks
     private DefaultAuthService authService;
@@ -42,10 +44,14 @@ class DefaultAuthServiceTest {
         RegisterRequest request = new RegisterRequest("john@test.com", "password123");
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         when(jwtUtil.generateToken("john@test.com", "USER")).thenReturn("mocked-token");
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setToken("mocked-refresh-token");
+        when(refreshTokenService.createRefreshToken("john@test.com")).thenReturn(refreshToken);
 
         AuthResponse response = authService.register(request);
 
         assertThat(response.token()).isEqualTo("mocked-token");
+        assertThat(response.refreshToken()).isEqualTo("mocked-refresh-token");
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository, times(1)).save(userCaptor.capture());
@@ -66,10 +72,14 @@ class DefaultAuthServiceTest {
                 .build();
         when(userRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
         when(jwtUtil.generateToken("admin@test.com", "ADMIN")).thenReturn("admin-token");
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setToken("admin-refresh-token");
+        when(refreshTokenService.createRefreshToken("admin@test.com")).thenReturn(refreshToken);
 
         AuthResponse response = authService.login(request);
 
         assertThat(response.token()).isEqualTo("admin-token");
+        assertThat(response.refreshToken()).isEqualTo("admin-refresh-token");
         verify(authenticationManager, times(1)).authenticate(any());
         verify(jwtUtil, times(1)).generateToken("admin@test.com", "ADMIN");
     }

@@ -8,6 +8,7 @@ spring:
     username: testuser
     password: testpass
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     properties:

@@ -4,8 +4,12 @@ import com.daniellaera.authservice.dto.AuthResponse;
 import com.daniellaera.authservice.dto.LoginRequest;
 import com.daniellaera.authservice.dto.ProfileRequest;
 import com.daniellaera.authservice.dto.ProfileResponse;
+import com.daniellaera.authservice.dto.RefreshTokenRequest;
 import com.daniellaera.authservice.dto.RegisterRequest;
+import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.service.AuthService;
+import com.daniellaera.authservice.service.RefreshTokenService;
+import com.daniellaera.authservice.util.JwtUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +29,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class AuthController {
 
     private final AuthService authService;
+    private final RefreshTokenService refreshTokenService;
+    private final JwtUtil jwtUtil;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -34,6 +40,27 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        RefreshToken refreshToken = refreshTokenService.validateRefreshToken(request.refreshToken());
+
+        String userEmail = refreshToken.getUser().getEmail();
+        String role = refreshToken.getUser().getRole().name();
+
+        refreshTokenService.revokeRefreshToken(request.refreshToken());
+        RefreshToken newRefreshToken = refreshTokenService.createRefreshToken(userEmail);
+
+        String newJwt = jwtUtil.generateToken(userEmail, role);
+
+        return ResponseEntity.ok(new AuthResponse(newJwt, newRefreshToken.getToken()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
+        refreshTokenService.revokeRefreshToken(request.refreshToken());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/profile")

@@ -6,6 +6,7 @@ import com.daniellaera.authservice.dto.ProfileRequest;
 import com.daniellaera.authservice.dto.ProfileResponse;
 import com.daniellaera.authservice.dto.RegisterRequest;
 import com.daniellaera.authservice.enums.Role;
+import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.model.User;
 import com.daniellaera.authservice.repository.UserRepository;
 import com.daniellaera.authservice.util.JwtUtil;
@@ -27,6 +28,7 @@ public class DefaultAuthService implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
+    private final RefreshTokenService refreshTokenService;
 
     @Override
     public AuthResponse register(RegisterRequest request) {
@@ -37,7 +39,8 @@ public class DefaultAuthService implements AuthService {
                 .createdAt(LocalDateTime.now())
                 .build();
         userRepository.save(user);
-        return new AuthResponse(generateTokenForUser(user));
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
+        return new AuthResponse(generateTokenForUser(user), refreshToken.getToken());
     }
 
     @Override
@@ -47,7 +50,8 @@ public class DefaultAuthService implements AuthService {
         );
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return new AuthResponse(generateTokenForUser(user));
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
+        return new AuthResponse(generateTokenForUser(user), refreshToken.getToken());
     }
 
     @Override

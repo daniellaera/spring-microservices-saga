@@ -1,5 +1,12 @@
 import { Injectable, signal, computed } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { Observable, tap } from 'rxjs';
+
+interface AuthResponse {
+  token: string;
+  refreshToken: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -25,7 +32,10 @@ export class AuthService {
   sessionTimeLow = signal(false);
   private sessionInterval: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private router: Router) {
+  constructor(
+    private router: Router,
+    private http: HttpClient
+  ) {
     if (this.loggedIn() && this.isTokenExpired()) {
       this.logout();
     } else if (this.loggedIn()) {
@@ -83,10 +93,10 @@ export class AuthService {
   private updateSessionTime(): void {
     const remaining = this.getRemainingTime();
     if (remaining <= 0) {
-      this.sessionTimeRemaining.set('Expired');
+      this.sessionTimeRemaining.set('Refreshing...');
       this.sessionTimeLow.set(true);
       this.stopSessionTimer();
-      this.logout();
+      this.tryRefreshOnExpiry();
       return;
     }
 
@@ -108,8 +118,27 @@ export class AuthService {
     }
   }
 
-  login(token: string, email: string, role: string): void {
+  private tryRefreshOnExpiry(): void {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      this.logout();
+      return;
+    }
+
+    this.refresh().subscribe({
+      next: () => {
+        console.log('=== Session auto-refreshed successfully');
+      },
+      error: () => {
+        console.log('=== Session refresh failed — logging out');
+        this.logout();
+      }
+    });
+  }
+
+  login(token: string, refreshToken: string, email: string, role: string): void {
     localStorage.setItem('token', token);
+    localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('userEmail', email);
     localStorage.setItem('userRole', role);
     this.loggedIn.set(true);
@@ -119,8 +148,24 @@ export class AuthService {
     this.startSessionTimer();
   }
 
+  refresh(): Observable<AuthResponse> {
+    const refreshToken = localStorage.getItem('refreshToken');
+    return this.http.post<AuthResponse>('/auth/refresh', { refreshToken }).pipe(
+      tap((response) => {
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('refreshToken', response.refreshToken);
+        this.startSessionTimer();
+      })
+    );
+  }
+
   logout(): void {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      this.http.post('/auth/logout', { refreshToken }).subscribe({ error: () => {} });
+    }
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userRole');
     this.loggedIn.set(false);

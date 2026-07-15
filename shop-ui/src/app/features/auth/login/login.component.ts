@@ -47,14 +47,14 @@ export class LoginComponent {
     this.loading = true;
     try {
       const res = await firstValueFrom(
-        this.http.post<{ token: string }>('/auth/login', {
+        this.http.post<{ token: string; refreshToken: string }>('/auth/login', {
           email: this.email,
           password: this.password
         })
       );
       const payload = JSON.parse(atob(res.token.split('.')[1]));
       const role = payload.role ?? payload.authorities?.[0] ?? 'USER';
-      this.authService.login(res.token, this.email, role);
+      this.authService.login(res.token, res.refreshToken, this.email, role);
       const returnUrl =
         this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
       this.router.navigateByUrl(decodeURIComponent(returnUrl));
