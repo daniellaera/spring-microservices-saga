@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { Subject, firstValueFrom, timer } from 'rxjs';
+import { take, takeUntil } from 'rxjs/operators';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -23,7 +24,9 @@ import { MessageService } from 'primeng/api';
   providers: [MessageService],
   templateUrl: './register.component.html'
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnDestroy {
+  private destroy$ = new Subject<void>();
+
   email = '';
   password = '';
   confirmPassword = '';
@@ -61,10 +64,12 @@ export class RegisterComponent {
       this.messageService.add({
         severity: 'success',
         summary: 'Account created',
-        detail: 'You can now sign in',
-        life: 3000
+        detail: 'Redirecting to login...',
+        life: 1500
       });
-      setTimeout(() => this.router.navigate(['/login']), 1500);
+      timer(1500).pipe(take(1), takeUntil(this.destroy$)).subscribe(
+        () => this.router.navigate(['/login'])
+      );
     } catch (err: any) {
       this.messageService.add({
         severity: 'error',
@@ -75,5 +80,10 @@ export class RegisterComponent {
     } finally {
       this.loading = false;
     }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

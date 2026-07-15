@@ -1,7 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { Subject } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -27,7 +29,9 @@ import { ProductService, ProductDto } from '../../core/services/product.service'
   providers: [MessageService],
   templateUrl: './products.component.html'
 })
-export class ProductsComponent implements OnInit {
+export class ProductsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+
   private productService = inject(ProductService);
   private messageService = inject(MessageService);
 
@@ -50,7 +54,7 @@ export class ProductsComponent implements OnInit {
 
   loadProducts(): void {
     this.loading = true;
-    this.productService.getAll().subscribe({
+    this.productService.getAll().pipe(take(1)).subscribe({
       next: p => { this.products = p; this.loading = false; },
       error: () => { this.loading = false; }
     });
@@ -76,7 +80,7 @@ export class ProductsComponent implements OnInit {
     this.productService.restock(
       this.selectedProductForRestock.id,
       this.restockQuantity
-    ).subscribe({
+    ).pipe(take(1)).subscribe({
       next: () => {
         this.messageService.add({
           severity: 'success',
@@ -110,7 +114,7 @@ export class ProductsComponent implements OnInit {
       this.newName.trim(),
       this.newQuantity,
       this.newPrice
-    ).subscribe({
+    ).pipe(take(1)).subscribe({
       next: () => {
         this.messageService.add({
           severity: 'success',
@@ -132,5 +136,10 @@ export class ProductsComponent implements OnInit {
         this.saving = false;
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

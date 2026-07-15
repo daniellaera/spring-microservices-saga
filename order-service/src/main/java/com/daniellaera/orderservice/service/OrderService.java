@@ -10,7 +10,7 @@ import java.util.List;
 @Service
 public interface OrderService {
     OrderDTO createOrder(OrderRequest request, String userEmail);
-    OrderDTO getOrderById(Long id);
+    OrderDTO getOrderById(Long id, String userEmail, String userRole);
     List<OrderDTO> getAllOrders();
     List<OrderDTO> getMyOrders(String userEmail);
     PagedResponse<OrderDTO> getMyOrdersPaged(String userEmail, int page, int size);

@@ -2,7 +2,8 @@ import { Component, NgZone, OnDestroy, OnInit, computed, inject, signal } from '
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, Subject, interval, timer } from 'rxjs';
+import { filter, switchMap, take, takeUntil } from 'rxjs/operators';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
@@ -38,6 +39,13 @@ import { environment } from '../../../environments/environment';
   templateUrl: './dashboard.component.html'
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  private static readonly SSE_RETRY_DELAY_MS = 3000;
+  private static readonly STRIPE_MOUNT_DELAY_MS = 300;
+  private static readonly POLL_INTERVAL_MS = 2000;
+  private static readonly POLL_TIMEOUT_MS = 30000;
+
+  private destroy$ = new Subject<void>();
+
   private authService = inject(AuthService);
   private orderService = inject(OrderService);
   private productService = inject(ProductService);
@@ -67,6 +75,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private abortController: AbortController | null = null;
   private sseRetryTimeout: ReturnType<typeof setTimeout> | null = null;
   private pendingSSEUpdates = new Map<number, string>();
+  private sseConfirmedOrders = new Set<number>();
 
   // payment dialog state
   showPaymentDialog = false;
@@ -100,11 +109,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   loadCart(): void {
-    this.cartService.getCart().subscribe();
+    this.cartService.getCart().pipe(takeUntil(this.destroy$)).subscribe({
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Failed',
+          detail: 'Could not load cart',
+          life: 3000
+        });
+      }
+    });
   }
 
   addToCart(product: ProductDto): void {
-    this.cartService.addItem(product.name, this.quantity(), product.price).subscribe({
+    this.cartService.addItem(product.name, this.quantity(), product.price).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
       next: () => {
         this.messageService.add({
           severity: 'success',
@@ -126,15 +146,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   removeFromCart(productName: string): void {
-    this.cartService.removeItem(productName).subscribe();
+    this.cartService.removeItem(productName).pipe(takeUntil(this.destroy$)).subscribe({
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Failed',
+          detail: 'Could not remove item from cart',
+          life: 3000
+        });
+      }
+    });
   }
 
   updateCartQuantity(productName: string, quantity: number): void {
-    this.cartService.updateQuantity(productName, quantity).subscribe();
+    this.cartService.updateQuantity(productName, quantity).pipe(takeUntil(this.destroy$)).subscribe({
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Failed',
+          detail: 'Could not update cart quantity',
+          life: 3000
+        });
+      }
+    });
   }
 
   clearCart(): void {
-    this.cartService.clearCart().subscribe(() => {
+    this.cartService.clearCart().pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.cartService.cartVisible.set(false);
     });
   }
@@ -153,14 +191,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
       amountInCents,
       'eur',
       cart.items.map(i => i.productName).join(', ')
-    ).subscribe({
+    ).pipe(take(1)).subscribe({
       next: async (intent) => {
         this.currentPaymentIntent = intent;
         this.cartCheckoutIntent = intent;
         this.showPaymentDialog = true;
         this.cartService.cartVisible.set(false);
         this.orderLoading = false;
-        setTimeout(() => this.mountStripeCard(intent), 300);
+        // STRIPE_MOUNT_DELAY_MS: p-dialog needs one animation
+        // frame to render #stripe-payment-element in DOM
+        // before Stripe Elements can mount to it
+        setTimeout(() => this.mountStripeCard(intent), DashboardComponent.STRIPE_MOUNT_DELAY_MS);
       },
       error: () => {
         this.messageService.add({
@@ -180,7 +221,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       ? this.orderService.getAllOrders(page)
       : this.orderService.getMyOrders(page);
 
-    obs.subscribe({
+    obs.pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.orders = data.content;
         this.currentPage = data.currentPage;
@@ -195,14 +236,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   loadProducts(): void {
-    this.productService.getAll().subscribe({
+    this.productService.getAll().pipe(takeUntil(this.destroy$)).subscribe({
       next: products => {
         this.products = products.filter(p => p.quantity > 0);
         if (products.length > 0) {
           this.selectedProduct.set(products[0]);
         }
       },
-      error: () => {}
+      error: () => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Failed',
+          detail: 'Could not load products',
+          life: 3000
+        });
+      }
     });
   }
 
@@ -215,12 +263,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.orderLoading = true;
     const amountInCents = Math.round(product.price * this.quantity() * 100);
 
-    this.paymentService.createPaymentIntent(amountInCents, 'eur', product.name).subscribe({
+    this.paymentService.createPaymentIntent(amountInCents, 'eur', product.name).pipe(take(1)).subscribe({
       next: async (intent) => {
         this.currentPaymentIntent = intent;
         this.showPaymentDialog = true;
         this.orderLoading = false;
-        setTimeout(() => this.mountStripeCard(intent), 300);
+        // STRIPE_MOUNT_DELAY_MS: p-dialog needs one animation
+        // frame to render #stripe-payment-element in DOM
+        // before Stripe Elements can mount to it
+        setTimeout(() => this.mountStripeCard(intent), DashboardComponent.STRIPE_MOUNT_DELAY_MS);
       },
       error: () => {
         this.messageService.add({
@@ -285,16 +336,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.orderService.createOrder(
       [{ productName: product.name, quantity: this.quantity(), price: product.price }],
       paymentIntentId
-    ).subscribe({
+    ).pipe(take(1)).subscribe({
       next: (newOrder: OrderDto) => {
         this.showPaymentDialog = false;
         this.paymentLoading = false;
         this.orders = [newOrder, ...this.orders];
         this.totalElements++;
         this.applyPendingSSEUpdate(newOrder.id);
+        this.pollUntilConfirmed(newOrder.id, newOrder.productName);
         this.quantity.set(1);
         this.loadProducts();
-        this.cartService.clearCart().subscribe();
+        this.cartService.clearCart().pipe(take(1)).subscribe({
+          error: () => {
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Failed',
+              detail: 'Order placed, but cart could not be cleared',
+              life: 3000
+            });
+          }
+        });
         this.cartService.cartVisible.set(false);
         this.messageService.add({
           severity: 'info',
@@ -330,7 +391,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       price: i.price
     }));
 
-    this.orderService.createOrder(items, paymentIntentId).subscribe({
+    this.orderService.createOrder(items, paymentIntentId).pipe(take(1)).subscribe({
       next: (newOrder: OrderDto) => {
         this.showPaymentDialog = false;
         this.paymentLoading = false;
@@ -338,7 +399,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.orders = [newOrder, ...this.orders];
         this.totalElements++;
         this.applyPendingSSEUpdate(newOrder.id);
-        this.cartService.clearCart().subscribe();
+        this.pollUntilConfirmed(newOrder.id, newOrder.productName);
+        this.cartService.clearCart().pipe(take(1)).subscribe({
+          error: () => {
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Failed',
+              detail: 'Order placed, but cart could not be cleared',
+              life: 3000
+            });
+          }
+        });
         this.cartService.cartVisible.set(false);
         this.quantity.set(1);
         this.loadProducts();
@@ -395,7 +466,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     })
     .then(response => {
       if (!response.ok) {
-        console.warn('SSE response not ok:', response.status);
         this.scheduleSSEReconnect();
         return;
       }
@@ -406,7 +476,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       const read = (): void => {
         reader.read().then(({ done, value }) => {
           if (done) {
-            console.warn('SSE stream closed — reconnecting');
             this.scheduleSSEReconnect();
             return;
           }
@@ -426,19 +495,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
                       this.orders = this.orders.map(o =>
                         o.id === data.orderId ? { ...o, status: data.status } : o
                       );
+                      this.sseConfirmedOrders.add(data.orderId);
                       this.showOrderNotification(data.orderId, data.status, order.productName);
                     }
                   } else {
                     this.pendingSSEUpdates.set(data.orderId, data.status);
-                    console.log('SSE: order not found yet, storing pending update', data.orderId, data.status);
-                    setTimeout(() => {
-                      this.zone.run(() => {
-                        const stillMissing = !this.orders.find(o => o.id === data.orderId);
-                        if (stillMissing) {
-                          this.loadOrders(0);
-                        }
-                      });
-                    }, 3000);
+                    this.pollUntilConfirmed(data.orderId);
                   }
                 });
               } catch {}
@@ -447,7 +509,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
           read();
         }).catch(err => {
           if (err.name !== 'AbortError') {
-            console.warn('SSE read error — reconnecting:', err.message);
             this.scheduleSSEReconnect();
           }
         });
@@ -456,7 +517,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     })
     .catch(err => {
       if (err.name !== 'AbortError') {
-        console.warn('SSE connect error — reconnecting:', err.message);
         this.scheduleSSEReconnect();
       }
     });
@@ -464,7 +524,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   scheduleSSEReconnect(): void {
     if (this.sseRetryTimeout) clearTimeout(this.sseRetryTimeout);
-    this.sseRetryTimeout = setTimeout(() => this.connectSSE(), 3000);
+    this.sseRetryTimeout = setTimeout(() => this.connectSSE(), DashboardComponent.SSE_RETRY_DELAY_MS);
   }
 
   applyPendingSSEUpdate(orderId: number): void {
@@ -477,21 +537,54 @@ export class DashboardComponent implements OnInit, OnDestroy {
           o.id === orderId ? { ...o, status: pendingStatus } : o
         );
         this.showOrderNotification(orderId, pendingStatus, order.productName);
-        console.log('SSE: applied pending update for order', orderId, pendingStatus);
       } else if (!order) {
-        setTimeout(() => {
-          this.zone.run(() => {
-            this.loadOrders(0);
-          });
-        }, 2000);
+        this.pollUntilConfirmed(orderId);
       }
     }
+  }
+
+  private pollUntilConfirmed(orderId: number, productName?: string): void {
+    const stop$ = new Subject<void>();
+
+    interval(DashboardComponent.POLL_INTERVAL_MS).pipe(
+      switchMap(() => this.orderService.getOrderById(orderId)),
+      filter(order => order.status !== 'PENDING'),
+      take(1),
+      takeUntil(stop$),
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (order) => {
+        this.zone.run(() => {
+          const exists = this.orders.some(o => o.id === orderId);
+          this.orders = exists
+            ? this.orders.map(o => (o.id === orderId ? { ...order } : o))
+            : [order, ...this.orders];
+          // only notify if SSE didn't already handle it
+          if (!this.sseConfirmedOrders.has(orderId)) {
+            this.showOrderNotification(orderId, order.status, productName ?? order.productName);
+          }
+          this.sseConfirmedOrders.delete(orderId);
+          stop$.next();
+          stop$.complete();
+        });
+      },
+      error: () => stop$.complete()
+    });
+
+    // POLL_TIMEOUT_MS: safety net so an unresolved order doesn't poll forever
+    timer(DashboardComponent.POLL_TIMEOUT_MS).pipe(take(1), takeUntil(this.destroy$)).subscribe(() => {
+      stop$.next();
+      stop$.complete();
+    });
   }
 
   ngOnDestroy(): void {
     this.abortController?.abort();
     if (this.sseRetryTimeout) clearTimeout(this.sseRetryTimeout);
     this.pendingSSEUpdates.clear();
+    this.sseConfirmedOrders.clear();
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   showOrderNotification(orderId: number, status: string, productName: string): void {
@@ -503,6 +596,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
         life: 5000,
         sticky: false
       });
+      this.notificationService.add({
+        type: 'success',
+        title: '✅ Order confirmed',
+        message: `${productName} has been confirmed`,
+        orderId
+      });
     } else if (status === 'CANCELLED') {
       this.messageService.add({
         severity: 'error',
@@ -511,8 +610,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         life: 6000,
         sticky: false
       });
+      this.notificationService.add({
+        type: 'error',
+        title: '❌ Order cancelled',
+        message: `${productName} could not be processed`,
+        orderId
+      });
     }
-    this.notificationService.add();
   }
 
   getStatusSeverity(status: string): 'success' | 'danger' | 'warn' | 'info' {

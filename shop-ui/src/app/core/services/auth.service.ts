@@ -10,6 +10,10 @@ interface AuthResponse {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private static readonly SESSION_WARNING_THRESHOLD_S = 300;
+
+  isRefreshing = signal(false);
+
   private loggedIn = signal(!!localStorage.getItem('token'));
   private emailSignal = signal<string | null>(
     localStorage.getItem('userEmail')
@@ -105,7 +109,7 @@ export class AuthService {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
 
-    this.sessionTimeLow.set(totalSeconds < 300);
+    this.sessionTimeLow.set(totalSeconds < AuthService.SESSION_WARNING_THRESHOLD_S);
 
     if (hours > 0) {
       this.sessionTimeRemaining.set(
@@ -126,11 +130,7 @@ export class AuthService {
     }
 
     this.refresh().subscribe({
-      next: () => {
-        console.log('=== Session auto-refreshed successfully');
-      },
       error: () => {
-        console.log('=== Session refresh failed — logging out');
         this.logout();
       }
     });

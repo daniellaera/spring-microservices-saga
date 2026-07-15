@@ -34,8 +34,11 @@ public class OrderController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<OrderDTO> getOrder(@PathVariable("id") Long id) {
-        return ResponseEntity.ok(orderService.getOrderById(id));
+    public ResponseEntity<OrderDTO> getOrder(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = "X-User-Email", required = false) String userEmail,
+            @RequestHeader(value = "X-User-Role", defaultValue = "USER") String userRole) {
+        return ResponseEntity.ok(orderService.getOrderById(id, userEmail, userRole));
     }
 
     @GetMapping

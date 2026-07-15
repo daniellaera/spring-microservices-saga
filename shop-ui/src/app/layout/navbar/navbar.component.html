@@ -1,3 +1,4 @@
+<p-toast />
 <p-toolbar styleClass="shadow-2 border-none px-4"
            style="position:sticky; top:0; z-index:100;
                   background:var(--surface-card);
@@ -24,20 +25,93 @@
           <i class="pi pi-clock" style="font-size:0.9rem"></i>
           <span class="font-mono">{{ sessionTime() }}</span>
         </div>
-        <div style="position:relative; cursor:pointer"
-             (click)="clearNotifications()"
-             title="Notifications">
-          <i class="pi pi-bell text-color" style="font-size:1.2rem"></i>
-          @if (notificationCount() > 0) {
-            <span style="position:absolute; top:-6px; right:-6px;
-                         background:#e74c3c; color:white;
-                         border-radius:50%; width:18px; height:18px;
-                         font-size:.7rem; font-weight:700;
-                         display:flex; align-items:center;
-                         justify-content:center">
-              {{ notificationCount() > 9 ? '9+' : notificationCount() }}
-            </span>
-          }
+        <p-button
+          [text]="true"
+          [rounded]="true"
+          [icon]="isDarkMode() ? 'pi pi-sun' : 'pi pi-moon'"
+          [title]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+          (onClick)="toggleTheme()" />
+        <!-- Bell icon with notification panel -->
+        <div class="relative">
+          <p-button
+            [text]="true"
+            [rounded]="true"
+            icon="pi pi-bell"
+            (onClick)="onBellClick($event, notifPanel)"
+            [badge]="unreadCount() > 0 ? unreadCount().toString() : ''"
+            badgeSeverity="danger" />
+
+          <p-popover #notifPanel
+            [style]="{width: '360px'}"
+            styleClass="p-0">
+
+            <div class="flex align-items-center
+                        justify-content-between px-3 py-2
+                        border-bottom-1 surface-border">
+              <span class="font-semibold text-sm">Notifications</span>
+              @if (notifications().length > 0) {
+                <p-button
+                  label="Clear all"
+                  [text]="true"
+                  size="small"
+                  severity="secondary"
+                  (onClick)="clearAll()" />
+              }
+            </div>
+
+            @if (notifications().length === 0) {
+              <div class="flex flex-column align-items-center
+                          justify-content-center py-5 gap-2
+                          text-color-secondary">
+                <i class="pi pi-bell-slash text-3xl"></i>
+                <span class="text-sm">No notifications</span>
+              </div>
+            } @else {
+              <div style="max-height:360px; overflow-y:auto">
+                @for (notif of notifications(); track notif.id) {
+                  <div class="flex align-items-start gap-3 px-3 py-2
+                              border-bottom-1 surface-border
+                              hover:surface-hover cursor-pointer"
+                       [class.surface-50]="!notif.read">
+
+                    <!-- icon -->
+                    <i class="pi mt-1 text-lg flex-shrink-0"
+                       [class.pi-check-circle]="notif.type === 'success'"
+                       [class.pi-times-circle]="notif.type === 'error'"
+                       [class.pi-info-circle]="notif.type === 'info'"
+                       [style.color]="notif.type === 'success'
+                         ? '#22c55e'
+                         : notif.type === 'error'
+                         ? '#ef4444' : '#3b82f6'"></i>
+
+                    <!-- content -->
+                    <div class="flex flex-column gap-1 flex-1 min-w-0">
+                      <span class="font-medium text-sm">
+                        {{ notif.title }}
+                      </span>
+                      <span class="text-xs text-color-secondary
+                                   white-space-nowrap overflow-hidden
+                                   text-overflow-ellipsis">
+                        {{ notif.message }}
+                      </span>
+                      <span class="text-xs text-color-secondary">
+                        {{ notif.timestamp | date:'HH:mm:ss' }}
+                      </span>
+                    </div>
+
+                    <!-- remove -->
+                    <p-button
+                      icon="pi pi-times"
+                      [text]="true"
+                      [rounded]="true"
+                      size="small"
+                      severity="secondary"
+                      (onClick)="removeNotification(notif.id)" />
+                  </div>
+                }
+              </div>
+            }
+          </p-popover>
         </div>
         <div style="position:relative; cursor:pointer"
              (click)="toggleCart()"

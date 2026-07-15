@@ -85,7 +85,7 @@ class OrderServiceImplTest {
     void getOrderById_shouldReturnDTO_whenExists() {
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
 
-        OrderDTO result = orderService.getOrderById(1L);
+        OrderDTO result = orderService.getOrderById(1L, "user@test.com", "USER");
 
         assertThat(result.productName()).isEqualTo("MacBook Pro");
         assertThat(result.quantity()).isEqualTo(1);
@@ -95,9 +95,27 @@ class OrderServiceImplTest {
     void getOrderById_shouldThrowResourceNotFoundException_whenNotFound() {
         when(orderRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> orderService.getOrderById(999L))
+        assertThatThrownBy(() -> orderService.getOrderById(999L, "user@test.com", "USER"))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("999");
+    }
+
+    @Test
+    void getOrderById_shouldThrowForbidden_whenNotOwnerAndNotAdmin() {
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.getOrderById(1L, "other@test.com", "USER"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
+    }
+
+    @Test
+    void getOrderById_shouldReturnDTO_whenAdminAndNotOwner() {
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        OrderDTO result = orderService.getOrderById(1L, "other@test.com", "ADMIN");
+
+        assertThat(result.productName()).isEqualTo("MacBook Pro");
     }
 
     @Test

@@ -43,6 +43,7 @@ public class OrderControllerITTest {
         order.setPrice(BigDecimal.valueOf(1299.99));
         order.setTotalAmount(BigDecimal.valueOf(1299.99));
         order.setStatus(OrderStatus.PENDING);
+        order.setUserEmail("user@test.com");
         orderRepository.save(order);
     }
 
@@ -60,6 +61,7 @@ public class OrderControllerITTest {
         Order saved = orderRepository.findAll().get(0);
 
         mockMvc.perform(get("/orders/" + saved.getId())
+                        .header("X-User-Email", "user@test.com")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.productName").value("MacBook Pro"));
@@ -68,8 +70,19 @@ public class OrderControllerITTest {
     @Test
     void getOrderById_shouldReturn404_whenNotFound() throws Exception {
         mockMvc.perform(get("/orders/99999")
+                        .header("X-User-Email", "user@test.com")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getOrderById_shouldReturn403_whenNotOwner() throws Exception {
+        Order saved = orderRepository.findAll().get(0);
+
+        mockMvc.perform(get("/orders/" + saved.getId())
+                        .header("X-User-Email", "someone-else@test.com")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
     }
 
     @Test

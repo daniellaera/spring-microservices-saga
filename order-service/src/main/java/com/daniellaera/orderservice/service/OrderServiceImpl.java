@@ -121,9 +121,13 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public OrderDTO getOrderById(Long id) {
+    public OrderDTO getOrderById(Long id, String userEmail, String userRole) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + id));
+        boolean isAdmin = "ADMIN".equals(userRole);
+        if (!isAdmin && !order.getUserEmail().equals(userEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        }
         return toDTO(order);
     }
 

@@ -1,7 +1,7 @@
 # Online Shop — Microservices Platform
 
 ![Coverage](https://img.shields.io/badge/coverage-83%25-brightgreen)
-![Tests](https://img.shields.io/badge/tests-158%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-144%20passing-brightgreen)
 ![Java](https://img.shields.io/badge/Java-21-blue)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
 ![Angular](https://img.shields.io/badge/Angular-21-red)
@@ -61,12 +61,14 @@ A production-grade microservices e-commerce platform built on Java 21 and Spring
 | Resilience4j | latest | Circuit Breaker (CLOSED / OPEN / HALF_OPEN) |
 | Apache Kafka | 4.2.0 | Event-driven saga (KRaft — no Zookeeper) |
 | PostgreSQL | 17 | Database per service |
-| Redis | 8 | Rate limiting (token bucket) + product cache |
+| Redis | 8 | Rate limiting, cart sessions, product cache |
+| Refresh Token Rotation | — | 7-day refresh tokens, 15-min access tokens, rotated on every use |
 | Flyway | 11 | Database migrations |
 | Stripe SDK | latest | Test-mode PaymentIntent API |
 | OpenTelemetry | latest | Distributed traces + metrics + logs |
 | Grafana LGTM | latest | Tempo + Loki + Mimir in one container |
 | Testcontainers | 1.21.4 | Integration tests — real PostgreSQL + Kafka |
+| JaCoCo | latest | Aggregate coverage report across all services |
 
 ### Frontend
 | Technology | Version | Usage |
@@ -96,6 +98,7 @@ A production-grade microservices e-commerce platform built on Java 21 and Spring
 | inventory-service | 8082 | Product catalog, stock management, Redis cache |
 | payment-service | 8083 | Stripe PaymentIntent integration, Kafka saga |
 | notification-service | 8085 | Order confirmation emails via Gmail SMTP |
+| cart-service | 8086 | Redis-backed shopping cart with 30min TTL |
 | config-server | 8888 | Centralized Spring Cloud Config Server |
 | dozzle | 9999 | Real-time Docker log viewer — all container logs in one UI |
 
@@ -119,6 +122,18 @@ The browser holds one persistent Server-Sent Events connection to `order-service
 
 ### JWT Gateway Authentication
 All JWT validation happens at the gateway. Downstream services receive `X-User-Email` and `X-User-Role` headers injected by the gateway — they never inspect the token directly. RBAC rules (e.g. `POST /products` requires `ADMIN`) are enforced before a request reaches any microservice.
+
+### Redis Multi-Purpose
+A single Redis instance serves three distinct use cases:
+- Rate limiting at the gateway (`RequestRateLimiter`, token bucket)
+- Cart session storage with TTL (`cart-service` — `RedisTemplate` hash ops, 30-min expiry)
+- Product cache with eviction (`inventory-service` — Spring `@Cacheable` / `@CacheEvict`)
+
+### Refresh Token Rotation
+15-minute access tokens paired with 7-day refresh tokens. Every refresh issues a new token and revokes the old one — a stolen refresh token stops working the moment the legitimate user refreshes again. The Angular interceptor auto-refreshes transparently, so a user is never logged out unless idle for the full 7 days.
+
+### Multi-Item Orders
+A single order can hold multiple line items (`order_items` table) instead of one order per product. One Stripe `PaymentIntent` covers the full cart total, and one confirmation email summarizes all items. Inventory validates every item before any stock is deducted — it's all-or-nothing, so no customer ends up with a partially fulfilled order.
 
 ---
 
@@ -144,6 +159,8 @@ cd shop-ui && npx ng serve
 ```
 
 Frontend available at `http://localhost:4200`
+
+`cart-service` runs on port `8086` alongside the other backend services. Real-time container logs for the full stack are viewable at `http://localhost:9999` (Dozzle).
 
 ### Demo Credentials
 

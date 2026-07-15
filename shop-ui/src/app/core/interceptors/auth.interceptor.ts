@@ -4,8 +4,6 @@ import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
-let isRefreshing = false;
-
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = localStorage.getItem('token');
   const router = inject(Router);
@@ -23,19 +21,19 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       const isAuthEndpoint =
         req.url.includes('/auth/login') || req.url.includes('/auth/refresh');
 
-      if (error.status === 401 && !isAuthEndpoint && !isRefreshing) {
-        isRefreshing = true;
+      if (error.status === 401 && !isAuthEndpoint && !authService.isRefreshing()) {
+        authService.isRefreshing.set(true);
 
         return authService.refresh().pipe(
           switchMap((response) => {
-            isRefreshing = false;
+            authService.isRefreshing.set(false);
             const retryReq = req.clone({
-              setHeaders: { Authorization: 'Bearer ' + response.token }
+              setHeaders: { Authorization: `Bearer ${response.token}` }
             });
             return next(retryReq);
           }),
           catchError((refreshError) => {
-            isRefreshing = false;
+            authService.isRefreshing.set(false);
             authService.logout();
             router.navigate(['/login']);
             return throwError(() => refreshError);

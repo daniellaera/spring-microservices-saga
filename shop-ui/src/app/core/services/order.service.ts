@@ -53,4 +53,8 @@ export class OrderService {
   createOrder(items: OrderItemInput[], paymentIntentId: string = ''): Observable<OrderDto> {
     return this.http.post<OrderDto>('/orders', { items, paymentIntentId });
   }
+
+  getOrderById(orderId: number): Observable<OrderDto> {
+    return this.http.get<OrderDto>(`/orders/${orderId}`);
+  }
 }

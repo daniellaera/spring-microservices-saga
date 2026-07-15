@@ -301,6 +301,8 @@ Internet → Nginx (:80) → Gateway (:8080)
                               └── shop-ui (:80)
 ```
 
+> `nginx.conf` must include `/cart` and `/payments` proxy locations for production deployment — both are required alongside the existing routes for the gateway to be reachable through Nginx.
+
 ---
 
 ## Database per Service
@@ -424,3 +426,44 @@ Full control over secret data, no third-party dependency, and zero cost. The hom
 
 **Why not environment variables directly in Docker Compose?**
 Committing secrets in Compose files, even in a private repo, is a security risk. Infisical provides audit logs, secret versioning, and machine-identity-scoped access that plain env files cannot.
+
+---
+
+### ADR-008 — Refresh Token Rotation
+
+**Context**
+15-minute access tokens cause frequent re-authentication without a refresh mechanism.
+
+**Decision**
+7-day refresh tokens stored in PostgreSQL with rotation on every use. The Angular interceptor transparently refreshes on a 401, and a timer auto-refreshes before logout.
+
+**Why rotation?**
+Each refresh issues a new token and revokes the old one. Stolen refresh tokens are invalidated after the first use by the legitimate user.
+
+---
+
+### ADR-009 — Redis Multi-Purpose Strategy
+
+**Context**
+Redis was already required for gateway rate limiting. Cart and cache needs arose separately.
+
+**Decision**
+A single Redis instance serves three distinct use cases rather than separate caching infrastructure per service.
+
+**Use cases**
+- Gateway: `RequestRateLimiter` per user/IP
+- `cart-service`: hash-per-user with 30-min TTL
+- `inventory-service`: `@Cacheable` with `@CacheEvict` on writes
+
+---
+
+### ADR-010 — Multi-Item Orders with Single PaymentIntent
+
+**Context**
+Cart checkout originally created one order per item — multiple Stripe charges, multiple emails, broken UX.
+
+**Decision**
+Single order with an `order_items` table. One Stripe `PaymentIntent` for the cart total. One email with an itemized summary. Inventory validates all items before any stock deduction.
+
+**Why all-or-nothing inventory?**
+Prevents partial fulfillment — either all items are available or the entire order is rejected. No customer receives half their cart.
