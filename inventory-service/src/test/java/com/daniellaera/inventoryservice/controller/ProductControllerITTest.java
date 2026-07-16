@@ -11,6 +11,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -33,6 +35,9 @@ public class ProductControllerITTest {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @MockitoBean
+    private KafkaTemplate<String, String> kafkaTemplate;
 
     @BeforeEach
     void setUp() {

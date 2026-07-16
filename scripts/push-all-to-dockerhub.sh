@@ -1,4 +1,8 @@
 #!/bin/bash
+# Manual script to build and push ALL services to Docker Hub.
+# Use this only when you want to force a full rebuild outside CI/CD.
+# Normal deployments are handled automatically by Gitea Actions pipeline.
+# Usage: ./scripts/push-all-to-dockerhub.sh
 
 # Script to build and push all microservices to Docker Hub (multi-arch)
 
@@ -6,7 +10,18 @@ DOCKERHUB_USERNAME="daniellaera"
 TAG="latest"
 
 # List of services
-SERVICES=("config-server" "auth-service" "order-service" "inventory-service" "payment-service" "notification-service" "gateway-service" "shop-ui")
+SERVICES=(
+  "config-server"
+  "auth-service"
+  "order-service"
+  "inventory-service"
+  "payment-service"
+  "notification-service"
+  "gateway-service"
+  "cart-service"
+  "audit-trail-service"
+  "shop-ui"
+)
 
 # Loop over each service
 for SERVICE in "${SERVICES[@]}"; do

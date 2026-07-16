@@ -1,5 +1,6 @@
 package com.daniellaera.authservice.service;
 
+import com.daniellaera.authservice.audit.AuditPublisher;
 import com.daniellaera.authservice.enums.Role;
 import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.model.User;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,6 +28,7 @@ class RefreshTokenServiceTest {
 
     @Mock private RefreshTokenRepository refreshTokenRepository;
     @Mock private UserRepository userRepository;
+    @Mock private AuditPublisher auditPublisher;
 
     @InjectMocks
     private RefreshTokenService refreshTokenService;
@@ -44,6 +47,7 @@ class RefreshTokenServiceTest {
         assertThat(refreshToken.getUser()).isEqualTo(user);
         assertThat(refreshToken.isRevoked()).isFalse();
         assertThat(refreshToken.getExpiryDate()).isAfter(Instant.now());
+        verify(auditPublisher).publish(eq("TOKEN_REFRESHED"), any(), any(), any(), any());
     }
 
     @Test

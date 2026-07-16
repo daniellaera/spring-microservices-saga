@@ -29,5 +29,12 @@ export const routes: Routes = [
         .then(m => m.ProductsComponent),
     canActivate: [authGuard]
   },
+  {
+    path: 'audit',
+    loadComponent: () =>
+      import('./features/audit/audit.component')
+        .then(m => m.AuditComponent),
+    canActivate: [authGuard]
+  },
   { path: '**', redirectTo: '/dashboard' }
 ];

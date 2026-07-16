@@ -176,6 +176,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
           label: 'Manage Products',
           icon: 'pi pi-box',
           routerLink: '/products'
+        }, {
+          label: 'Audit Trail',
+          icon: 'pi pi-shield',
+          routerLink: '/audit'
         }] : []),
         { separator: true },
         {

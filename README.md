@@ -1,7 +1,7 @@
 # Online Shop — Microservices Platform
 
-![Coverage](https://img.shields.io/badge/coverage-83%25-brightgreen)
-![Tests](https://img.shields.io/badge/tests-144%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-84%25-green)
+![Tests](https://img.shields.io/badge/tests-198%20passing-brightgreen)
 ![Java](https://img.shields.io/badge/Java-21-blue)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
 ![Angular](https://img.shields.io/badge/Angular-21-red)
@@ -140,51 +140,69 @@ A single order can hold multiple line items (`order_items` table) instead of one
 ## Getting Started
 
 ### Prerequisites
-- Java 21
-- Node 24 (nvm recommended)
+- Java 21 (via SDKMAN: sdk install java 21.0.9-oracle)
+- Node 24 (via nvm: nvm install 24 && nvm alias default 24)
 - Docker + Docker Compose
 - Maven 3.9+
 
 ### Local Development
 
+**One command to start everything:**
+
 ```bash
-# Start infrastructure (Kafka, PostgreSQL, Redis, Grafana, Mailpit)
-docker compose -f docker-compose.local.yml up -d
-
-# Start all backend services
 ./start-services.sh
-
-# Start the frontend (separate terminal)
-cd shop-ui && npx ng serve
 ```
 
-Frontend available at `http://localhost:4200`
+> ℹ️ This script automatically starts Docker infrastructure
+> (Kafka, PostgreSQL, Redis, Grafana, Mailpit), waits for
+> each service to be healthy, then starts all 9 Spring Boot
+> services and the Angular frontend.
+>
+> ⚠️ First time setup or after destroying volumes
+> (`docker compose -f docker-compose.local.yml down -v`):
+> PostgreSQL initializes automatically via `init-db.sql` —
+> all databases and demo data are created on first start.
+> No manual setup needed.
 
-`cart-service` runs on port `8086` alongside the other backend services. Real-time container logs for the full stack are viewable at `http://localhost:9999` (Dozzle).
+**Frontend:** http://localhost:4200
+
+### Local Tools
+
+| Tool | URL | Purpose |
+|------|-----|---------|
+| Shop UI | http://localhost:4200 | Angular frontend |
+| Mailpit | http://localhost:8025 | Catch-all email inbox (dev) |
+| Grafana | http://localhost:3000 | Traces + metrics |
+| Dozzle | http://localhost:9999 | Real-time container logs |
+| Config Server | http://localhost:8888 | Centralized config |
+
+### Two Docker Compose Files
+
+| File | Purpose |
+|------|---------|
+| docker-compose.local.yml | Local infra only — services run via Maven |
+| docker-compose.yml | Full prod stack — all services as Docker images |
+
+> Never run docker-compose.yml locally unless testing
+> the full Docker deployment.
+
+### Create Admin User (optional)
+```bash
+./scripts/create-admin.sh your@email.com yourpassword
+```
 
 ### Demo Credentials
-
 | User | Email | Password | Role |
 |------|-------|----------|------|
 | User | daniel@example.com | demo1234 | USER |
 | Admin | admin@example.com | demo1234 | ADMIN |
 
-> Seeded by Flyway on first startup. Do not use in production.
-
-To provision a new ADMIN after deployment:
-```bash
-./scripts/create-admin.sh admin@shop.com yourPassword
-```
-
 ### Test Payment (Stripe test mode)
-
-| Card number | Result |
-|-------------|--------|
+| Card | Result |
+|------|--------|
 | 4242 4242 4242 4242 | Payment succeeds |
 | 4000 0000 0000 0002 | Card declined |
 | 4000 0025 0000 3155 | Requires 3D Secure |
-
-Use any future expiry and any 3-digit CVC.
 
 ---
 

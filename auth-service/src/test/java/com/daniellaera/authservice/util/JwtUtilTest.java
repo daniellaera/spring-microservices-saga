@@ -4,6 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Base64;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class JwtUtilTest {
@@ -30,5 +32,10 @@ class JwtUtilTest {
         String token = jwtUtil.generateToken("admin@test.com", "ADMIN");
 
         assertThat(token).isNotNull();
+
+        String[] parts = token.split("\\.");
+        String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
+        assertThat(payload).contains("admin@test.com");
+        assertThat(payload).contains("ADMIN");
     }
 }

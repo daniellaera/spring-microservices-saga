@@ -1,5 +1,6 @@
 package com.daniellaera.authservice.service;
 
+import com.daniellaera.authservice.audit.AuditPublisher;
 import com.daniellaera.authservice.dto.AuthResponse;
 import com.daniellaera.authservice.dto.LoginRequest;
 import com.daniellaera.authservice.dto.ProfileRequest;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +37,7 @@ class DefaultAuthServiceTest {
     @Mock private JwtUtil jwtUtil;
     @Mock private AuthenticationManager authenticationManager;
     @Mock private RefreshTokenService refreshTokenService;
+    @Mock private AuditPublisher auditPublisher;
 
     @InjectMocks
     private DefaultAuthService authService;
@@ -61,6 +64,7 @@ class DefaultAuthServiceTest {
         assertThat(savedUser.getLastName()).isNull();
 
         verify(jwtUtil, times(1)).generateToken("john@test.com", "USER");
+        verify(auditPublisher).publish(eq("USER_REGISTER"), any(), any(), any(), any());
     }
 
     @Test
@@ -82,6 +86,7 @@ class DefaultAuthServiceTest {
         assertThat(response.refreshToken()).isEqualTo("admin-refresh-token");
         verify(authenticationManager, times(1)).authenticate(any());
         verify(jwtUtil, times(1)).generateToken("admin@test.com", "ADMIN");
+        verify(auditPublisher).publish(eq("USER_LOGIN"), any(), any(), any(), any());
     }
 
     @Test

@@ -18,6 +18,7 @@
     <module>auth-service</module>
     <module>notification-service</module>
     <module>cart-service</module>
+    <module>audit-trail-service</module>
     <module>coverage-report</module>
   </modules>
 

@@ -1,5 +1,6 @@
 package com.daniellaera.paymentservice.service;
 
+import com.daniellaera.paymentservice.audit.AuditPublisher;
 import com.daniellaera.paymentservice.config.StripeConfig;
 import com.daniellaera.paymentservice.dto.PaymentIntentRequest;
 import com.daniellaera.paymentservice.dto.PaymentIntentResponse;
@@ -31,6 +32,9 @@ class StripePaymentServiceTest {
     @Mock
     private PaymentIntent paymentIntent;
 
+    @Mock
+    private AuditPublisher auditPublisher;
+
     @InjectMocks
     private StripePaymentService stripePaymentService;
 
@@ -59,7 +63,7 @@ class StripePaymentServiceTest {
         paymentIntentStatic.when(() -> PaymentIntent.create(any(PaymentIntentCreateParams.class)))
                 .thenReturn(paymentIntent);
 
-        PaymentIntentResponse response = stripePaymentService.createPaymentIntent(request);
+        PaymentIntentResponse response = stripePaymentService.createPaymentIntent(request, "user@example.com");
 
         assertThat(response.clientSecret()).isEqualTo("secret_123");
         assertThat(response.paymentIntentId()).isEqualTo("pi_123");
@@ -74,7 +78,7 @@ class StripePaymentServiceTest {
         paymentIntentStatic.when(() -> PaymentIntent.create(any(PaymentIntentCreateParams.class)))
                 .thenThrow(stripeException);
 
-        assertThatThrownBy(() -> stripePaymentService.createPaymentIntent(request))
+        assertThatThrownBy(() -> stripePaymentService.createPaymentIntent(request, "user@example.com"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("card declined");
     }

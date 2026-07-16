@@ -88,6 +88,15 @@ spring:
                     redis-rate-limiter.replenishRate: 20
                     redis-rate-limiter.burstCapacity: 40
                     redis-rate-limiter.requestedTokens: 1
+            - id: audit-trail-service
+              uri: ${AUDIT_SERVICE_URI:http://localhost:8087}
+              predicates:
+                - Path=/audit/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: audit-cb
+                    fallbackUri: forward:/fallback/audit
 
   application:
     name: gateway-service

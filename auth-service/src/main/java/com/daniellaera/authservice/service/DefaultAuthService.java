@@ -1,5 +1,6 @@
 package com.daniellaera.authservice.service;
 
+import com.daniellaera.authservice.audit.AuditPublisher;
 import com.daniellaera.authservice.dto.AuthResponse;
 import com.daniellaera.authservice.dto.LoginRequest;
 import com.daniellaera.authservice.dto.ProfileRequest;
@@ -29,6 +30,7 @@ public class DefaultAuthService implements AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
     private final RefreshTokenService refreshTokenService;
+    private final AuditPublisher auditPublisher;
 
     @Override
     public AuthResponse register(RegisterRequest request) {
@@ -40,6 +42,7 @@ public class DefaultAuthService implements AuthService {
                 .build();
         userRepository.save(user);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
+        auditPublisher.publish("USER_REGISTER", user.getEmail(), "USER", user.getEmail(), user.getEmail());
         return new AuthResponse(generateTokenForUser(user), refreshToken.getToken());
     }
 
@@ -51,6 +54,7 @@ public class DefaultAuthService implements AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("User not found"));
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
+        auditPublisher.publish("USER_LOGIN", user.getEmail(), "USER", user.getEmail(), user.getEmail());
         return new AuthResponse(generateTokenForUser(user), refreshToken.getToken());
     }
 
@@ -75,7 +79,13 @@ public class DefaultAuthService implements AuthService {
 
         User saved = userRepository.save(user);
         log.info("=== Profile updated for {}", email);
+        auditPublisher.publish("USER_PROFILE_UPDATED", email, "USER", email, request);
         return toProfileResponse(saved);
+    }
+
+    @Override
+    public boolean isEmailAvailable(String email) {
+        return !userRepository.existsByEmail(email);
     }
 
     private ProfileResponse toProfileResponse(User user) {

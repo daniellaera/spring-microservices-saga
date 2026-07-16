@@ -1,5 +1,6 @@
 package com.daniellaera.authservice.controller;
 
+import com.daniellaera.authservice.audit.AuditPublisher;
 import com.daniellaera.authservice.dto.AuthResponse;
 import com.daniellaera.authservice.dto.LoginRequest;
 import com.daniellaera.authservice.dto.RegisterRequest;
@@ -38,6 +39,9 @@ class AuthControllerTest {
 
     @Mock
     private JwtUtil jwtUtil;
+
+    @Mock
+    private AuditPublisher auditPublisher;
 
     private MockMvc mockMvc;
 

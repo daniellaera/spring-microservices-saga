@@ -20,8 +20,10 @@ public class StripePaymentController {
     private final StripePaymentService stripePaymentService;
 
     @PostMapping("/create-intent")
-    public ResponseEntity<PaymentIntentResponse> createIntent(@Valid @RequestBody PaymentIntentRequest request) {
-        return ResponseEntity.ok(stripePaymentService.createPaymentIntent(request));
+    public ResponseEntity<PaymentIntentResponse> createIntent(
+            @Valid @RequestBody PaymentIntentRequest request,
+            @RequestHeader(value = "X-User-Email", required = false) String userEmail) {
+        return ResponseEntity.ok(stripePaymentService.createPaymentIntent(request, userEmail));
     }
 
     @GetMapping("/confirm/{paymentIntentId}")

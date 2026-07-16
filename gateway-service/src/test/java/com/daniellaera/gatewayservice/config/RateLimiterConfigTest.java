@@ -1,6 +1,5 @@
 package com.daniellaera.gatewayservice.config;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
@@ -13,8 +12,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.net.InetSocketAddress;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class RateLimiterConfigTest {
 
@@ -63,10 +60,7 @@ public class RateLimiterConfigTest {
     public void keyResolver_shouldReturnAnonymous_whenAuthHeaderAndRemoteAddressAreMissing() {
         MockServerHttpRequest request = MockServerHttpRequest.get("/")
                 .build();
-        // MockServerHttpRequest by default might not have remote address? 
-        // Let's check RateLimiterConfig logic: 
-        // exchange.getRequest().getRemoteAddress() != null
-        
+
         ServerWebExchange exchange = MockServerWebExchange.from(request);
 
         Mono<String> keyMono = keyResolver.resolve(exchange);

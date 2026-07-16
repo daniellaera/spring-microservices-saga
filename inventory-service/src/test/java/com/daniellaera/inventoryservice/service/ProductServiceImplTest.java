@@ -1,5 +1,6 @@
 package com.daniellaera.inventoryservice.service;
 
+import com.daniellaera.inventoryservice.audit.AuditPublisher;
 import com.daniellaera.inventoryservice.dto.ProductDTO;
 import com.daniellaera.inventoryservice.dto.ProductRequest;
 import com.daniellaera.inventoryservice.exception.ResourceNotFoundException;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,6 +28,9 @@ class ProductServiceImplTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private AuditPublisher auditPublisher;
 
     @InjectMocks
     private ProductServiceImpl productService;
@@ -84,6 +89,7 @@ class ProductServiceImplTest {
         assertThat(result.name()).isEqualTo("MacBook Pro");
         assertThat(result.quantity()).isEqualTo(10);
         verify(productRepository, times(1)).save(any(Product.class));
+        verify(auditPublisher).publish(eq("PRODUCT_CREATED"), any(), any(), any(), any());
     }
 
     @Test
@@ -117,6 +123,7 @@ class ProductServiceImplTest {
         assertThat(result.quantity()).isEqualTo(25);
         assertThat(result.name()).isEqualTo("MacBook Pro");
         verify(productRepository).save(any(Product.class));
+        verify(auditPublisher).publish(eq("PRODUCT_RESTOCKED"), any(), any(), any(), any());
     }
 
     @Test

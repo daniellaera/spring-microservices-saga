@@ -263,6 +263,37 @@ services:
       start_period: 40s
     restart: unless-stopped
 
+  audit-trail-service:
+    image: daniellaera/audit-trail-service:latest
+    container_name: audit-trail-service
+    ports:
+      - "8087:8087"
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DB_HOST=postgres
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - CONFIG_SERVER_URI=http://config-server:8888
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
+      - AUDIT_SERVICE_URI=http://audit-trail-service:8087
+      - JAVA_TOOL_OPTIONS=-Xms64m -Xmx150m
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8087/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
   gateway-service:
     image: daniellaera/gateway-service:latest
     container_name: gateway-service
@@ -274,6 +305,7 @@ services:
       - INVENTORY_SERVICE_URI=http://inventory-service:8082
       - PAYMENT_SERVICE_URI=http://payment-service:8083
       - CART_SERVICE_URI=http://cart-service:8086
+      - AUDIT_SERVICE_URI=http://audit-trail-service:8087
       - CONFIG_SERVER_URI=http://config-server:8888
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
       - JWT_SECRET=${JWT_SECRET}
@@ -289,6 +321,8 @@ services:
       payment-service:
         condition: service_started
       cart-service:
+        condition: service_started
+      audit-trail-service:
         condition: service_started
       config-server:
         condition: service_healthy

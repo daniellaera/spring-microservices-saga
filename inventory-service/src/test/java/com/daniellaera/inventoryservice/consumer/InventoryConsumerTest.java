@@ -1,5 +1,6 @@
 package com.daniellaera.inventoryservice.consumer;
 
+import com.daniellaera.inventoryservice.audit.AuditPublisher;
 import com.daniellaera.inventoryservice.dto.InventoryResultEvent;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
 import com.daniellaera.inventoryservice.dto.PaymentEvent;
@@ -34,6 +35,7 @@ class InventoryConsumerTest {
     @Mock private CompensationLogRepository compensationLogRepository;
     @Mock private KafkaTemplate<String, String> kafkaTemplate;
     @Mock private ObjectMapper objectMapper;
+    @Mock private AuditPublisher auditPublisher;
 
     @InjectMocks
     private InventoryConsumer inventoryConsumer;

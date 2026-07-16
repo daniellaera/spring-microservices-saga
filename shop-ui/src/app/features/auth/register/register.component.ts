@@ -2,9 +2,9 @@ import { Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Subject, firstValueFrom, timer } from 'rxjs';
-import { take, takeUntil } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, switchMap, take, takeUntil } from 'rxjs/operators';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -17,7 +17,7 @@ import { MessageService } from 'primeng/api';
   selector: 'app-register',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
+    CommonModule, FormsModule, RouterLink,
     CardModule, ButtonModule, InputTextModule,
     ToastModule, DividerModule, PasswordModule
   ],
@@ -26,6 +26,7 @@ import { MessageService } from 'primeng/api';
 })
 export class RegisterComponent implements OnDestroy {
   private destroy$ = new Subject<void>();
+  private emailInput$ = new Subject<string>();
 
   email = '';
   password = '';
@@ -33,17 +34,50 @@ export class RegisterComponent implements OnDestroy {
   loading = false;
   emailError = '';
   passwordError = '';
+  emailCheckLoading = false;
+  emailTaken = false;
 
   constructor(
     private http: HttpClient,
     public router: Router,
     private messageService: MessageService
-  ) {}
+  ) {
+    this.emailInput$.pipe(
+      debounceTime(600),
+      distinctUntilChanged(),
+      switchMap(email => {
+        if (!email || !email.includes('@')) {
+          this.emailTaken = false;
+          return [];
+        }
+        this.emailCheckLoading = true;
+        return this.http.get<{ available: boolean }>(
+          `/auth/check-email?email=${encodeURIComponent(email)}`
+        );
+      }),
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (res: { available: boolean }) => {
+        this.emailTaken = !res.available;
+        this.emailCheckLoading = false;
+      },
+      error: () => {
+        this.emailCheckLoading = false;
+      }
+    });
+  }
+
+  onEmailInput(value: string): void {
+    this.emailInput$.next(value);
+  }
 
   async register(): Promise<void> {
     this.emailError = '';
     this.passwordError = '';
 
+    if (this.emailTaken) {
+      return;
+    }
     if (!this.email.trim()) {
       this.emailError = 'Email is required';
       return;

@@ -1,5 +1,6 @@
 package com.daniellaera.orderservice.service;
 
+import com.daniellaera.orderservice.audit.AuditPublisher;
 import com.daniellaera.orderservice.dto.OrderDTO;
 import com.daniellaera.orderservice.dto.OrderEvent;
 import com.daniellaera.orderservice.dto.OrderItemRequest;
@@ -51,6 +52,9 @@ class OrderServiceImplTest {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private AuditPublisher auditPublisher;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -132,6 +136,7 @@ class OrderServiceImplTest {
         verify(orderRepository, times(1)).save(any(Order.class));
         verify(outboxEventRepository, times(1)).save(any(OutboxEvent.class));
         verifyNoInteractions(orderProducer);
+        verify(auditPublisher).publish(eq("ORDER_CREATED"), any(), any(), any(), any());
     }
 
     @Test

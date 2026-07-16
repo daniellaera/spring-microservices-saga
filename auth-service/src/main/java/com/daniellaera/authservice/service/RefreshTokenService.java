@@ -1,5 +1,6 @@
 package com.daniellaera.authservice.service;
 
+import com.daniellaera.authservice.audit.AuditPublisher;
 import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.model.User;
 import com.daniellaera.authservice.repository.RefreshTokenRepository;
@@ -21,6 +22,7 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
+    private final AuditPublisher auditPublisher;
 
     @Value("${app.jwt.refresh-expiration:604800000}")
     private long refreshExpiration;
@@ -40,6 +42,7 @@ public class RefreshTokenService {
 
         RefreshToken saved = refreshTokenRepository.save(refreshToken);
         log.info("=== RefreshToken created for {}", userEmail);
+        auditPublisher.publish("TOKEN_REFRESHED", userEmail, "USER", userEmail, userEmail);
         return saved;
     }
 

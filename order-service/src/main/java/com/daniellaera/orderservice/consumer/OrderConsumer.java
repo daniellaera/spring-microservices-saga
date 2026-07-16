@@ -1,5 +1,6 @@
 package com.daniellaera.orderservice.consumer;
 
+import com.daniellaera.orderservice.audit.AuditPublisher;
 import com.daniellaera.orderservice.dto.OrderStatusUpdate;
 import com.daniellaera.orderservice.dto.PaymentEvent;
 import com.daniellaera.orderservice.enums.OrderStatus;
@@ -20,6 +21,7 @@ public class OrderConsumer {
     private final OrderRepository orderRepository;
     private final ObjectMapper objectMapper;
     private final SseEmitterRegistry sseEmitterRegistry;
+    private final AuditPublisher auditPublisher;
 
     @KafkaListener(topics = "payment-topic", groupId = "order-group")
     public void handlePaymentEvent(String message) {
@@ -34,6 +36,10 @@ public class OrderConsumer {
                 }
                 orderRepository.save(order);
                 log.info("=== Order: status updated to {} for orderId {}", order.getStatus(), order.getId());
+
+                auditPublisher.publish(
+                        order.getStatus() == OrderStatus.CONFIRMED ? "ORDER_CONFIRMED" : "ORDER_CANCELLED",
+                        order.getUserEmail(), "ORDER", String.valueOf(order.getId()), event);
 
                 try {
                     OrderStatusUpdate update = new OrderStatusUpdate(

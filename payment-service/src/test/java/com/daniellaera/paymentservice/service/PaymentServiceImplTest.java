@@ -1,5 +1,6 @@
 package com.daniellaera.paymentservice.service;
 
+import com.daniellaera.paymentservice.audit.AuditPublisher;
 import com.daniellaera.paymentservice.dto.InventoryResultEvent;
 import com.daniellaera.paymentservice.dto.OrderItemEvent;
 import com.daniellaera.paymentservice.dto.PaymentEvent;
@@ -34,6 +35,7 @@ class PaymentServiceImplTest {
     @Mock private KafkaTemplate<String, String> kafkaTemplate;
     @Mock private ObjectMapper objectMapper;
     @Mock private StripePaymentService stripePaymentService;
+    @Mock private AuditPublisher auditPublisher;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -103,6 +105,7 @@ class PaymentServiceImplTest {
 
         verify(kafkaTemplate).send(eq("payment-topic"), anyString());
         verify(stripePaymentService).confirmPayment("pi_123");
+        verify(auditPublisher).publish(eq("PAYMENT_SUCCEEDED"), any(), any(), any(), any());
     }
 
     @Test
@@ -139,6 +142,7 @@ class PaymentServiceImplTest {
         assertThat(txCaptor.getValue().getOrderId()).isEqualTo(2L);
 
         verify(kafkaTemplate).send(eq("payment-topic"), anyString());
+        verify(auditPublisher).publish(eq("PAYMENT_FAILED"), any(), any(), any(), any());
     }
 
     @Test

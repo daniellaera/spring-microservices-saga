@@ -39,7 +39,7 @@ class StripePaymentControllerTest {
 
     @Test
     void createIntent_validBody_returns200WithClientSecret() throws Exception {
-        when(stripePaymentService.createPaymentIntent(any()))
+        when(stripePaymentService.createPaymentIntent(any(), any()))
                 .thenReturn(new PaymentIntentResponse("secret_123", "pi_123", "requires_payment_method", "pk_test_123"));
 
         mockMvc.perform(post("/payments/create-intent")

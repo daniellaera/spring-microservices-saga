@@ -12,6 +12,7 @@ import com.daniellaera.orderservice.exception.ResourceNotFoundException;
 import com.daniellaera.orderservice.model.Order;
 import com.daniellaera.orderservice.model.OrderItem;
 import com.daniellaera.orderservice.model.OutboxEvent;
+import com.daniellaera.orderservice.audit.AuditPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -41,6 +42,7 @@ public class OrderServiceImpl implements OrderService {
     private final OutboxEventRepository outboxEventRepository;
     private final OrderProducer orderProducer;
     private final ObjectMapper objectMapper;
+    private final AuditPublisher auditPublisher;
 
     @Override
     @Transactional
@@ -97,6 +99,9 @@ public class OrderServiceImpl implements OrderService {
             log.error("=== Outbox: failed to persist outbox event for orderId {}: {}", saved.getId(), e.getMessage());
             throw new RuntimeException("Failed to save outbox event", e);
         }
+
+        auditPublisher.publish("ORDER_CREATED", saved.getUserEmail(), "ORDER",
+                String.valueOf(saved.getId()), orderEvent);
 
         return toDTO(saved);
     }

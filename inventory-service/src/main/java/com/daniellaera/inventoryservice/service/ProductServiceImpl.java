@@ -1,5 +1,6 @@
 package com.daniellaera.inventoryservice.service;
 
+import com.daniellaera.inventoryservice.audit.AuditPublisher;
 import com.daniellaera.inventoryservice.dto.ProductDTO;
 import com.daniellaera.inventoryservice.dto.ProductRequest;
 import com.daniellaera.inventoryservice.exception.ResourceAlreadyExistsException;
@@ -18,6 +19,7 @@ import java.util.List;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
+    private final AuditPublisher auditPublisher;
 
     @Override
     @CacheEvict(value = "products", allEntries = true)
@@ -30,6 +32,7 @@ public class ProductServiceImpl implements ProductService {
         product.setQuantity(request.quantity());
         product.setPrice(request.price() != null ? request.price() : java.math.BigDecimal.ZERO);
         Product saved = productRepository.save(product);
+        auditPublisher.publish("PRODUCT_CREATED", null, "PRODUCT", String.valueOf(saved.getId()), saved);
         return toDTO(saved);
     }
 
@@ -55,7 +58,9 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
         product.setQuantity(product.getQuantity() + quantity);
-        return toDTO(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        auditPublisher.publish("PRODUCT_RESTOCKED", null, "PRODUCT", String.valueOf(saved.getId()), saved);
+        return toDTO(saved);
     }
 
     private ProductDTO toDTO(Product p) {

@@ -20,6 +20,7 @@ jobs:
       notification-service: ${{ steps.filter.outputs.notification-service }}
       gateway-service: ${{ steps.filter.outputs.gateway-service }}
       cart-service: ${{ steps.filter.outputs.cart-service }}
+      audit-trail-service: ${{ steps.filter.outputs.audit-trail-service }}
       shop-ui: ${{ steps.filter.outputs.shop-ui }}
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +44,8 @@ jobs:
               - 'gateway-service/**'
             cart-service:
               - 'cart-service/**'
+            audit-trail-service:
+              - 'audit-trail-service/**'
             shop-ui:
               - 'shop-ui/**'
 
@@ -58,13 +61,14 @@ jobs:
       needs.detect-changes.outputs.payment-service == 'true' ||
       needs.detect-changes.outputs.notification-service == 'true' ||
       needs.detect-changes.outputs.gateway-service == 'true' ||
-      needs.detect-changes.outputs.cart-service == 'true'
+      needs.detect-changes.outputs.cart-service == 'true' ||
+      needs.detect-changes.outputs.audit-trail-service == 'true'
     steps:
       - uses: actions/checkout@v4
       - name: Run backend tests
         run: |
           mvn test \
-            -pl auth-service,order-service,inventory-service,payment-service,notification-service,cart-service \
+            -pl auth-service,order-service,inventory-service,payment-service,notification-service,cart-service,audit-trail-service \
             -am \
             --no-transfer-progress
 
@@ -191,6 +195,19 @@ jobs:
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
 
+      - name: Build and push audit-trail-service
+        if: needs.detect-changes.outputs.audit-trail-service == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: audit-trail-service/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: daniellaera/audit-trail-service:latest
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
       - name: Build and push gateway-service
         if: needs.detect-changes.outputs.gateway-service == 'true'
         uses: docker/build-push-action@v5
@@ -301,6 +318,7 @@ jobs:
             ${{ needs.detect-changes.outputs.notification-service == 'true' && 'CHANGED="$CHANGED notification-service"' || '' }}
             ${{ needs.detect-changes.outputs.gateway-service == 'true' && 'CHANGED="$CHANGED gateway-service"' || '' }}
             ${{ needs.detect-changes.outputs.cart-service == 'true' && 'CHANGED="$CHANGED cart-service"' || '' }}
+            ${{ needs.detect-changes.outputs.audit-trail-service == 'true' && 'CHANGED="$CHANGED audit-trail-service"' || '' }}
             ${{ needs.detect-changes.outputs.shop-ui == 'true' && 'CHANGED="$CHANGED shop-ui"' || '' }}
 
             if [ -n "$CHANGED" ]; then

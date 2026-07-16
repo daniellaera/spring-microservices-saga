@@ -1,5 +1,6 @@
 package com.daniellaera.inventoryservice.consumer;
 
+import com.daniellaera.inventoryservice.audit.AuditPublisher;
 import com.daniellaera.inventoryservice.dto.InventoryResultEvent;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
 import com.daniellaera.inventoryservice.dto.OrderItemEvent;
@@ -29,6 +30,7 @@ public class InventoryConsumer {
     private final CompensationLogRepository compensationLogRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final AuditPublisher auditPublisher;
 
     @KafkaListener(topics = "orders-topic", groupId = "inventory-group")
     public void consumeOrder(String message) {
@@ -62,6 +64,8 @@ public class InventoryConsumer {
                     productRepository.save(product);
                     log.info("=== Inventory: deducted {} x{} — {} remaining",
                             item.productName(), item.quantity(), product.getQuantity());
+                    auditPublisher.publish("STOCK_DEDUCTED", event.userEmail(), "PRODUCT",
+                            String.valueOf(product.getId()), item);
                 }
                 status = "APPROVED";
                 reservedQuantity = event.quantity();
@@ -127,6 +131,8 @@ public class InventoryConsumer {
                         product.setQuantity(product.getQuantity() + item.quantity());
                         productRepository.save(product);
                         log.info("=== Compensation SUCCESS — {} stock restored to {}", item.productName(), product.getQuantity());
+                        auditPublisher.publish("STOCK_RESTORED", event.userEmail(), "PRODUCT",
+                                String.valueOf(product.getId()), item);
                     },
                     () -> log.error("=== Compensation FAILED — product {} not found", item.productName())
             );

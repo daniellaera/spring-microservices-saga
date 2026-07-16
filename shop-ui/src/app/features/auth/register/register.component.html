@@ -12,12 +12,31 @@
       <div class="flex flex-column gap-4">
         <div class="flex flex-column gap-2">
           <label class="font-medium text-sm">Email</label>
-          <input
-            pInputText
-            [(ngModel)]="email"
-            type="email"
-            placeholder="you@example.com"
-            class="w-full" />
+          <div class="relative">
+            <input
+              pInputText
+              type="email"
+              [(ngModel)]="email"
+              (ngModelChange)="onEmailInput($event)"
+              placeholder="you@example.com"
+              class="w-full"
+              [class.ng-invalid]="emailTaken"
+              [class.ng-dirty]="emailTaken" />
+            @if (emailCheckLoading) {
+              <i class="pi pi-spin pi-spinner absolute"
+                 style="right:10px; top:50%;
+                        transform:translateY(-50%);
+                        color:var(--text-color-secondary)"></i>
+            }
+          </div>
+          @if (emailTaken) {
+            <small class="text-red-500">
+              <i class="pi pi-times-circle mr-1"></i>
+              This email is already registered.
+              <a routerLink="/login"
+                 class="text-primary font-medium">Sign in instead?</a>
+            </small>
+          }
           @if (emailError) {
             <small class="text-red-500">{{ emailError }}</small>
           }
@@ -51,7 +70,7 @@
           styleClass="w-full"
           size="large"
           [loading]="loading"
-          [disabled]="!email.trim() || !password || !confirmPassword"
+          [disabled]="emailTaken || emailCheckLoading || loading || !email.trim() || !password || !confirmPassword"
           (onClick)="register()" />
         <p-divider align="center">
           <span class="text-color-secondary text-sm">

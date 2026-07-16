@@ -1,5 +1,6 @@
 package com.daniellaera.paymentservice.service;
 
+import com.daniellaera.paymentservice.audit.AuditPublisher;
 import com.daniellaera.paymentservice.dto.InventoryResultEvent;
 import com.daniellaera.paymentservice.dto.PaymentEvent;
 import com.daniellaera.paymentservice.dto.TransactionDTO;
@@ -26,6 +27,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final StripePaymentService stripePaymentService;
+    private final AuditPublisher auditPublisher;
 
     @Override
     @KafkaListener(topics = "inventory-topic", groupId = "payment-group")
@@ -54,6 +56,9 @@ public class PaymentServiceImpl implements PaymentService {
         transaction.setTotalAmount(event.totalAmount());
         transaction.setStatus(paymentSucceeded ? PaymentStatus.SUCCESS : PaymentStatus.FAILED);
         transactionRepository.save(transaction);
+
+        auditPublisher.publish(paymentSucceeded ? "PAYMENT_SUCCEEDED" : "PAYMENT_FAILED",
+                event.userEmail(), "PAYMENT", String.valueOf(event.orderId()), transaction);
 
         kafkaTemplate.send("payment-topic", objectMapper.writeValueAsString(
                 new PaymentEvent(event.orderId(), event.productName(), event.quantity(),

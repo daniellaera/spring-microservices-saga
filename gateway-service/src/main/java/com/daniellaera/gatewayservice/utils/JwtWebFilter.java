@@ -27,7 +27,8 @@ public class JwtWebFilter implements WebFilter {
             "PUT /products",
             "PATCH /products",
             "POST /simulate",
-            "DELETE /simulate"
+            "DELETE /simulate",
+            "GET /audit"
     );
 
     private static final List<String> ADMIN_EXACT_PATHS = List.of(
@@ -41,6 +42,7 @@ public class JwtWebFilter implements WebFilter {
 
         if (path.equals("/auth/login") || path.equals("/auth/register")
                 || path.equals("/auth/refresh") || path.equals("/auth/logout")
+                || path.equals("/auth/check-email")
                 || path.startsWith("/actuator") || path.startsWith("/fallback")) {
             return chain.filter(exchange);
         }

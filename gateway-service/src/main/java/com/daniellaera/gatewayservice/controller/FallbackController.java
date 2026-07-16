@@ -47,4 +47,13 @@ public class FallbackController {
                         "message", "Cart service is currently unavailable. Please try again later."
                 ));
     }
+
+    @RequestMapping(value = "/audit", method = {RequestMethod.GET})
+    public ResponseEntity<Map<String, String>> auditFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of(
+                        "status", "503",
+                        "message", "Audit trail service is currently unavailable. Please try again later."
+                ));
+    }
 }

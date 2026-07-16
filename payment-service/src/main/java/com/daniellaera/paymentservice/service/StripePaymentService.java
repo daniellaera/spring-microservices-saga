@@ -1,5 +1,6 @@
 package com.daniellaera.paymentservice.service;
 
+import com.daniellaera.paymentservice.audit.AuditPublisher;
 import com.daniellaera.paymentservice.config.StripeConfig;
 import com.daniellaera.paymentservice.dto.PaymentIntentRequest;
 import com.daniellaera.paymentservice.dto.PaymentIntentResponse;
@@ -16,8 +17,9 @@ import org.springframework.stereotype.Service;
 public class StripePaymentService {
 
     private final StripeConfig stripeConfig;
+    private final AuditPublisher auditPublisher;
 
-    public PaymentIntentResponse createPaymentIntent(PaymentIntentRequest request) {
+    public PaymentIntentResponse createPaymentIntent(PaymentIntentRequest request, String userEmail) {
         try {
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount(request.amount())
@@ -32,6 +34,8 @@ public class StripePaymentService {
 
             PaymentIntent intent = PaymentIntent.create(params);
             log.info("=== Stripe: created PaymentIntent {} for product '{}'", intent.getId(), request.productName());
+
+            auditPublisher.publish("PAYMENT_INITIATED", userEmail, "PAYMENT", intent.getId(), request);
 
             return new PaymentIntentResponse(
                     intent.getClientSecret(),

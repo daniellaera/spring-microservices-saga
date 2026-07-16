@@ -11,4 +11,5 @@ public interface AuthService {
     AuthResponse login(LoginRequest request);
     ProfileResponse getProfile(String email);
     ProfileResponse updateProfile(String email, ProfileRequest request);
+    boolean isEmailAvailable(String email);
 }
