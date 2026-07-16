@@ -94,6 +94,7 @@ services:
     ports:
       - "8084:8084"
     environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - DB_HOST=postgres
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -102,6 +103,8 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JAVA_TOOL_OPTIONS=-Xms64m -Xmx150m
     depends_on:
+      kafka:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       config-server:

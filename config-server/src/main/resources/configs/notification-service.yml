@@ -1,3 +1,8 @@
+management:
+  health:
+    mail:
+      enabled: false
+
 spring:
   mail:
     host: smtp.gmail.com
