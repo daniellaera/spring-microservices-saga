@@ -62,7 +62,8 @@ A production-grade microservices e-commerce platform built on Java 21 and Spring
 | Apache Kafka | 4.2.0 | Event-driven saga (KRaft — no Zookeeper) |
 | PostgreSQL | 17 | Database per service |
 | Redis | 8 | Rate limiting, cart sessions, product cache |
-| Refresh Token Rotation | — | 7-day refresh tokens, 15-min access tokens, rotated on every use |
+| Refresh Token Rotation | — | 15-min access / 7-day refresh, rotated on every use |
+| Email Availability Check | — | Real-time email availability check on registration |
 | Flyway | 11 | Database migrations |
 | Stripe SDK | latest | Test-mode PaymentIntent API |
 | OpenTelemetry | latest | Distributed traces + metrics + logs |
@@ -76,6 +77,8 @@ A production-grade microservices e-commerce platform built on Java 21 and Spring
 | Angular | 21 | Single-page application |
 | PrimeNG | 21 | UI components (Aura theme) |
 | Stripe Elements | latest | Embedded, PCI-compliant payment UI |
+| Dark/Light Mode | — | Theme toggle (PrimeNG Aura) |
+| Notification Panel | — | In-app notification panel with event history |
 
 ### Infrastructure
 | Technology | Usage |
@@ -99,6 +102,7 @@ A production-grade microservices e-commerce platform built on Java 21 and Spring
 | payment-service | 8083 | Stripe PaymentIntent integration, Kafka saga |
 | notification-service | 8085 | Order confirmation emails via Gmail SMTP |
 | cart-service | 8086 | Redis-backed shopping cart with 30min TTL |
+| audit-trail-service | 8087 | Append-only financial audit trail — Kafka consumer, admin REST API |
 | config-server | 8888 | Centralized Spring Cloud Config Server |
 | dozzle | 9999 | Real-time Docker log viewer — all container logs in one UI |
 
@@ -134,6 +138,17 @@ A single Redis instance serves three distinct use cases:
 
 ### Multi-Item Orders
 A single order can hold multiple line items (`order_items` table) instead of one order per product. One Stripe `PaymentIntent` covers the full cart total, and one confirmation email summarizes all items. Inventory validates every item before any stock is deducted — it's all-or-nothing, so no customer ends up with a partially fulfilled order.
+
+### Financial Audit Trail
+Append-only PostgreSQL table — no UPDATE or DELETE ever.
+All business events published to audit-topic via Kafka.
+Consumed by audit-trail-service and persisted immutably.
+Admin-only REST API with full event history.
+
+### Token Rotation
+Every refresh issues a new refresh token and revokes the old one.
+Stolen tokens invalidated after first legitimate use.
+Silent renewal in Angular interceptor — user never sees logout.
 
 ---
 
@@ -174,6 +189,7 @@ A single order can hold multiple line items (`order_items` table) instead of one
 | Mailpit | http://localhost:8025 | Catch-all email inbox (dev) |
 | Grafana | http://localhost:3000 | Traces + metrics |
 | Dozzle | http://localhost:9999 | Real-time container logs |
+| Audit Trail Service | http://localhost:8087 | Financial audit trail admin API |
 | Config Server | http://localhost:8888 | Centralized config |
 
 ### Two Docker Compose Files
@@ -203,6 +219,17 @@ A single order can hold multiple line items (`order_items` table) instead of one
 | 4242 4242 4242 4242 | Payment succeeds |
 | 4000 0000 0000 0002 | Card declined |
 | 4000 0025 0000 3155 | Requires 3D Secure |
+
+---
+
+## Scripts
+
+### Manual Docker Hub Push
+```bash
+./scripts/push-all-to-dockerhub.sh
+```
+> Use only for full manual rebuild outside CI/CD pipeline.
+> Normal deployments are handled automatically by Gitea Actions.
 
 ---
 

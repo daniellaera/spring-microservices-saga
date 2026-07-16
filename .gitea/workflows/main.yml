@@ -305,6 +305,11 @@ jobs:
               -o docker-compose.yml
             echo "Compose file size: $(wc -c < docker-compose.yml) bytes"
 
+            echo "=== Downloading latest init-db.sql ==="
+            curl -sSf "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/init-db.sql" \
+              -o init-db.sql
+            echo "init-db.sql size: $(wc -c < init-db.sql) bytes"
+
             echo "=== Pulling latest images ==="
             docker compose -f docker-compose.yml pull
 

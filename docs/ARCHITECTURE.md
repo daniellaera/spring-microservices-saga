@@ -313,6 +313,7 @@ Internet → Nginx (:80) → Gateway (:8080)
 | order-service | orderdb | Flyway |
 | inventory-service | inventorydb | Flyway |
 | payment-service | paymentdb | Flyway |
+| audit-trail-service | auditdb | Flyway |
 
 ---
 
@@ -467,3 +468,41 @@ Single order with an `order_items` table. One Stripe `PaymentIntent` for the car
 
 **Why all-or-nothing inventory?**
 Prevents partial fulfillment — either all items are available or the entire order is rejected. No customer receives half their cart.
+
+---
+
+### ADR-011 — Append-Only Financial Audit Trail
+
+**Context**
+Financial systems require complete, tamper-proof audit logs of all business events for regulatory compliance (MiFID II, FINMA, SOX).
+
+**Decision**
+Dedicated audit-trail-service with append-only PostgreSQL table. No UPDATE or DELETE operations permitted. Events published fire-and-forget via Kafka audit-topic from all business services.
+
+**Why separate service?**
+- Single responsibility — audit logic isolated from business logic
+- Independent scaling — audit writes don't impact business services
+- Failure isolation — audit service failure never breaks business flow
+- Admin-only access via gateway role check
+
+**Event sources**
+- auth-service: USER_LOGIN, USER_LOGOUT, USER_REGISTER, TOKEN_REFRESHED
+- order-service: ORDER_CREATED, ORDER_CONFIRMED, ORDER_CANCELLED
+- payment-service: PAYMENT_INITIATED, PAYMENT_SUCCEEDED, PAYMENT_FAILED
+- inventory-service: STOCK_DEDUCTED, STOCK_RESTORED, PRODUCT_RESTOCKED
+
+---
+
+### ADR-012 — Refresh Token Rotation
+
+**Context**
+15-minute access tokens require silent renewal without forcing users to re-authenticate.
+
+**Decision**
+7-day refresh tokens stored in PostgreSQL with mandatory rotation on every use. Angular interceptor transparently refreshes on 401 and retries the original request.
+
+**Security properties**
+- Stolen refresh tokens invalidated after first legitimate use
+- Server-side revocation on logout
+- Token rotation detectable theft attempts
+- Short access token window limits exposure

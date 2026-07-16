@@ -61,6 +61,11 @@ jobs:
             curl -sSf "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/docker-compose.yml" \
               -o docker-compose.yml
 
+            echo "=== Downloading latest init-db.sql ==="
+            curl -sSf "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/init-db.sql" \
+              -o init-db.sql
+            echo "init-db.sql size: $(wc -c < init-db.sql) bytes"
+
             echo "=== Restarting ALL services ==="
             docker compose -f docker-compose.yml up -d --force-recreate \
               config-server auth-service order-service inventory-service \
