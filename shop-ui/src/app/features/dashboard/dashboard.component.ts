@@ -16,7 +16,7 @@ import { DividerModule } from 'primeng/divider';
 import { DialogModule } from 'primeng/dialog';
 import { DrawerModule } from 'primeng/drawer';
 import { BadgeModule } from 'primeng/badge';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { AuthService } from '../../core/services/auth.service';
 import { OrderService, OrderDto, PagedResponse } from '../../core/services/order.service';
 import { ProductService, ProductDto } from '../../core/services/product.service';
@@ -24,6 +24,7 @@ import { NotificationService } from '../../core/services/notification.service';
 import { PaymentService, PaymentIntentResponse } from '../../core/services/payment.service';
 import { CartService } from '../../core/services/cart.service';
 import { environment } from '../../../environments/environment';
+import { handleHttpError } from '../../core/utils/error-handler.util';
 
 @Component({
   selector: 'app-dashboard',
@@ -43,6 +44,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private static readonly STRIPE_MOUNT_DELAY_MS = 300;
   private static readonly POLL_INTERVAL_MS = 2000;
   private static readonly POLL_TIMEOUT_MS = 30000;
+  private static readonly ORDER_STATUS_CONFIRMED = 'CONFIRMED';
+  private static readonly ORDER_STATUS_CANCELLED = 'CANCELLED';
+  private static readonly ORDER_STATUS_PENDING = 'PENDING';
 
   private destroy$ = new Subject<void>();
 
@@ -50,6 +54,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private orderService = inject(OrderService);
   private productService = inject(ProductService);
   private messageService = inject(MessageService);
+  private confirmationService = inject(ConfirmationService);
   private notificationService = inject(NotificationService);
   private paymentService = inject(PaymentService);
   private zone = inject(NgZone);
@@ -74,6 +79,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private abortController: AbortController | null = null;
   private sseRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private stripeMountTimeout: ReturnType<typeof setTimeout> | null = null;
   private pendingSSEUpdates = new Map<number, string>();
   private sseConfirmedOrders = new Set<number>();
 
@@ -110,14 +116,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   loadCart(): void {
     this.cartService.getCart().pipe(takeUntil(this.destroy$)).subscribe({
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Failed',
-          detail: 'Could not load cart',
-          life: 3000
-        });
-      }
+      error: (err) => handleHttpError(err, this.messageService, 'Could not load cart')
     });
   }
 
@@ -134,46 +133,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
         });
         this.cartService.cartVisible.set(true);
       },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Failed',
-          detail: 'Could not add to cart',
-          life: 3000
-        });
-      }
+      error: (err) => handleHttpError(err, this.messageService, 'Could not add to cart')
     });
   }
 
   removeFromCart(productName: string): void {
     this.cartService.removeItem(productName).pipe(takeUntil(this.destroy$)).subscribe({
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Failed',
-          detail: 'Could not remove item from cart',
-          life: 3000
-        });
-      }
+      error: (err) => handleHttpError(err, this.messageService, 'Could not remove item from cart')
     });
   }
 
   updateCartQuantity(productName: string, quantity: number): void {
     this.cartService.updateQuantity(productName, quantity).pipe(takeUntil(this.destroy$)).subscribe({
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Failed',
-          detail: 'Could not update cart quantity',
-          life: 3000
-        });
-      }
+      error: (err) => handleHttpError(err, this.messageService, 'Could not update cart quantity')
     });
   }
 
   clearCart(): void {
-    this.cartService.clearCart().pipe(takeUntil(this.destroy$)).subscribe(() => {
-      this.cartService.cartVisible.set(false);
+    this.confirmationService.confirm({
+      message: 'Remove all items from your cart?',
+      header: 'Clear Cart',
+      icon: 'pi pi-trash',
+      acceptLabel: 'Clear',
+      rejectLabel: 'Cancel',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.cartService.clearCart().pipe(takeUntil(this.destroy$)).subscribe({
+          next: () => this.cartService.cartVisible.set(false),
+          error: (err) => handleHttpError(err, this.messageService, 'Could not clear cart')
+        });
+      }
     });
   }
 
@@ -201,15 +190,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
         // STRIPE_MOUNT_DELAY_MS: p-dialog needs one animation
         // frame to render #stripe-payment-element in DOM
         // before Stripe Elements can mount to it
-        setTimeout(() => this.mountStripeCard(intent), DashboardComponent.STRIPE_MOUNT_DELAY_MS);
+        if (this.stripeMountTimeout) clearTimeout(this.stripeMountTimeout);
+        this.stripeMountTimeout = setTimeout(() => this.mountStripeCard(intent), DashboardComponent.STRIPE_MOUNT_DELAY_MS);
       },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Payment setup failed',
-          detail: 'Could not initialize payment',
-          life: 4000
-        });
+      error: (err) => {
+        handleHttpError(err, this.messageService, 'Payment setup failed');
         this.orderLoading = false;
       }
     });
@@ -231,7 +216,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.hasPrevious = data.hasPrevious;
         this.loading = false;
       },
-      error: () => { this.loading = false; }
+      error: (err) => {
+        this.loading = false;
+        handleHttpError(err, this.messageService, 'Could not load orders');
+      }
     });
   }
 
@@ -243,14 +231,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.selectedProduct.set(products[0]);
         }
       },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Failed',
-          detail: 'Could not load products',
-          life: 3000
-        });
-      }
+      error: (err) => handleHttpError(err, this.messageService, 'Could not load products')
     });
   }
 
@@ -271,15 +252,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
         // STRIPE_MOUNT_DELAY_MS: p-dialog needs one animation
         // frame to render #stripe-payment-element in DOM
         // before Stripe Elements can mount to it
-        setTimeout(() => this.mountStripeCard(intent), DashboardComponent.STRIPE_MOUNT_DELAY_MS);
+        if (this.stripeMountTimeout) clearTimeout(this.stripeMountTimeout);
+        this.stripeMountTimeout = setTimeout(() => this.mountStripeCard(intent), DashboardComponent.STRIPE_MOUNT_DELAY_MS);
       },
-      error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Payment setup failed',
-          detail: 'Could not initialize payment',
-          life: 4000
-        });
+      error: (err) => {
+        handleHttpError(err, this.messageService, 'Payment setup failed');
         this.orderLoading = false;
       }
     });
@@ -548,7 +525,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     interval(DashboardComponent.POLL_INTERVAL_MS).pipe(
       switchMap(() => this.orderService.getOrderById(orderId)),
-      filter(order => order.status !== 'PENDING'),
+      filter(order => order.status !== DashboardComponent.ORDER_STATUS_PENDING),
       take(1),
       takeUntil(stop$),
       takeUntil(this.destroy$)
@@ -581,6 +558,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.abortController?.abort();
     if (this.sseRetryTimeout) clearTimeout(this.sseRetryTimeout);
+    if (this.stripeMountTimeout) clearTimeout(this.stripeMountTimeout);
     this.pendingSSEUpdates.clear();
     this.sseConfirmedOrders.clear();
     this.destroy$.next();
@@ -588,7 +566,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   showOrderNotification(orderId: number, status: string, productName: string): void {
-    if (status === 'CONFIRMED') {
+    if (status === DashboardComponent.ORDER_STATUS_CONFIRMED) {
       this.messageService.add({
         severity: 'success',
         summary: '✅ Order confirmed!',
@@ -602,7 +580,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         message: `${productName} has been confirmed`,
         orderId
       });
-    } else if (status === 'CANCELLED') {
+    } else if (status === DashboardComponent.ORDER_STATUS_CANCELLED) {
       this.messageService.add({
         severity: 'error',
         summary: '❌ Order cancelled',
@@ -621,9 +599,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getStatusSeverity(status: string): 'success' | 'danger' | 'warn' | 'info' {
     switch (status) {
-      case 'CONFIRMED': return 'success';
-      case 'CANCELLED': return 'danger';
-      case 'PENDING': return 'warn';
+      case DashboardComponent.ORDER_STATUS_CONFIRMED: return 'success';
+      case DashboardComponent.ORDER_STATUS_CANCELLED: return 'danger';
+      case DashboardComponent.ORDER_STATUS_PENDING: return 'warn';
       default: return 'info';
     }
   }

@@ -11,7 +11,7 @@ import { MenuModule } from 'primeng/menu';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { PopoverModule } from 'primeng/popover';
-import { MenuItem, MessageService } from 'primeng/api';
+import { ConfirmationService, MenuItem, MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
@@ -40,6 +40,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   private cartService = inject(CartService);
   private profileService = inject(ProfileService);
   private messageService = inject(MessageService);
+  private confirmationService = inject(ConfirmationService);
 
   menuItems: MenuItem[] = [];
 
@@ -100,6 +101,24 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   toggleCart(): void {
     this.cartService.toggleCart();
+  }
+
+  confirmLogout(): void {
+    this.confirmationService.confirm({
+      message: 'Are you sure you want to logout?',
+      header: 'Confirm Logout',
+      icon: 'pi pi-sign-out',
+      acceptLabel: 'Logout',
+      rejectLabel: 'Cancel',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => this.authService.logout()
+    });
+  }
+
+  getExpiryTime(): string {
+    const exp = this.authService.getTokenExpirationTime();
+    if (!exp) return '';
+    return new Date(exp).toLocaleTimeString();
   }
 
   openProfile(): void {
@@ -190,7 +209,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
         {
           label: 'Sign out',
           icon: 'pi pi-sign-out',
-          command: () => this.authService.logout()
+          command: () => this.confirmLogout()
         }
       ];
     });

@@ -101,6 +101,7 @@ services:
       - CONFIG_SERVER_URI=http://config-server:8888
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
       - JWT_SECRET=${JWT_SECRET}
+      - REDIS_HOST=redis
       - JAVA_TOOL_OPTIONS=-Xms64m -Xmx150m
     depends_on:
       kafka:
@@ -108,6 +109,8 @@ services:
       postgres:
         condition: service_healthy
       config-server:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - app-network

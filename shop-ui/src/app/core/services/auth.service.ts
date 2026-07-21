@@ -8,6 +8,16 @@ interface AuthResponse {
   refreshToken: string;
 }
 
+export interface OtpInitiatedResponse {
+  requiresOtp: boolean;
+  email: string;
+  message: string;
+}
+
+// NOTE: Storing JWT in localStorage is acceptable for
+// this portfolio project. Production banking apps should
+// use httpOnly cookies for XSS protection.
+// Refresh tokens should always use httpOnly cookies.
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private static readonly SESSION_WARNING_THRESHOLD_S = 300;
@@ -146,6 +156,20 @@ export class AuthService {
     this.roleSignal.set(role);
     this.displayName.set(email.split('@')[0] ?? '');
     this.startSessionTimer();
+  }
+
+  initiateLogin(email: string, password: string): Observable<OtpInitiatedResponse> {
+    return this.http.post<OtpInitiatedResponse>('/auth/login', { email, password });
+  }
+
+  verifyOtp(email: string, otp: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>('/auth/verify-otp', { email, otp }).pipe(
+      tap((response) => {
+        const payload = JSON.parse(atob(response.token.split('.')[1]));
+        const role = payload.role ?? payload.authorities?.[0] ?? 'USER';
+        this.login(response.token, response.refreshToken, email, role);
+      })
+    );
   }
 
   refresh(): Observable<AuthResponse> {

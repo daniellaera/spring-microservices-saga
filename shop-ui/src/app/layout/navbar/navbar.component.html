@@ -10,7 +10,7 @@
       <span class="text-xl font-bold text-color">Online Shop</span>
     </a>
     <span
-      class="text-xs text-color-secondary font-mono"
+      class="hidden md:inline text-xs text-color-secondary font-mono"
       style="opacity:0.6"
       title="Build: {{ buildNumber }}">
       {{ version }} · {{ buildNumber }}
@@ -18,11 +18,15 @@
   </ng-template>
   <ng-template pTemplate="end">
     @if (isLoggedIn()) {
-      <div class="flex align-items-center gap-3">
-        <div class="flex align-items-center gap-1 text-sm"
+      <div class="flex align-items-center gap-2 flex-wrap justify-content-end">
+        <div class="hidden md:flex align-items-center gap-1 text-sm"
              [style.color]="sessionTimeLow() ? '#e74c3c' : 'var(--text-color-secondary)'"
-             title="Session time remaining">
-          <i class="pi pi-clock" style="font-size:0.9rem"></i>
+             [title]="'Session expires at ' + getExpiryTime()">
+          @if (sessionTimeLow()) {
+            <i class="pi pi-exclamation-triangle" style="font-size:0.9rem"></i>
+          } @else {
+            <i class="pi pi-clock" style="font-size:0.9rem"></i>
+          }
           <span class="font-mono">{{ sessionTime() }}</span>
         </div>
         <p-button
@@ -30,6 +34,7 @@
           [rounded]="true"
           [icon]="isDarkMode() ? 'pi pi-sun' : 'pi pi-moon'"
           [title]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+          [ariaLabel]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
           (onClick)="toggleTheme()" />
         <!-- Bell icon with notification panel -->
         <div class="relative">
@@ -37,12 +42,13 @@
             [text]="true"
             [rounded]="true"
             icon="pi pi-bell"
+            ariaLabel="Notifications"
             (onClick)="onBellClick($event, notifPanel)"
             [badge]="unreadCount() > 0 ? unreadCount().toString() : ''"
             badgeSeverity="danger" />
 
           <p-popover #notifPanel
-            [style]="{width: '360px'}"
+            [style]="{width: 'min(360px, 95vw)', maxHeight: '80vh', overflowY: 'auto'}"
             styleClass="p-0">
 
             <div class="flex align-items-center
@@ -55,6 +61,7 @@
                   [text]="true"
                   size="small"
                   severity="secondary"
+                  ariaLabel="Clear all notifications"
                   (onClick)="clearAll()" />
               }
             </div>
@@ -106,6 +113,7 @@
                       [rounded]="true"
                       size="small"
                       severity="secondary"
+                      ariaLabel="Remove notification"
                       (onClick)="removeNotification(notif.id)" />
                   </div>
                 }
@@ -113,12 +121,18 @@
             }
           </p-popover>
         </div>
-        <div style="position:relative; cursor:pointer"
-             (click)="toggleCart()"
-             title="Shopping cart">
+        <button
+          type="button"
+          class="cart-toggle"
+          style="position:relative; display:flex; align-items:center;
+                 justify-content:center; min-width:44px; min-height:44px;
+                 background:none; border:none; cursor:pointer; padding:0"
+          (click)="toggleCart()"
+          aria-label="Shopping cart"
+          title="Shopping cart">
           <i class="pi pi-shopping-cart text-color" style="font-size:1.2rem"></i>
           @if (cartCount() > 0) {
-            <span style="position:absolute; top:-6px; right:-6px;
+            <span style="position:absolute; top:2px; right:2px;
                          background:#3b82f6; color:white;
                          border-radius:50%; width:18px; height:18px;
                          font-size:.7rem; font-weight:700;
@@ -127,12 +141,16 @@
               {{ cartCount() > 9 ? '9+' : cartCount() }}
             </span>
           }
-        </div>
+        </button>
         <p-avatar
           [label]="userInitial()"
           shape="circle"
           styleClass="cursor-pointer bg-primary text-white font-bold"
-          (click)="userMenu.toggle($event)" />
+          role="button"
+          tabindex="0"
+          aria-label="Account menu"
+          (click)="userMenu.toggle($event)"
+          (keyup.enter)="userMenu.toggle($event)" />
         <p-menu #userMenu [popup]="true" [model]="menuItems" />
       </div>
     } @else {
@@ -149,7 +167,7 @@
   header="My Profile"
   [(visible)]="showProfileDialog"
   [modal]="true"
-  [style]="{width:'420px'}">
+  [style]="{width: 'min(420px, 95vw)'}">
 
   <div class="flex flex-column gap-4 pt-2">
 

@@ -7,6 +7,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import com.daniellaera.notificationservice.dto.OrderItemEvent;
+import com.daniellaera.notificationservice.dto.OtpMessage;
 import com.daniellaera.notificationservice.dto.PaymentEvent;
 
 import java.math.BigDecimal;
@@ -79,6 +80,29 @@ public class EmailNotificationService {
         );
 
         send(event.userEmail(), subject, body);
+    }
+
+    public void sendOtpCode(OtpMessage message) {
+        if (message.email() == null || message.email().isBlank()) {
+            log.warn("=== OTP: no email address — skipping");
+            return;
+        }
+
+        String subject = "Your verification code — Online Shop";
+        String body = """
+                Hi,
+
+                Your verification code is:
+
+                    %s
+
+                This code expires in 5 minutes.
+                If you didn't request this, ignore this email.
+
+                — Online Shop Security
+                """.formatted(message.otp());
+
+        send(message.email(), subject, body);
     }
 
     private List<OrderItemEvent> getItems(PaymentEvent event) {

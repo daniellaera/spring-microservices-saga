@@ -8,6 +8,10 @@ spring:
     import: "configserver:${CONFIG_SERVER_URI:http://localhost:8888}"
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/authdb
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
   jpa:
     open-in-view: false
     hibernate:

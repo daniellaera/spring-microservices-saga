@@ -3,6 +3,8 @@ package com.daniellaera.authservice.controller;
 import com.daniellaera.authservice.audit.AuditPublisher;
 import com.daniellaera.authservice.dto.AuthResponse;
 import com.daniellaera.authservice.dto.LoginRequest;
+import com.daniellaera.authservice.dto.OtpInitiatedResponse;
+import com.daniellaera.authservice.dto.OtpRequest;
 import com.daniellaera.authservice.dto.ProfileRequest;
 import com.daniellaera.authservice.dto.ProfileResponse;
 import com.daniellaera.authservice.dto.RefreshTokenRequest;
@@ -43,8 +45,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<OtpInitiatedResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<AuthResponse> verifyOtp(@Valid @RequestBody OtpRequest request) {
+        return ResponseEntity.ok(authService.verifyOtpAndLogin(request));
     }
 
     @PostMapping("/refresh")

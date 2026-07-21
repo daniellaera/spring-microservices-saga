@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardModule } from 'primeng/card';
@@ -10,6 +9,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ToastModule } from 'primeng/toast';
 import { DividerModule } from 'primeng/divider';
 import { PasswordModule } from 'primeng/password';
+import { InputOtpModule } from 'primeng/inputotp';
 import { MessageService } from 'primeng/api';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -19,7 +19,7 @@ import { AuthService } from '../../../core/services/auth.service';
   imports: [
     CommonModule, FormsModule, RouterModule,
     CardModule, ButtonModule, InputTextModule,
-    ToastModule, DividerModule, PasswordModule
+    ToastModule, DividerModule, PasswordModule, InputOtpModule
   ],
   providers: [MessageService],
   templateUrl: './login.component.html'
@@ -30,8 +30,13 @@ export class LoginComponent {
   loading = false;
   emailError = '';
 
+  showOtpStep = false;
+  pendingEmail = '';
+  otpCode = '';
+  otpLoading = false;
+  otpError = '';
+
   constructor(
-    private http: HttpClient,
     private authService: AuthService,
     private router: Router,
     private route: ActivatedRoute,
@@ -46,18 +51,13 @@ export class LoginComponent {
     this.emailError = '';
     this.loading = true;
     try {
-      const res = await firstValueFrom(
-        this.http.post<{ token: string; refreshToken: string }>('/auth/login', {
-          email: this.email,
-          password: this.password
-        })
+      const response = await firstValueFrom(
+        this.authService.initiateLogin(this.email, this.password)
       );
-      const payload = JSON.parse(atob(res.token.split('.')[1]));
-      const role = payload.role ?? payload.authorities?.[0] ?? 'USER';
-      this.authService.login(res.token, res.refreshToken, this.email, role);
-      const returnUrl =
-        this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
-      this.router.navigateByUrl(decodeURIComponent(returnUrl));
+      if (response.requiresOtp) {
+        this.pendingEmail = response.email;
+        this.showOtpStep = true;
+      }
     } catch (err: any) {
       this.messageService.add({
         severity: 'error',
@@ -68,5 +68,25 @@ export class LoginComponent {
     } finally {
       this.loading = false;
     }
+  }
+
+  async verifyOtp(): Promise<void> {
+    this.otpLoading = true;
+    this.otpError = '';
+    try {
+      await firstValueFrom(this.authService.verifyOtp(this.pendingEmail, this.otpCode));
+      const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+      this.router.navigateByUrl(decodeURIComponent(returnUrl));
+    } catch (err: any) {
+      this.otpError = err?.error?.message || 'Invalid or expired code';
+    } finally {
+      this.otpLoading = false;
+    }
+  }
+
+  backToLogin(): void {
+    this.showOtpStep = false;
+    this.otpCode = '';
+    this.otpError = '';
   }
 }

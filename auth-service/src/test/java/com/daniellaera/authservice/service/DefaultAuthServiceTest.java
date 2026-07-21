@@ -3,12 +3,15 @@ package com.daniellaera.authservice.service;
 import com.daniellaera.authservice.audit.AuditPublisher;
 import com.daniellaera.authservice.dto.AuthResponse;
 import com.daniellaera.authservice.dto.LoginRequest;
+import com.daniellaera.authservice.dto.OtpInitiatedResponse;
+import com.daniellaera.authservice.dto.OtpRequest;
 import com.daniellaera.authservice.dto.ProfileRequest;
 import com.daniellaera.authservice.dto.ProfileResponse;
 import com.daniellaera.authservice.dto.RegisterRequest;
 import com.daniellaera.authservice.enums.Role;
 import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.model.User;
+import com.daniellaera.authservice.otp.OtpService;
 import com.daniellaera.authservice.repository.UserRepository;
 import com.daniellaera.authservice.util.JwtUtil;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,7 @@ class DefaultAuthServiceTest {
     @Mock private AuthenticationManager authenticationManager;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private AuditPublisher auditPublisher;
+    @Mock private OtpService otpService;
 
     @InjectMocks
     private DefaultAuthService authService;
@@ -68,8 +72,26 @@ class DefaultAuthServiceTest {
     }
 
     @Test
-    void login_shouldAuthenticateAndReturnToken() {
+    void login_shouldAuthenticateAndInitiateOtp() {
         LoginRequest request = new LoginRequest("admin@test.com", "password");
+        User user = User.builder()
+                .email("admin@test.com")
+                .role(Role.ADMIN)
+                .build();
+        when(userRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
+
+        OtpInitiatedResponse response = authService.login(request);
+
+        assertThat(response.requiresOtp()).isTrue();
+        assertThat(response.email()).isEqualTo("admin@test.com");
+        verify(authenticationManager, times(1)).authenticate(any());
+        verify(otpService, times(1)).initiateOtp("admin@test.com");
+        verify(auditPublisher).publish(eq("USER_LOGIN_INITIATED"), any(), any(), any(), any());
+    }
+
+    @Test
+    void verifyOtpAndLogin_shouldValidateOtpAndReturnToken() {
+        OtpRequest request = new OtpRequest("admin@test.com", "123456");
         User user = User.builder()
                 .email("admin@test.com")
                 .role(Role.ADMIN)
@@ -80,12 +102,11 @@ class DefaultAuthServiceTest {
         refreshToken.setToken("admin-refresh-token");
         when(refreshTokenService.createRefreshToken("admin@test.com")).thenReturn(refreshToken);
 
-        AuthResponse response = authService.login(request);
+        AuthResponse response = authService.verifyOtpAndLogin(request);
 
         assertThat(response.token()).isEqualTo("admin-token");
         assertThat(response.refreshToken()).isEqualTo("admin-refresh-token");
-        verify(authenticationManager, times(1)).authenticate(any());
-        verify(jwtUtil, times(1)).generateToken("admin@test.com", "ADMIN");
+        verify(otpService, times(1)).verifyOtp("admin@test.com", "123456");
         verify(auditPublisher).publish(eq("USER_LOGIN"), any(), any(), any(), any());
     }
 

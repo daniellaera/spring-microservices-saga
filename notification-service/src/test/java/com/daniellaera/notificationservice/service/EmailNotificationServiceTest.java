@@ -1,6 +1,7 @@
 package com.daniellaera.notificationservice.service;
 
 import com.daniellaera.notificationservice.dto.OrderItemEvent;
+import com.daniellaera.notificationservice.dto.OtpMessage;
 import com.daniellaera.notificationservice.dto.PaymentEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -240,6 +241,48 @@ class EmailNotificationServiceTest {
         doThrow(new RuntimeException("SMTP down")).when(mailSender).send(any(SimpleMailMessage.class));
 
         assertThatCode(() -> emailNotificationService.sendOrderCancelled(event))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void sendOtpCode_sendsEmailWithCode() {
+        OtpMessage message = new OtpMessage("buyer@test.com", "123456", "2026-07-16T10:00:00");
+
+        emailNotificationService.sendOtpCode(message);
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        SimpleMailMessage sent = captor.getValue();
+        assertThat(sent.getTo()).containsExactly("buyer@test.com");
+        assertThat(sent.getFrom()).isEqualTo("shop@test.com");
+        assertThat(sent.getSubject()).contains("verification code");
+        assertThat(sent.getText()).contains("123456");
+    }
+
+    @Test
+    void sendOtpCode_skipsEmail_whenEmailIsNull() {
+        OtpMessage message = new OtpMessage(null, "123456", "2026-07-16T10:00:00");
+
+        emailNotificationService.sendOtpCode(message);
+
+        verifyNoInteractions(mailSender);
+    }
+
+    @Test
+    void sendOtpCode_skipsEmail_whenEmailIsBlank() {
+        OtpMessage message = new OtpMessage("  ", "123456", "2026-07-16T10:00:00");
+
+        emailNotificationService.sendOtpCode(message);
+
+        verifyNoInteractions(mailSender);
+    }
+
+    @Test
+    void sendOtpCode_swallowsSmtpException() {
+        OtpMessage message = new OtpMessage("buyer@test.com", "123456", "2026-07-16T10:00:00");
+        doThrow(new RuntimeException("SMTP down")).when(mailSender).send(any(SimpleMailMessage.class));
+
+        assertThatCode(() -> emailNotificationService.sendOtpCode(message))
                 .doesNotThrowAnyException();
     }
 }

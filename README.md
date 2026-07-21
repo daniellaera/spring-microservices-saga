@@ -1,7 +1,7 @@
 # Online Shop — Microservices Platform
 
-![Coverage](https://img.shields.io/badge/coverage-84%25-green)
-![Tests](https://img.shields.io/badge/tests-198%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-85%25-green)
+![Tests](https://img.shields.io/badge/tests-220%20passing-brightgreen)
 ![Java](https://img.shields.io/badge/Java-21-blue)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
 ![Angular](https://img.shields.io/badge/Angular-21-red)

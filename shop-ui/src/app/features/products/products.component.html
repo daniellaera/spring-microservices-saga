@@ -32,8 +32,11 @@
     }
 
     @if (!loading) {
+      <div style="overflow-x:auto; -webkit-overflow-scrolling:touch">
       <p-table [value]="products"
+               dataKey="id"
                styleClass="p-datatable-sm"
+               responsiveLayout="scroll"
                [tableStyle]="{'min-width':'100%'}">
         <ng-template pTemplate="header">
           <tr>
@@ -69,7 +72,6 @@
               <p-button
                 icon="pi pi-plus-circle"
                 label="Refill"
-                size="small"
                 [text]="true"
                 severity="success"
                 (onClick)="openRestockDialog(p)" />
@@ -78,14 +80,22 @@
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="5"
-                class="text-center text-color-secondary py-5">
-              <i class="pi pi-box text-4xl block mb-2"></i>
-              No products yet
+            <td colspan="5" class="text-center py-5">
+              <div class="flex flex-column align-items-center
+                          justify-content-center gap-3
+                          text-color-secondary">
+                <i class="pi pi-box text-5xl"></i>
+                <p class="text-lg m-0">No products available</p>
+                <p-button
+                  label="Add first product"
+                  icon="pi pi-plus"
+                  (onClick)="openAddDialog()" />
+              </div>
             </td>
           </tr>
         </ng-template>
       </p-table>
+      </div>
     }
   </p-card>
 </div>
@@ -94,7 +104,7 @@
   header="Add product"
   [(visible)]="showAddDialog"
   [modal]="true"
-  [style]="{width:'440px'}">
+  [style]="{width: 'min(440px, 95vw)'}">
   <div class="flex flex-column gap-4 pt-2">
     <div class="flex flex-column gap-2">
       <label class="font-medium text-sm">Product name</label>
@@ -109,7 +119,7 @@
         <small class="text-red-500">{{ nameError }}</small>
       }
     </div>
-    <div class="flex gap-3">
+    <div class="flex flex-column sm:flex-row gap-3">
       <div class="flex flex-column gap-2 flex-1">
         <label class="font-medium text-sm">Initial stock</label>
         <p-inputNumber
@@ -144,7 +154,7 @@
   header="Refill stock"
   [(visible)]="showRestockDialog"
   [modal]="true"
-  [style]="{width:'380px'}">
+  [style]="{width: 'min(380px, 95vw)'}">
   <div class="flex flex-column gap-4 pt-2">
     <div class="surface-50 border-round p-3">
       <div class="font-semibold text-lg">

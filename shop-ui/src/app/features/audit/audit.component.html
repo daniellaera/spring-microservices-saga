@@ -5,6 +5,7 @@
         <p-progress-spinner strokeWidth="4" styleClass="w-3rem h-3rem" />
       </div>
     } @else {
+      <div style="overflow-x:auto; -webkit-overflow-scrolling:touch">
       <p-table
         #dt
         [value]="events"
@@ -42,8 +43,8 @@
             <th pSortableColumn="createdAt">Timestamp <p-sortIcon field="createdAt" /></th>
             <th pSortableColumn="eventType">Event <p-sortIcon field="eventType" /></th>
             <th pSortableColumn="userEmail">User <p-sortIcon field="userEmail" /></th>
-            <th>Entity</th>
-            <th pSortableColumn="serviceName">Service <p-sortIcon field="serviceName" /></th>
+            <th class="hidden md:table-cell">Entity</th>
+            <th pSortableColumn="serviceName" class="hidden lg:table-cell">Service <p-sortIcon field="serviceName" /></th>
           </tr>
         </ng-template>
 
@@ -54,7 +55,6 @@
                 [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
                 [text]="true"
                 [rounded]="true"
-                size="small"
                 (onClick)="toggleRow(event)" />
             </td>
             <td>{{ event.createdAt | date:'yyyy-MM-dd HH:mm:ss' }}</td>
@@ -62,15 +62,16 @@
               <p-tag [value]="event.eventType" [severity]="severityFor(event.eventType)" />
             </td>
             <td>{{ event.userEmail }}</td>
-            <td>{{ event.entityType }} / {{ event.entityId }}</td>
-            <td>{{ event.serviceName }}</td>
+            <td class="hidden md:table-cell">{{ event.entityType }} / {{ event.entityId }}</td>
+            <td class="hidden lg:table-cell">{{ event.serviceName }}</td>
           </tr>
         </ng-template>
 
         <ng-template pTemplate="rowexpansion" let-event>
           <tr>
             <td colspan="6">
-              <pre class="m-0 p-3 surface-100 border-round text-sm">{{ formatPayload(event.payload) }}</pre>
+              <pre class="m-0 p-3 surface-100 border-round text-sm"
+                   style="white-space:pre-wrap; word-break:break-word">{{ formatPayload(event.payload) }}</pre>
             </td>
           </tr>
         </ng-template>
@@ -83,6 +84,7 @@
           </tr>
         </ng-template>
       </p-table>
+      </div>
     }
   </p-card>
 </div>

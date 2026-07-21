@@ -15,6 +15,7 @@ import { TagModule } from 'primeng/tag';
 import { SkeletonModule } from 'primeng/skeleton';
 import { MessageService } from 'primeng/api';
 import { ProductService, ProductDto } from '../../core/services/product.service';
+import { handleHttpError } from '../../core/utils/error-handler.util';
 
 @Component({
   selector: 'app-products',
@@ -56,7 +57,10 @@ export class ProductsComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.productService.getAll().pipe(take(1)).subscribe({
       next: p => { this.products = p; this.loading = false; },
-      error: () => { this.loading = false; }
+      error: (err) => {
+        this.loading = false;
+        handleHttpError(err, this.messageService, 'Could not load products');
+      }
     });
   }
 
@@ -93,12 +97,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
         this.loadProducts();
       },
       error: (err) => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Failed',
-          detail: err?.error?.message || 'Could not restock',
-          life: 4000
-        });
+        handleHttpError(err, this.messageService, 'Could not restock');
         this.restocking = false;
       }
     });
@@ -124,15 +123,14 @@ export class ProductsComponent implements OnInit, OnDestroy {
         });
         this.showAddDialog = false;
         this.saving = false;
+        this.newName = '';
+        this.newQuantity = 10;
+        this.newPrice = 0;
+        this.nameError = '';
         this.loadProducts();
       },
       error: (err) => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: err?.error?.message || 'Could not add product',
-          life: 4000
-        });
+        handleHttpError(err, this.messageService, 'Could not add product');
         this.saving = false;
       }
     });

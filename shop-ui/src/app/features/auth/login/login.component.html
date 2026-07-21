@@ -8,60 +8,117 @@
       <h1 class="text-3xl font-bold mt-3 mb-1">Online Shop</h1>
       <p class="text-color-secondary m-0">Sign in to your account</p>
     </div>
-    <p-card styleClass="shadow-4">
-      <div class="flex flex-column gap-4">
-        <div class="flex flex-column gap-2">
-          <label class="font-medium text-sm">Email</label>
-          <input
-            pInputText
-            [(ngModel)]="email"
-            type="email"
-            placeholder="daniel@example.com"
-            class="w-full"
-            (keyup.enter)="signIn()" />
-          @if (emailError) {
-            <small class="text-red-500">{{ emailError }}</small>
-          }
-        </div>
-        <div class="flex flex-column gap-2">
-          <label class="font-medium text-sm">Password</label>
-          <p-password
-            [(ngModel)]="password"
-            [feedback]="false"
-            [toggleMask]="true"
+    @if (!showOtpStep) {
+      <p-card styleClass="shadow-4">
+        <div class="flex flex-column gap-4">
+          <div class="flex flex-column gap-2">
+            <label class="font-medium text-sm">Email</label>
+            <input
+              pInputText
+              [(ngModel)]="email"
+              type="email"
+              placeholder="daniel@example.com"
+              class="w-full"
+              (keyup.enter)="signIn()" />
+            @if (emailError) {
+              <small class="text-red-500">{{ emailError }}</small>
+            }
+          </div>
+          <div class="flex flex-column gap-2">
+            <label class="font-medium text-sm">Password</label>
+            <p-password
+              [(ngModel)]="password"
+              [feedback]="false"
+              [toggleMask]="true"
+              styleClass="w-full"
+              inputStyleClass="w-full"
+              placeholder="••••••••"
+              (keyup.enter)="signIn()" />
+          </div>
+          <p-button
+            label="Sign in"
+            icon="pi pi-sign-in"
             styleClass="w-full"
-            inputStyleClass="w-full"
-            placeholder="••••••••"
-            (keyup.enter)="signIn()" />
+            size="large"
+            [loading]="loading"
+            [disabled]="!email.trim() || !password"
+            (onClick)="signIn()" />
+          <p-divider align="center">
+            <span class="text-color-secondary text-sm">
+              Demo credentials
+            </span>
+          </p-divider>
+          <div class="surface-50 border-round p-3 text-sm
+                      text-color-secondary">
+            <div><strong>User:</strong> daniel@example.com</div>
+            <div><strong>Admin:</strong> admin@example.com</div>
+            <div class="mt-1 text-xs">Password: demo1234</div>
+          </div>
+          <p-divider />
+          <div class="text-center text-sm text-color-secondary">
+            Don't have an account?
+            <a routerLink="/register"
+               class="text-primary font-medium cursor-pointer">
+              Register
+            </a>
+          </div>
         </div>
-        <p-button
-          label="Sign in"
-          icon="pi pi-sign-in"
-          styleClass="w-full"
-          size="large"
-          [loading]="loading"
-          [disabled]="!email.trim() || !password"
-          (onClick)="signIn()" />
-        <p-divider align="center">
-          <span class="text-color-secondary text-sm">
-            Demo credentials
-          </span>
-        </p-divider>
-        <div class="surface-50 border-round p-3 text-sm
-                    text-color-secondary">
-          <div><strong>User:</strong> daniel@example.com</div>
-          <div><strong>Admin:</strong> admin@example.com</div>
-          <div class="mt-1 text-xs">Password: demo1234</div>
+      </p-card>
+    } @else {
+      <p-card styleClass="shadow-4">
+        <div class="flex flex-column gap-4 p-2">
+          <div class="text-center">
+            <i class="pi pi-shield text-4xl text-primary mb-3
+                       block"></i>
+            <h3 class="font-bold text-xl m-0">
+              Verify your identity
+            </h3>
+            <p class="text-color-secondary text-sm mt-2">
+              We sent a 6-digit code to
+              <strong>{{ pendingEmail }}</strong>
+            </p>
+          </div>
+
+          <div class="flex flex-column gap-2">
+            <label class="font-medium text-sm">
+              Verification code
+            </label>
+            <p-input-otp
+              [(ngModel)]="otpCode"
+              [length]="6"
+              [integerOnly]="true"
+              inputmode="numeric"
+              ariaLabel="Enter your 6-digit verification code"
+              styleClass="w-full justify-content-center" />
+            @if (otpError) {
+              <small class="text-red-500">
+                <i class="pi pi-times-circle mr-1"></i>
+                {{ otpError }}
+              </small>
+            }
+          </div>
+
+          <p-button
+            label="Verify"
+            icon="pi pi-check"
+            styleClass="w-full"
+            [loading]="otpLoading"
+            [disabled]="otpCode.length !== 6"
+            (onClick)="verifyOtp()" />
+
+          <p-button
+            label="Back to login"
+            [text]="true"
+            styleClass="w-full"
+            severity="secondary"
+            (onClick)="backToLogin()" />
+
+          <div class="text-center text-xs text-color-secondary">
+            <i class="pi pi-clock mr-1"></i>
+            Code expires in 5 minutes
+          </div>
         </div>
-        <p-divider />
-        <div class="text-center text-sm text-color-secondary">
-          Don't have an account?
-          <a routerLink="/register"
-             class="text-primary font-medium cursor-pointer">
-            Register
-          </a>
-        </div>
-      </div>
-    </p-card>
+      </p-card>
+    }
   </div>
 </div>

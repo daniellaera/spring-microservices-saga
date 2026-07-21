@@ -1,6 +1,7 @@
 package com.daniellaera.authservice.controller;
 
 import com.daniellaera.authservice.TestcontainersConfiguration;
+import com.daniellaera.authservice.otp.OtpRepository;
 import com.daniellaera.authservice.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,12 +37,43 @@ public class AuthControllerITTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private OtpRepository otpRepository;
+
     @MockitoBean
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @BeforeEach
     void setUp() {
         userRepository.deleteAll();
+    }
+
+    private String loginAndGetToken(String email, String password) throws Exception {
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "%s"
+                                }
+                                """.formatted(email, password)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requiresOtp").value(true));
+
+        String otp = otpRepository.find(email).orElseThrow();
+
+        MvcResult verifyResult = mockMvc.perform(post("/auth/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "otp": "%s"
+                                }
+                                """.formatted(email, otp)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        return verifyResult.getResponse().getContentAsString();
     }
 
     @Test
@@ -61,7 +93,7 @@ public class AuthControllerITTest {
     }
 
     @Test
-    void login_shouldReturnToken_forExistingUser() throws Exception {
+    void login_shouldRequireOtp_forExistingUser() throws Exception {
         mockMvc.perform(post("/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -72,7 +104,7 @@ public class AuthControllerITTest {
                                 """))
                 .andExpect(status().isOk());
 
-        MvcResult loginResult = mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -81,15 +113,76 @@ public class AuthControllerITTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").isNotEmpty())
-                .andReturn();
+                .andExpect(jsonPath("$.requiresOtp").value(true))
+                .andExpect(jsonPath("$.email").value("jane@test.com"))
+                .andExpect(jsonPath("$.token").doesNotExist());
+    }
 
-        String token = JsonPath.read(loginResult.getResponse().getContentAsString(), "$.token");
+    @Test
+    void verifyOtp_shouldReturnToken_afterValidLogin() throws Exception {
+        mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "jane@test.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        String responseBody = loginAndGetToken("jane@test.com", "password123");
+        String token = JsonPath.read(responseBody, "$.token");
         assertThat(token).isNotBlank();
 
         String[] parts = token.split("\\.");
         String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
         assertThat(payload).contains("jane@test.com");
+    }
+
+    @Test
+    void verifyOtp_shouldReturn401_whenOtpWrong() throws Exception {
+        mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "wrongotp@test.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "wrongotp@test.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/auth/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "wrongotp@test.com",
+                                  "otp": "000000"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void verifyOtp_shouldReturn401_whenOtpNotFound() throws Exception {
+        mockMvc.perform(post("/auth/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "never-logged-in@test.com",
+                                  "otp": "123456"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -213,7 +306,7 @@ public class AuthControllerITTest {
     }
 
     @Test
-    void login_shouldReturnRefreshToken_forExistingUser() throws Exception {
+    void verifyOtp_shouldReturnRefreshToken_forExistingUser() throws Exception {
         mockMvc.perform(post("/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -224,16 +317,9 @@ public class AuthControllerITTest {
                                 """))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(post("/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "email": "refresh@test.com",
-                                  "password": "password123"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty());
+        String responseBody = loginAndGetToken("refresh@test.com", "password123");
+        String refreshToken = JsonPath.read(responseBody, "$.refreshToken");
+        assertThat(refreshToken).isNotBlank();
     }
 
     @Test
@@ -248,18 +334,8 @@ public class AuthControllerITTest {
                                 """))
                 .andExpect(status().isOk());
 
-        MvcResult loginResult = mockMvc.perform(post("/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "email": "rotate@test.com",
-                                  "password": "password123"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        String refreshToken = JsonPath.read(loginResult.getResponse().getContentAsString(), "$.refreshToken");
+        String loginResponseBody = loginAndGetToken("rotate@test.com", "password123");
+        String refreshToken = JsonPath.read(loginResponseBody, "$.refreshToken");
 
         MvcResult refreshResult = mockMvc.perform(post("/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -310,18 +386,8 @@ public class AuthControllerITTest {
                                 """))
                 .andExpect(status().isOk());
 
-        MvcResult loginResult = mockMvc.perform(post("/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "email": "logout@test.com",
-                                  "password": "password123"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        String refreshToken = JsonPath.read(loginResult.getResponse().getContentAsString(), "$.refreshToken");
+        String loginResponseBody = loginAndGetToken("logout@test.com", "password123");
+        String refreshToken = JsonPath.read(loginResponseBody, "$.refreshToken");
 
         mockMvc.perform(post("/auth/logout")
                         .contentType(MediaType.APPLICATION_JSON)

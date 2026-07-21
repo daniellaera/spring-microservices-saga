@@ -42,7 +42,7 @@ public class JwtWebFilter implements WebFilter {
 
         if (path.equals("/auth/login") || path.equals("/auth/register")
                 || path.equals("/auth/refresh") || path.equals("/auth/logout")
-                || path.equals("/auth/check-email")
+                || path.equals("/auth/check-email") || path.equals("/auth/verify-otp")
                 || path.startsWith("/actuator") || path.startsWith("/fallback")) {
             return chain.filter(exchange);
         }

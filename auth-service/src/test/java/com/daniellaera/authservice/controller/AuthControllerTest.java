@@ -3,6 +3,8 @@ package com.daniellaera.authservice.controller;
 import com.daniellaera.authservice.audit.AuditPublisher;
 import com.daniellaera.authservice.dto.AuthResponse;
 import com.daniellaera.authservice.dto.LoginRequest;
+import com.daniellaera.authservice.dto.OtpInitiatedResponse;
+import com.daniellaera.authservice.dto.OtpRequest;
 import com.daniellaera.authservice.dto.RegisterRequest;
 import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.model.User;
@@ -68,9 +70,9 @@ class AuthControllerTest {
     }
 
     @Test
-    void login_shouldReturn200AndToken() throws Exception {
+    void login_shouldReturn200AndRequiresOtp() throws Exception {
         when(authService.login(any(LoginRequest.class)))
-                .thenReturn(new AuthResponse("login-token", "login-refresh-token"));
+                .thenReturn(new OtpInitiatedResponse(true, "john@test.com", "OTP sent to your email address"));
 
         mockMvc.perform(post("/auth/login")
                         .contentType(APPLICATION_JSON)
@@ -78,6 +80,24 @@ class AuthControllerTest {
                                 {
                                   "email": "john@test.com",
                                   "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requiresOtp").value(true))
+                .andExpect(jsonPath("$.email").value("john@test.com"));
+    }
+
+    @Test
+    void verifyOtp_shouldReturn200AndToken() throws Exception {
+        when(authService.verifyOtpAndLogin(any(OtpRequest.class)))
+                .thenReturn(new AuthResponse("login-token", "login-refresh-token"));
+
+        mockMvc.perform(post("/auth/verify-otp")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "john@test.com",
+                                  "otp": "123456"
                                 }
                                 """))
                 .andExpect(status().isOk())
