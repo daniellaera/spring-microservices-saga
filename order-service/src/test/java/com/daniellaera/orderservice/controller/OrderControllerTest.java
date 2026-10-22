@@ -3,7 +3,7 @@ package com.daniellaera.orderservice.controller;
 import com.daniellaera.orderservice.dto.OrderDTO;
 import com.daniellaera.orderservice.dto.OrderRequest;
 import com.daniellaera.orderservice.dto.PagedResponse;
-import com.daniellaera.orderservice.enums.OrderStatus;
+import com.daniellaera.orderservice.domain.model.OrderStatus;
 import com.daniellaera.orderservice.service.OrderService;
 import com.daniellaera.orderservice.sse.SseEmitterRegistry;
 import org.junit.jupiter.api.BeforeEach;

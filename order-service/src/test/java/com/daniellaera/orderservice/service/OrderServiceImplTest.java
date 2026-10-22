@@ -6,7 +6,7 @@ import com.daniellaera.orderservice.dto.OrderEvent;
 import com.daniellaera.orderservice.dto.OrderItemRequest;
 import com.daniellaera.orderservice.dto.OrderRequest;
 import com.daniellaera.orderservice.dto.PagedResponse;
-import com.daniellaera.orderservice.enums.OrderStatus;
+import com.daniellaera.orderservice.domain.model.OrderStatus;
 import com.daniellaera.orderservice.exception.ResourceNotFoundException;
 import com.daniellaera.orderservice.model.Order;
 import com.daniellaera.orderservice.model.OutboxEvent;

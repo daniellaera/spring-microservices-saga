@@ -1,7 +1,7 @@
 package com.daniellaera.orderservice.controller;
 
 import com.daniellaera.orderservice.TestcontainersConfiguration;
-import com.daniellaera.orderservice.enums.OrderStatus;
+import com.daniellaera.orderservice.domain.model.OrderStatus;
 import com.daniellaera.orderservice.model.Order;
 import com.daniellaera.orderservice.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;

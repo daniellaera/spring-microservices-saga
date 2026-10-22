@@ -3,7 +3,7 @@ package com.daniellaera.orderservice.consumer;
 import com.daniellaera.orderservice.audit.AuditPublisher;
 import com.daniellaera.orderservice.dto.OrderStatusUpdate;
 import com.daniellaera.orderservice.dto.PaymentEvent;
-import com.daniellaera.orderservice.enums.OrderStatus;
+import com.daniellaera.orderservice.domain.model.OrderStatus;
 import com.daniellaera.orderservice.repository.OrderRepository;
 import com.daniellaera.orderservice.sse.SseEmitterRegistry;
 import lombok.RequiredArgsConstructor;

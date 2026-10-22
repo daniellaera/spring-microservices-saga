@@ -1,6 +1,6 @@
 package com.daniellaera.orderservice.dto;
 
-import com.daniellaera.orderservice.enums.OrderStatus;
+import com.daniellaera.orderservice.domain.model.OrderStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
