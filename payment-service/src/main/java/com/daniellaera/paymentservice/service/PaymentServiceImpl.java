@@ -6,8 +6,8 @@ import com.daniellaera.paymentservice.dto.PaymentEvent;
 import com.daniellaera.paymentservice.dto.TransactionDTO;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.exception.ResourceNotFoundException;
-import com.daniellaera.paymentservice.model.Transaction;
-import com.daniellaera.paymentservice.repository.TransactionRepository;
+import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaEntity;
+import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.DltHandler;
@@ -23,7 +23,7 @@ import java.util.List;
 @Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
-    private final TransactionRepository transactionRepository;
+    private final TransactionJpaRepository transactionRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final StripePaymentService stripePaymentService;
@@ -51,7 +51,7 @@ public class PaymentServiceImpl implements PaymentService {
             log.warn("=== Payment: skipping payment for orderId={} — inventory REJECTED", event.orderId());
         }
 
-        Transaction transaction = new Transaction();
+        TransactionJpaEntity transaction = new TransactionJpaEntity();
         transaction.setOrderId(event.orderId());
         transaction.setTotalAmount(event.totalAmount());
         transaction.setStatus(paymentSucceeded ? PaymentStatus.SUCCESS : PaymentStatus.FAILED);
@@ -82,7 +82,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public TransactionDTO getTransactionById(Long id) {
-        Transaction transaction = transactionRepository.findById(id)
+        TransactionJpaEntity transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with id: " + id));
         return new TransactionDTO(transaction.getId(), transaction.getOrderId(), transaction.getTotalAmount(), transaction.getStatus());
     }

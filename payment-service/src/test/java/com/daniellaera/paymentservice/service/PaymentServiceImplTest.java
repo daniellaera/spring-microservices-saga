@@ -7,8 +7,8 @@ import com.daniellaera.paymentservice.dto.PaymentEvent;
 import com.daniellaera.paymentservice.dto.TransactionDTO;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.exception.ResourceNotFoundException;
-import com.daniellaera.paymentservice.model.Transaction;
-import com.daniellaera.paymentservice.repository.TransactionRepository;
+import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaEntity;
+import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +31,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceImplTest {
 
-    @Mock private TransactionRepository transactionRepository;
+    @Mock private TransactionJpaRepository transactionRepository;
     @Mock private KafkaTemplate<String, String> kafkaTemplate;
     @Mock private ObjectMapper objectMapper;
     @Mock private StripePaymentService stripePaymentService;
@@ -40,11 +40,11 @@ class PaymentServiceImplTest {
     @InjectMocks
     private PaymentServiceImpl paymentService;
 
-    private Transaction transaction;
+    private TransactionJpaEntity transaction;
 
     @BeforeEach
     void setUp() {
-        transaction = new Transaction();
+        transaction = new TransactionJpaEntity();
         transaction.setOrderId(1L);
         transaction.setStatus(PaymentStatus.SUCCESS);
         transaction.setTotalAmount(BigDecimal.valueOf(999.99));
@@ -97,7 +97,7 @@ class PaymentServiceImplTest {
 
         paymentService.handleInventoryResult("{}");
 
-        ArgumentCaptor<Transaction> txCaptor = ArgumentCaptor.forClass(Transaction.class);
+        ArgumentCaptor<TransactionJpaEntity> txCaptor = ArgumentCaptor.forClass(TransactionJpaEntity.class);
         verify(transactionRepository).save(txCaptor.capture());
         assertThat(txCaptor.getValue().getStatus()).isEqualTo(PaymentStatus.SUCCESS);
         assertThat(txCaptor.getValue().getOrderId()).isEqualTo(1L);
@@ -136,7 +136,7 @@ class PaymentServiceImplTest {
 
         paymentService.handleInventoryResult("{}");
 
-        ArgumentCaptor<Transaction> txCaptor = ArgumentCaptor.forClass(Transaction.class);
+        ArgumentCaptor<TransactionJpaEntity> txCaptor = ArgumentCaptor.forClass(TransactionJpaEntity.class);
         verify(transactionRepository).save(txCaptor.capture());
         assertThat(txCaptor.getValue().getStatus()).isEqualTo(PaymentStatus.FAILED);
         assertThat(txCaptor.getValue().getOrderId()).isEqualTo(2L);
@@ -156,7 +156,7 @@ class PaymentServiceImplTest {
 
         verifyNoInteractions(stripePaymentService);
 
-        ArgumentCaptor<Transaction> txCaptor = ArgumentCaptor.forClass(Transaction.class);
+        ArgumentCaptor<TransactionJpaEntity> txCaptor = ArgumentCaptor.forClass(TransactionJpaEntity.class);
         verify(transactionRepository).save(txCaptor.capture());
         assertThat(txCaptor.getValue().getStatus()).isEqualTo(PaymentStatus.SUCCESS);
 
@@ -174,7 +174,7 @@ class PaymentServiceImplTest {
 
         verifyNoInteractions(stripePaymentService);
 
-        ArgumentCaptor<Transaction> txCaptor = ArgumentCaptor.forClass(Transaction.class);
+        ArgumentCaptor<TransactionJpaEntity> txCaptor = ArgumentCaptor.forClass(TransactionJpaEntity.class);
         verify(transactionRepository).save(txCaptor.capture());
         assertThat(txCaptor.getValue().getStatus()).isEqualTo(PaymentStatus.FAILED);
         assertThat(txCaptor.getValue().getOrderId()).isEqualTo(4L);

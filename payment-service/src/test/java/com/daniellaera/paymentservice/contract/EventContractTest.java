@@ -8,8 +8,8 @@ import com.daniellaera.paymentservice.dto.PaymentIntentRequest;
 import com.daniellaera.paymentservice.dto.PaymentIntentResponse;
 import com.daniellaera.paymentservice.dto.TransactionDTO;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
-import com.daniellaera.paymentservice.model.Transaction;
-import com.daniellaera.paymentservice.repository.TransactionRepository;
+import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaEntity;
+import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaRepository;
 import com.daniellaera.paymentservice.service.PaymentServiceImpl;
 import com.daniellaera.paymentservice.service.StripePaymentService;
 import com.stripe.model.PaymentIntent;
@@ -65,18 +65,18 @@ class EventContractTest {
     private ObjectMapper objectMapper;
 
     private KafkaTemplate<String, String> kafkaTemplate;
-    private TransactionRepository transactionRepository;
+    private TransactionJpaRepository transactionRepository;
     private StripePaymentService stripePaymentService;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
         kafkaTemplate = mock(KafkaTemplate.class);
-        transactionRepository = mock(TransactionRepository.class);
+        transactionRepository = mock(TransactionJpaRepository.class);
         stripePaymentService = mock(StripePaymentService.class);
         // what JPA does on insert: assign the id and the @PrePersist createdAt to the saved instance
-        when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> {
-            Transaction transaction = inv.getArgument(0);
+        when(transactionRepository.save(any(TransactionJpaEntity.class))).thenAnswer(inv -> {
+            TransactionJpaEntity transaction = inv.getArgument(0);
             ReflectionTestUtils.setField(transaction, "id", 7L);
             ReflectionTestUtils.setField(transaction, "createdAt", CREATED_AT);
             return transaction;

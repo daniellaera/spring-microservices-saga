@@ -1,4 +1,4 @@
-package com.daniellaera.paymentservice.model;
+package com.daniellaera.paymentservice.adapter.out.persistence;
 
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import jakarta.persistence.*;
@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Transaction extends BaseEntity {
+public class TransactionJpaEntity extends BaseEntity {
 
     @Column(nullable = false)
     private Long orderId;

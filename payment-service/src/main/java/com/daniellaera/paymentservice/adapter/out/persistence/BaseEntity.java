@@ -1,4 +1,4 @@
-package com.daniellaera.paymentservice.model;
+package com.daniellaera.paymentservice.adapter.out.persistence;
 
 import jakarta.persistence.*;
 import lombok.Getter;

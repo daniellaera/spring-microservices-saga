@@ -2,8 +2,8 @@ package com.daniellaera.paymentservice.controller;
 
 import com.daniellaera.paymentservice.TestcontainersConfiguration;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
-import com.daniellaera.paymentservice.model.Transaction;
-import com.daniellaera.paymentservice.repository.TransactionRepository;
+import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaEntity;
+import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,13 +29,13 @@ public class PaymentControllerITTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private TransactionRepository transactionRepository;
+    private TransactionJpaRepository transactionRepository;
 
     @BeforeEach
     void setUp() {
         transactionRepository.deleteAll();
 
-        Transaction transaction = new Transaction();
+        TransactionJpaEntity transaction = new TransactionJpaEntity();
         transaction.setOrderId(1L);
         transaction.setStatus(PaymentStatus.SUCCESS);
         transaction.setTotalAmount(BigDecimal.valueOf(999.99));
@@ -54,7 +54,7 @@ public class PaymentControllerITTest {
 
     @Test
     void getTransactionById_shouldReturn200() throws Exception {
-        Transaction saved = transactionRepository.findAll().get(0);
+        TransactionJpaEntity saved = transactionRepository.findAll().get(0);
 
         mockMvc.perform(get("/transactions/" + saved.getId())
                         .accept(MediaType.APPLICATION_JSON))
