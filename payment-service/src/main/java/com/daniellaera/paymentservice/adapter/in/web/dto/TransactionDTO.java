@@ -1,4 +1,4 @@
-package com.daniellaera.paymentservice.dto;
+package com.daniellaera.paymentservice.adapter.in.web.dto;
 
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 

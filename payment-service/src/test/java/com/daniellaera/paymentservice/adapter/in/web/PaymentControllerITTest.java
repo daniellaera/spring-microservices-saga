@@ -1,4 +1,4 @@
-package com.daniellaera.paymentservice.controller;
+package com.daniellaera.paymentservice.adapter.in.web;
 
 import com.daniellaera.paymentservice.TestcontainersConfiguration;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;

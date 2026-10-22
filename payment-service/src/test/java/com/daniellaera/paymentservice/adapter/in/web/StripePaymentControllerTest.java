@@ -1,7 +1,9 @@
-package com.daniellaera.paymentservice.controller;
+package com.daniellaera.paymentservice.adapter.in.web;
 
-import com.daniellaera.paymentservice.dto.PaymentIntentResponse;
-import com.daniellaera.paymentservice.service.StripePaymentService;
+import com.daniellaera.paymentservice.config.StripeConfig;
+import com.daniellaera.paymentservice.domain.port.in.CreatePaymentIntentUseCase;
+import com.daniellaera.paymentservice.domain.port.in.CreatedPaymentIntent;
+import com.daniellaera.paymentservice.domain.port.in.VerifyPaymentQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,7 +28,13 @@ class StripePaymentControllerTest {
     private StripePaymentController stripePaymentController;
 
     @Mock
-    private StripePaymentService stripePaymentService;
+    private CreatePaymentIntentUseCase createPaymentIntentUseCase;
+
+    @Mock
+    private VerifyPaymentQuery verifyPaymentQuery;
+
+    @Mock
+    private StripeConfig stripeConfig;
 
     private MockMvc mockMvc;
 
@@ -39,8 +47,9 @@ class StripePaymentControllerTest {
 
     @Test
     void createIntent_validBody_returns200WithClientSecret() throws Exception {
-        when(stripePaymentService.createPaymentIntent(any(), any()))
-                .thenReturn(new PaymentIntentResponse("secret_123", "pi_123", "requires_payment_method", "pk_test_123"));
+        when(createPaymentIntentUseCase.createIntent(any()))
+                .thenReturn(new CreatedPaymentIntent("secret_123", "pi_123", "requires_payment_method"));
+        when(stripeConfig.getPublishableKey()).thenReturn("pk_test_123");
 
         mockMvc.perform(post("/payments/create-intent")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -86,7 +95,7 @@ class StripePaymentControllerTest {
 
     @Test
     void confirmPayment_succeeded_returnsSuccessTrue() throws Exception {
-        when(stripePaymentService.confirmPayment("pi_123")).thenReturn(true);
+        when(verifyPaymentQuery.isSucceeded("pi_123")).thenReturn(true);
 
         mockMvc.perform(get("/payments/confirm/pi_123"))
                 .andExpect(status().isOk())
@@ -95,7 +104,7 @@ class StripePaymentControllerTest {
 
     @Test
     void confirmPayment_notSucceeded_returnsSuccessFalse() throws Exception {
-        when(stripePaymentService.confirmPayment("pi_456")).thenReturn(false);
+        when(verifyPaymentQuery.isSucceeded("pi_456")).thenReturn(false);
 
         mockMvc.perform(get("/payments/confirm/pi_456"))
                 .andExpect(status().isOk())

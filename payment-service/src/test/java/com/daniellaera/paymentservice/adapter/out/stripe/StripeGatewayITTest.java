@@ -1,10 +1,11 @@
 package com.daniellaera.paymentservice.adapter.out.stripe;
 
-import com.daniellaera.paymentservice.audit.AuditPublisher;
+import com.daniellaera.paymentservice.adapter.in.web.GlobalExceptionHandler;
+import com.daniellaera.paymentservice.adapter.in.web.StripePaymentController;
+import com.daniellaera.paymentservice.application.CreatePaymentIntentService;
+import com.daniellaera.paymentservice.application.VerifyPaymentService;
 import com.daniellaera.paymentservice.config.StripeConfig;
-import com.daniellaera.paymentservice.controller.StripePaymentController;
-import com.daniellaera.paymentservice.exception.GlobalExceptionHandler;
-import com.daniellaera.paymentservice.service.StripePaymentService;
+import com.daniellaera.paymentservice.domain.port.out.AuditTrail;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.github.tomakehurst.wiremock.verification.LoggedRequest;
@@ -57,9 +58,11 @@ class StripeGatewayITTest {
 
         StripeConfig stripeConfig = new StripeConfig();
         ReflectionTestUtils.setField(stripeConfig, "publishableKey", "pk_test_wiremock");
-        StripePaymentService stripePaymentService = new StripePaymentService(stripeConfig, mock(AuditPublisher.class),
-                new StripePaymentGateway());
-        mockMvc = MockMvcBuilders.standaloneSetup(new StripePaymentController(stripePaymentService))
+        StripePaymentGateway gateway = new StripePaymentGateway();
+        StripePaymentController controller = new StripePaymentController(
+                new CreatePaymentIntentService(gateway, mock(AuditTrail.class)), new VerifyPaymentService(gateway),
+                stripeConfig);
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

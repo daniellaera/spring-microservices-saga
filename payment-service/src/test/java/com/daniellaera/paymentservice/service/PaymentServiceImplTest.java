@@ -4,9 +4,8 @@ import com.daniellaera.paymentservice.audit.AuditPublisher;
 import com.daniellaera.paymentservice.dto.InventoryResultEvent;
 import com.daniellaera.paymentservice.dto.OrderItemEvent;
 import com.daniellaera.paymentservice.dto.PaymentEvent;
-import com.daniellaera.paymentservice.dto.TransactionDTO;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
-import com.daniellaera.paymentservice.exception.ResourceNotFoundException;
+import com.daniellaera.paymentservice.domain.port.out.PaymentGateway;
 import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaEntity;
 import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,10 +20,8 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -34,7 +31,7 @@ class PaymentServiceImplTest {
     @Mock private TransactionJpaRepository transactionRepository;
     @Mock private KafkaTemplate<String, String> kafkaTemplate;
     @Mock private ObjectMapper objectMapper;
-    @Mock private StripePaymentService stripePaymentService;
+    @Mock private PaymentGateway paymentGateway;
     @Mock private AuditPublisher auditPublisher;
 
     @InjectMocks
@@ -50,41 +47,6 @@ class PaymentServiceImplTest {
         transaction.setTotalAmount(BigDecimal.valueOf(999.99));
     }
 
-    // ─── getAllTransactions / getTransactionById ──────────────────────────────
-
-    @Test
-    void getAllTransactions_shouldReturnListOfDTOs() {
-        when(transactionRepository.findAll()).thenReturn(List.of(transaction));
-
-        List<TransactionDTO> result = paymentService.getAllTransactions();
-
-        assertThat(result).hasSize(1);
-        assertThat(result.getFirst().orderId()).isEqualTo(1L);
-        assertThat(result.getFirst().status()).isEqualTo(PaymentStatus.SUCCESS);
-        assertThat(result.getFirst().totalAmount()).isEqualByComparingTo(BigDecimal.valueOf(999.99));
-        verify(transactionRepository, times(1)).findAll();
-    }
-
-    @Test
-    void getTransactionById_shouldReturnDTO_whenExists() {
-        when(transactionRepository.findById(1L)).thenReturn(Optional.of(transaction));
-
-        TransactionDTO result = paymentService.getTransactionById(1L);
-
-        assertThat(result.orderId()).isEqualTo(1L);
-        assertThat(result.status()).isEqualTo(PaymentStatus.SUCCESS);
-        assertThat(result.totalAmount()).isEqualByComparingTo(BigDecimal.valueOf(999.99));
-    }
-
-    @Test
-    void getTransactionById_shouldThrowResourceNotFoundException_whenNotFound() {
-        when(transactionRepository.findById(999L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> paymentService.getTransactionById(999L))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("999");
-    }
-
     // ─── handleInventoryResult ────────────────────────────────────────────────
 
     @Test
@@ -92,7 +54,7 @@ class PaymentServiceImplTest {
         InventoryResultEvent event = new InventoryResultEvent(1L, "APPROVED", "MacBook Pro", 1,
                 BigDecimal.valueOf(1299.99), BigDecimal.valueOf(1299.99), "user@test.com", "pi_123", null);
         when(objectMapper.readValue(anyString(), eq(InventoryResultEvent.class))).thenReturn(event);
-        when(stripePaymentService.confirmPayment("pi_123")).thenReturn(true);
+        when(paymentGateway.isSucceeded("pi_123")).thenReturn(true);
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
 
         paymentService.handleInventoryResult("{}");
@@ -104,7 +66,7 @@ class PaymentServiceImplTest {
         assertThat(txCaptor.getValue().getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(1299.99));
 
         verify(kafkaTemplate).send(eq("payment-topic"), anyString());
-        verify(stripePaymentService).confirmPayment("pi_123");
+        verify(paymentGateway).isSucceeded("pi_123");
         verify(auditPublisher).publish(eq("PAYMENT_SUCCEEDED"), any(), any(), any(), any());
     }
 
@@ -115,7 +77,7 @@ class PaymentServiceImplTest {
         InventoryResultEvent event = new InventoryResultEvent(5L, "APPROVED", "MacBook Pro", 1,
                 BigDecimal.valueOf(1299.99), BigDecimal.valueOf(1299.99), "user@test.com", "pi_999", items);
         when(objectMapper.readValue(anyString(), eq(InventoryResultEvent.class))).thenReturn(event);
-        when(stripePaymentService.confirmPayment("pi_999")).thenReturn(true);
+        when(paymentGateway.isSucceeded("pi_999")).thenReturn(true);
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
 
         paymentService.handleInventoryResult("{}");
@@ -131,7 +93,7 @@ class PaymentServiceImplTest {
         InventoryResultEvent event = new InventoryResultEvent(2L, "APPROVED", "iPhone", 1,
                 BigDecimal.valueOf(999.99), BigDecimal.valueOf(999.99), "user@test.com", "pi_456", null);
         when(objectMapper.readValue(anyString(), eq(InventoryResultEvent.class))).thenReturn(event);
-        when(stripePaymentService.confirmPayment("pi_456")).thenReturn(false);
+        when(paymentGateway.isSucceeded("pi_456")).thenReturn(false);
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
 
         paymentService.handleInventoryResult("{}");
@@ -154,7 +116,7 @@ class PaymentServiceImplTest {
 
         paymentService.handleInventoryResult("{}");
 
-        verifyNoInteractions(stripePaymentService);
+        verifyNoInteractions(paymentGateway);
 
         ArgumentCaptor<TransactionJpaEntity> txCaptor = ArgumentCaptor.forClass(TransactionJpaEntity.class);
         verify(transactionRepository).save(txCaptor.capture());
@@ -172,7 +134,7 @@ class PaymentServiceImplTest {
 
         paymentService.handleInventoryResult("{}");
 
-        verifyNoInteractions(stripePaymentService);
+        verifyNoInteractions(paymentGateway);
 
         ArgumentCaptor<TransactionJpaEntity> txCaptor = ArgumentCaptor.forClass(TransactionJpaEntity.class);
         verify(transactionRepository).save(txCaptor.capture());

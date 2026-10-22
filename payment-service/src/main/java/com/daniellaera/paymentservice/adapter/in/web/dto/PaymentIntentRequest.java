@@ -1,4 +1,4 @@
-package com.daniellaera.paymentservice.dto;
+package com.daniellaera.paymentservice.adapter.in.web.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

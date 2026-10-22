@@ -1,7 +1,7 @@
-package com.daniellaera.paymentservice.controller;
+package com.daniellaera.paymentservice.adapter.in.web;
 
-import com.daniellaera.paymentservice.dto.TransactionDTO;
-import com.daniellaera.paymentservice.service.PaymentService;
+import com.daniellaera.paymentservice.adapter.in.web.dto.TransactionDTO;
+import com.daniellaera.paymentservice.domain.port.in.TransactionQuery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,15 +16,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PaymentController {
 
-    private final PaymentService paymentService;
+    private final TransactionQuery transactionQuery;
 
     @GetMapping
     public ResponseEntity<List<TransactionDTO>> getAllTransactions() {
-        return ResponseEntity.ok(paymentService.getAllTransactions());
+        return ResponseEntity.ok(transactionQuery.getAllTransactions().stream().map(PaymentWebMapper::toDto).toList());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<TransactionDTO> getTransactionById(@PathVariable("id") Long id) {
-        return ResponseEntity.ok(paymentService.getTransactionById(id));
+        return ResponseEntity.ok(PaymentWebMapper.toDto(transactionQuery.getTransactionById(id)));
     }
 }
