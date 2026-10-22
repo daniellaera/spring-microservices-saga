@@ -1,10 +1,12 @@
-package com.daniellaera.orderservice.controller;
+package com.daniellaera.orderservice.adapter.in.web;
 
-import com.daniellaera.orderservice.dto.OrderDTO;
-import com.daniellaera.orderservice.dto.OrderRequest;
-import com.daniellaera.orderservice.dto.PagedResponse;
+import com.daniellaera.orderservice.domain.model.Order;
 import com.daniellaera.orderservice.domain.model.OrderStatus;
-import com.daniellaera.orderservice.service.OrderService;
+import com.daniellaera.orderservice.domain.model.PageQuery;
+import com.daniellaera.orderservice.domain.model.PageResult;
+import com.daniellaera.orderservice.domain.port.in.GetOrderQuery;
+import com.daniellaera.orderservice.domain.port.in.ListOrdersQuery;
+import com.daniellaera.orderservice.domain.port.in.PlaceOrderUseCase;
 import com.daniellaera.orderservice.sse.SseEmitterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +33,13 @@ class OrderControllerTest {
     private OrderController orderController;
 
     @Mock
-    private OrderService orderService;
+    private PlaceOrderUseCase placeOrderUseCase;
+
+    @Mock
+    private GetOrderQuery getOrderQuery;
+
+    @Mock
+    private ListOrdersQuery listOrdersQuery;
 
     @Mock
     private SseEmitterRegistry sseEmitterRegistry;
@@ -45,10 +53,9 @@ class OrderControllerTest {
 
     @Test
     void createOrder_withUserEmailHeader_storesEmailOnOrder() throws Exception {
-        OrderDTO dto = new OrderDTO(1L, "MacBook Pro", 1,
-                BigDecimal.valueOf(999.99), BigDecimal.valueOf(999.99),
-                OrderStatus.PENDING, "user@test.com", null, null, null);
-        when(orderService.createOrder(any(OrderRequest.class), eq("user@test.com"))).thenReturn(dto);
+        Order order = order(1L, "MacBook Pro", BigDecimal.valueOf(999.99), OrderStatus.PENDING, "user@test.com");
+        when(placeOrderUseCase.placeOrder(argThat(command -> "user@test.com".equals(command.userEmail()))))
+                .thenReturn(order);
 
         mockMvc.perform(post("/orders")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -61,13 +68,11 @@ class OrderControllerTest {
 
     @Test
     void getMyOrders_returnsOrdersForEmail() throws Exception {
-        List<OrderDTO> orders = List.of(
-                new OrderDTO(1L, "MacBook Pro", 1,
-                        BigDecimal.valueOf(999.99), BigDecimal.valueOf(999.99),
-                        OrderStatus.PENDING, "user@test.com", null, null, null)
+        List<Order> orders = List.of(
+                order(1L, "MacBook Pro", BigDecimal.valueOf(999.99), OrderStatus.PENDING, "user@test.com")
         );
-        PagedResponse<OrderDTO> paged = new PagedResponse<>(orders, 0, 1, 1L, false, false);
-        when(orderService.getMyOrdersPaged("user@test.com", 0, 10)).thenReturn(paged);
+        PageResult<Order> paged = new PageResult<>(orders, 0, 1, 1L, false, false);
+        when(listOrdersQuery.listOrdersOf("user@test.com", new PageQuery(0, 10))).thenReturn(paged);
 
         mockMvc.perform(get("/orders/my")
                         .header("X-User-Email", "user@test.com"))
@@ -84,21 +89,21 @@ class OrderControllerTest {
 
     @Test
     void getAllOrders_returnsAllOrders() throws Exception {
-        List<OrderDTO> orders = List.of(
-                new OrderDTO(1L, "MacBook Pro", 1,
-                        BigDecimal.valueOf(999.99), BigDecimal.valueOf(999.99),
-                        OrderStatus.PENDING, "user1@test.com", null, null, null),
-                new OrderDTO(2L, "iPhone", 1,
-                        BigDecimal.valueOf(799.99), BigDecimal.valueOf(799.99),
-                        OrderStatus.CONFIRMED, "user2@test.com", null, null, null)
+        List<Order> orders = List.of(
+                order(1L, "MacBook Pro", BigDecimal.valueOf(999.99), OrderStatus.PENDING, "user1@test.com"),
+                order(2L, "iPhone", BigDecimal.valueOf(799.99), OrderStatus.CONFIRMED, "user2@test.com")
         );
-        PagedResponse<OrderDTO> paged = new PagedResponse<>(orders, 0, 1, 2L, false, false);
-        when(orderService.getAllOrdersPaged(0, 10)).thenReturn(paged);
+        PageResult<Order> paged = new PageResult<>(orders, 0, 1, 2L, false, false);
+        when(listOrdersQuery.listAllOrders(new PageQuery(0, 10))).thenReturn(paged);
 
         mockMvc.perform(get("/orders"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].userEmail").value("user1@test.com"))
                 .andExpect(jsonPath("$.content[1].userEmail").value("user2@test.com"));
+    }
+
+    private static Order order(Long id, String productName, BigDecimal price, OrderStatus status, String userEmail) {
+        return Order.restore(id, userEmail, null, status, price, null, productName, 1, price, List.of());
     }
 }

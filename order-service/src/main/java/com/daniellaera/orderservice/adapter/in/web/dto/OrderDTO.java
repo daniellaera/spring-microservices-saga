@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.dto;
+package com.daniellaera.orderservice.adapter.in.web.dto;
 
 import com.daniellaera.orderservice.domain.model.OrderStatus;
 

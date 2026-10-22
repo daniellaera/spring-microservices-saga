@@ -1,6 +1,9 @@
-package com.daniellaera.orderservice.exception;
+package com.daniellaera.orderservice.adapter.in.web;
 
-import com.daniellaera.orderservice.dto.ErrorResponse;
+import com.daniellaera.orderservice.adapter.in.web.dto.ErrorResponse;
+import com.daniellaera.orderservice.domain.model.EmptyOrderException;
+import com.daniellaera.orderservice.domain.model.OrderAccessDeniedException;
+import com.daniellaera.orderservice.domain.model.OrderNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,10 +38,22 @@ public class GlobalExceptionHandler {
         log.debug("SSE client disconnected: {}", ex.getMessage());
     }
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
+    @ExceptionHandler(OrderNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(OrderNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(404, ex.getMessage()));
+    }
+
+    @ExceptionHandler(OrderAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(OrderAccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(403, ex.getMessage()));
+    }
+
+    @ExceptionHandler(EmptyOrderException.class)
+    public ResponseEntity<ErrorResponse> handleEmptyOrder(EmptyOrderException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(400, ex.getMessage()));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

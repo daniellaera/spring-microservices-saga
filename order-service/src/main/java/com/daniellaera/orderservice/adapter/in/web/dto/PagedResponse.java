@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.dto;
+package com.daniellaera.orderservice.adapter.in.web.dto;
 
 import java.util.List;
 

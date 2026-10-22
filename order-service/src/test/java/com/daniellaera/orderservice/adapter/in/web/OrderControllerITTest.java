@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.controller;
+package com.daniellaera.orderservice.adapter.in.web;
 
 import com.daniellaera.orderservice.TestcontainersConfiguration;
 import com.daniellaera.orderservice.domain.model.OrderStatus;
