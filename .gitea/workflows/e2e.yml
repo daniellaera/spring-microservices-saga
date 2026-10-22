@@ -1,0 +1,45 @@
+name: Saga E2E
+
+# Cucumber suite for the order / inventory / payment saga (saga-e2e module, e2e profile).
+# The services run from their own jars in Testcontainers, so only those three services and the suite matter.
+on:
+  pull_request:
+    paths:
+      - 'order-service/**'
+      - 'inventory-service/**'
+      - 'payment-service/**'
+      - 'saga-e2e/**'
+      - 'pom.xml'
+      - '.gitea/workflows/e2e.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'order-service/**'
+      - 'inventory-service/**'
+      - 'payment-service/**'
+      - 'saga-e2e/**'
+      - 'pom.xml'
+      - '.gitea/workflows/e2e.yml'
+  workflow_dispatch:
+
+jobs:
+  saga-e2e:
+    name: Saga E2E (Cucumber)
+    runs-on: ubuntu-latest
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the saga e2e suite
+        run: mvn -Pe2e -pl saga-e2e -am verify --no-transfer-progress
+
+      # The Cucumber summary (scenarios and steps passed) is also in the log of the step above
+      - name: Upload Cucumber report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v3
+        with:
+          name: cucumber-report
+          path: saga-e2e/target/cucumber-reports/
+          if-no-files-found: ignore
