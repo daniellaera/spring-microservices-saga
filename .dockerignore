@@ -1,0 +1,23 @@
+# Build context for every image (all Dockerfiles build from the repo root with COPY . . or COPY shop-ui/).
+# Keeps local-only and secret files out of images and the context small.
+
+# Local configuration and secrets (gitignored, but present in local working trees)
+**/*-local.yml
+.env*
+**/.env*
+
+# Build outputs and dependency caches: images rebuild them from source
+**/target
+**/node_modules
+**/.angular
+**/dist
+**/coverage
+
+# VCS, tooling and IDE metadata
+.git
+.claude
+.idea
+**/.idea
+*.iml
+**/*.iml
+**/.DS_Store
