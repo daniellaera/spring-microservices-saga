@@ -1,0 +1,18 @@
+{
+  "orderId": 7,
+  "status": "REJECTED",
+  "productName": "Mechanical Keyboard",
+  "quantity": 0,
+  "price": 89.50,
+  "totalAmount": 179.00,
+  "userEmail": "buyer@test.com",
+  "paymentIntentId": "pi_legacy7",
+  "items": [
+    {
+      "productName": "Mechanical Keyboard",
+      "quantity": 2,
+      "price": 89.50,
+      "totalAmount": 179.00
+    }
+  ]
+}

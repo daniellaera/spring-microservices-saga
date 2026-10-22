@@ -1,0 +1,16 @@
+[
+  {
+    "id": 11,
+    "name": "MacBook Pro",
+    "quantity": 10,
+    "price": 1299.99,
+    "createdAt": "2026-01-15T09:30:00.123456"
+  },
+  {
+    "id": 12,
+    "name": "USB-C Hub",
+    "quantity": 50,
+    "price": 49.90,
+    "createdAt": "2026-02-01T08:00:00"
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "orderId": 7,
+  "productName": "Mechanical Keyboard",
+  "quantity": 2,
+  "price": 89.50,
+  "totalAmount": 179.00,
+  "userEmail": "buyer@test.com",
+  "paymentIntentId": "pi_legacy7"
+}
