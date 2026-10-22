@@ -64,6 +64,8 @@ class OrderPersistenceAdapterITTest {
                 OrderItem.of("iPhone 16", 2, new BigDecimal("999.99")))));
         entityManager.flush();
         entityManager.clear();
+        // As stored: the column has microsecond precision, the JVM clock may have nanoseconds
+        LocalDateTime storedCreatedAt = adapter.findById(saved.id()).orElseThrow().createdAt();
 
         // A stale or partial view of the order must not overwrite anything but the status
         Order changed = Order.restore(saved.id(), "someone@else.com", null, OrderStatus.PENDING,
@@ -80,7 +82,7 @@ class OrderPersistenceAdapterITTest {
         assertThat(loaded.totalAmount()).isEqualByComparingTo("1999.98");
         assertThat(loaded.productName()).isEqualTo("iPhone 16");
         assertThat(loaded.items()).hasSize(1);
-        assertThat(loaded.createdAt()).isEqualTo(saved.createdAt());
+        assertThat(loaded.createdAt()).isEqualTo(storedCreatedAt);
     }
 
     @Test
