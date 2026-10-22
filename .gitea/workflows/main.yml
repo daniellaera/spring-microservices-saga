@@ -384,3 +384,53 @@ jobs:
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
 
             echo "=== Deploy complete ==="
+
+  post-deploy-smoke:
+    name: Post-deploy smoke checks
+    runs-on: ubuntu-latest
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
+    needs: [ detect-changes, deploy ]
+    # only after a deploy that actually ran
+    if: always() && needs.deploy.result == 'success'
+    steps:
+      - name: Check redeployed services on infra-node1
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            CHANGED=""
+            ${{ needs.detect-changes.outputs.config-server == 'true' && 'CHANGED="$CHANGED config-server"' || '' }}
+            ${{ needs.detect-changes.outputs.auth-service == 'true' && 'CHANGED="$CHANGED auth-service"' || '' }}
+            ${{ needs.detect-changes.outputs.order-service == 'true' && 'CHANGED="$CHANGED order-service"' || '' }}
+            ${{ needs.detect-changes.outputs.inventory-service == 'true' && 'CHANGED="$CHANGED inventory-service"' || '' }}
+            ${{ needs.detect-changes.outputs.payment-service == 'true' && 'CHANGED="$CHANGED payment-service"' || '' }}
+            ${{ needs.detect-changes.outputs.notification-service == 'true' && 'CHANGED="$CHANGED notification-service"' || '' }}
+            ${{ needs.detect-changes.outputs.gateway-service == 'true' && 'CHANGED="$CHANGED gateway-service"' || '' }}
+            ${{ needs.detect-changes.outputs.cart-service == 'true' && 'CHANGED="$CHANGED cart-service"' || '' }}
+            ${{ needs.detect-changes.outputs.audit-trail-service == 'true' && 'CHANGED="$CHANGED audit-trail-service"' || '' }}
+            ${{ needs.detect-changes.outputs.shop-ui == 'true' && 'CHANGED="$CHANGED shop-ui"' || '' }}
+
+            # The check script of this very commit; downloaded first so a failed download fails the step
+            SMOKE=$(curl -sSf "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/commit/${{ github.sha }}/scripts/post-deploy-smoke.sh")
+            bash -c "$SMOKE" post-deploy-smoke $CHANGED
+
+      # Read-only: no login, no order. The gateway health endpoint is not exposed publicly, so the gateway is
+      # proven reachable through nginx by its 401 on an unauthenticated API call (a dead gateway gives 502/504).
+      - name: Check the public site
+        run: |
+          set -u
+          BASE=https://shop-staging.daniellaera.com
+          check() {
+            CODE=$(curl -s -o /dev/null --max-time 10 --retry 5 --retry-delay 5 --retry-all-errors \
+              -w '%{http_code}' "$BASE$1" || true)
+            echo "GET $1 -> $CODE (expected $2)"
+            [ "$CODE" = "$2" ]
+          }
+          FAILED=0
+          check / 200 || FAILED=1
+          check /products 401 || FAILED=1
+          exit $FAILED
