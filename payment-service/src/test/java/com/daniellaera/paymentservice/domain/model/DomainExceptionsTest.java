@@ -20,4 +20,13 @@ class DomainExceptionsTest {
                 .hasMessage("Stripe payment failed: card declined")
                 .hasCause(cause);
     }
+
+    @Test
+    void transactionAlreadyRecorded_namesTheOrderAndKeepsTheCause() {
+        IllegalStateException cause = new IllegalStateException("duplicate key");
+
+        assertThat(new TransactionAlreadyRecordedException(42L, cause))
+                .hasMessage("A transaction is already recorded for order 42")
+                .hasCause(cause);
+    }
 }

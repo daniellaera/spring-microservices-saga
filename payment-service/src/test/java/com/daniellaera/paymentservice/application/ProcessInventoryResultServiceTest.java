@@ -129,17 +129,52 @@ class ProcessInventoryResultServiceTest {
     }
 
     @Test
-    void redelivery_recordsAndPublishesASecondTime_preservedBug() {
-        // no idempotency per order (backlog: fix/saga-integrity)
+    void redelivery_republishesTheStoredOutcomeOnly() {
+        // was redelivery_recordsAndPublishesASecondTime_preservedBug: a redelivery used to record, audit and
+        // publish a second time
         gateway.givenIntent("pi_123", "succeeded");
         InventoryResult result = approved(1L, "pi_123", null);
-
-        service.process(result);
         service.process(result);
 
-        assertThat(transactions.findAll()).extracting(PaymentTransaction::orderId).containsExactly(1L, 1L);
-        assertThat(auditTrail.processed()).hasSize(2);
-        assertThat(publisher.published()).hasSize(2);
+        service.process(result);
+
+        assertThat(gateway.verifiedIntents()).containsExactly("pi_123");
+        assertThat(transactions.findAll()).extracting(PaymentTransaction::orderId).containsExactly(1L);
+        assertThat(auditTrail.processed()).hasSize(1);
+        assertThat(effectLog.effects()).containsExactly(
+                "save SUCCESS", "audit SUCCESS", "publish SUCCESS", "publish SUCCESS");
+        assertThat(publisher.published()).containsExactly(
+                new RecordingPaymentResultPublisher.Published(result, PaymentStatus.SUCCESS),
+                new RecordingPaymentResultPublisher.Published(result, PaymentStatus.SUCCESS));
+    }
+
+    @Test
+    void alreadyRecorded_republishesTheStoredStatusEvenIfTheGatewayNowAnswersDifferently() {
+        // a crash between saving and publishing: the retry publishes what was decided, without asking again
+        transactions.save(PaymentTransaction.record(1L, new BigDecimal("1299.99"), false));
+        gateway.givenIntent("pi_123", "succeeded");
+
+        service.process(approved(1L, "pi_123", null));
+
+        assertThat(gateway.verifiedIntents()).isEmpty();
+        assertThat(transactions.findAll()).hasSize(1);
+        assertThat(auditTrail.processed()).isEmpty();
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void concurrentDelivery_losesTheRaceAndRepublishesTheWinnersOutcome() {
+        gateway.givenIntent("pi_123", "succeeded");
+        transactions.insertConcurrentlyBeforeNextSave(
+                new PaymentTransaction(null, 1L, new BigDecimal("1299.99"), PaymentStatus.SUCCESS, null));
+
+        service.process(approved(1L, "pi_123", null));
+
+        assertThat(transactions.findAll()).hasSize(1);
+        assertThat(auditTrail.processed()).isEmpty();
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.SUCCESS));
     }
 
     @Test

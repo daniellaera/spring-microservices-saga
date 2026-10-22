@@ -3,10 +3,7 @@ package com.daniellaera.paymentservice.domain.model;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * The outcome of one payment attempt for an order. Nothing prevents several transactions for the same order:
- * a redelivered inventory result records another one (current behaviour).
- */
+/** The outcome of the payment of an order. There is at most one per order (unique constraint). */
 public record PaymentTransaction(Long id, Long orderId, BigDecimal totalAmount, PaymentStatus status,
                                  LocalDateTime createdAt) {
 

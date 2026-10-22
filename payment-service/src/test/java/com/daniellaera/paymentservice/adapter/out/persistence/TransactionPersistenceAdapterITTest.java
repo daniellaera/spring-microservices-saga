@@ -3,16 +3,20 @@ package com.daniellaera.paymentservice.adapter.out.persistence;
 import com.daniellaera.paymentservice.TestcontainersConfiguration;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.domain.model.PaymentTransaction;
+import com.daniellaera.paymentservice.domain.model.TransactionAlreadyRecordedException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -51,13 +55,29 @@ class TransactionPersistenceAdapterITTest {
     }
 
     @Test
-    void sameOrderTwice_isStoredTwice() {
-        // no uniqueness per order: a redelivered inventory result records a second transaction (current behaviour)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED) // as in prod: no surrounding transaction to abort
+    void sameOrderTwice_isRejected() {
+        // was sameOrderTwice_isStoredTwice: uk_transaction_order_id now allows one transaction per order
         adapter.save(PaymentTransaction.record(9003L, BigDecimal.TEN, true));
-        adapter.save(PaymentTransaction.record(9003L, BigDecimal.TEN, true));
+
+        assertThatThrownBy(() -> adapter.save(PaymentTransaction.record(9003L, BigDecimal.TEN, false)))
+                .isInstanceOf(TransactionAlreadyRecordedException.class)
+                .hasMessage("A transaction is already recorded for order 9003");
+
+        assertThat(adapter.findAll()).filteredOn(t -> t.orderId() == 9003L).singleElement()
+                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.SUCCESS));
+    }
+
+    @Test
+    void findByOrderId_findsTheOrdersTransaction() {
+        PaymentTransaction saved = adapter.save(PaymentTransaction.record(9004L, BigDecimal.ONE, false));
         flushAndClear();
 
-        assertThat(adapter.findAll()).filteredOn(t -> t.orderId() == 9003L).hasSize(2);
+        assertThat(adapter.findByOrderId(9004L)).hasValueSatisfying(t -> {
+            assertThat(t.id()).isEqualTo(saved.id());
+            assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
+        });
+        assertThat(adapter.findByOrderId(424_242L)).isEmpty();
     }
 
     @Test
