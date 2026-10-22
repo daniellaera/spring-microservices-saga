@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.model;
+package com.daniellaera.orderservice.adapter.out.persistence;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @NoArgsConstructor
-public class OrderItem {
+public class OrderItemJpaEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,7 +20,7 @@ public class OrderItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
-    private Order order;
+    private OrderJpaEntity order;
 
     @Column(nullable = false)
     private String productName;

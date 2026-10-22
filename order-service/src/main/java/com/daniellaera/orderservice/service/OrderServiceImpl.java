@@ -9,17 +9,17 @@ import com.daniellaera.orderservice.dto.OrderRequest;
 import com.daniellaera.orderservice.dto.PagedResponse;
 import com.daniellaera.orderservice.domain.model.OrderStatus;
 import com.daniellaera.orderservice.exception.ResourceNotFoundException;
-import com.daniellaera.orderservice.model.Order;
-import com.daniellaera.orderservice.model.OrderItem;
-import com.daniellaera.orderservice.model.OutboxEvent;
+import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaEntity;
+import com.daniellaera.orderservice.adapter.out.persistence.OrderItemJpaEntity;
+import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxEventJpaEntity;
 import com.daniellaera.orderservice.audit.AuditPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import com.daniellaera.orderservice.producer.OrderProducer;
-import com.daniellaera.orderservice.repository.OrderRepository;
-import com.daniellaera.orderservice.repository.OutboxEventRepository;
+import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaRepository;
+import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxEventJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -38,8 +38,8 @@ import java.util.List;
 @Slf4j
 public class OrderServiceImpl implements OrderService {
 
-    private final OrderRepository orderRepository;
-    private final OutboxEventRepository outboxEventRepository;
+    private final OrderJpaRepository orderRepository;
+    private final OutboxEventJpaRepository outboxEventRepository;
     private final OrderProducer orderProducer;
     private final ObjectMapper objectMapper;
     private final AuditPublisher auditPublisher;
@@ -58,7 +58,7 @@ public class OrderServiceImpl implements OrderService {
 
         OrderItemRequest firstItem = itemRequests.get(0);
 
-        Order order = new Order();
+        OrderJpaEntity order = new OrderJpaEntity();
         order.setProductName(firstItem.productName());
         order.setQuantity(firstItem.quantity());
         order.setPrice(firstItem.price());
@@ -67,9 +67,9 @@ public class OrderServiceImpl implements OrderService {
         order.setUserEmail(userEmail);
         order.setPaymentIntentId(request.paymentIntentId());
 
-        List<OrderItem> orderItems = itemRequests.stream()
+        List<OrderItemJpaEntity> orderItems = itemRequests.stream()
                 .map(itemReq -> {
-                    OrderItem item = new OrderItem();
+                    OrderItemJpaEntity item = new OrderItemJpaEntity();
                     item.setOrder(order);
                     item.setProductName(itemReq.productName());
                     item.setQuantity(itemReq.quantity());
@@ -80,7 +80,7 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
         order.setItems(orderItems);
 
-        Order saved = orderRepository.save(order);
+        OrderJpaEntity saved = orderRepository.save(order);
 
         List<OrderItemEvent> itemEvents = saved.getItems().stream()
                 .map(i -> new OrderItemEvent(i.getProductName(), i.getQuantity(), i.getPrice(), i.getTotalAmount()))
@@ -90,7 +90,7 @@ public class OrderServiceImpl implements OrderService {
                 saved.getPrice(), saved.getTotalAmount(), saved.getUserEmail(), saved.getPaymentIntentId(), itemEvents);
 
         try {
-            OutboxEvent outboxEvent = new OutboxEvent();
+            OutboxEventJpaEntity outboxEvent = new OutboxEventJpaEntity();
             outboxEvent.setAggregateId(saved.getId());
             outboxEvent.setEventType("ORDER_CREATED");
             outboxEvent.setPayload(objectMapper.writeValueAsString(orderEvent));
@@ -109,9 +109,9 @@ public class OrderServiceImpl implements OrderService {
     @Scheduled(fixedDelay = 5000)
     @Transactional
     public void publishOutboxEvents() {
-        List<OutboxEvent> unpublished = outboxEventRepository.findByPublishedFalseOrderByCreatedAtAsc();
+        List<OutboxEventJpaEntity> unpublished = outboxEventRepository.findByPublishedFalseOrderByCreatedAtAsc();
 
-        for (OutboxEvent event : unpublished) {
+        for (OutboxEventJpaEntity event : unpublished) {
             try {
                 OrderEvent orderEvent = objectMapper.readValue(event.getPayload(), OrderEvent.class);
                 orderProducer.sendOrderEvent(orderEvent);
@@ -127,7 +127,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderDTO getOrderById(Long id, String userEmail, String userRole) {
-        Order order = orderRepository.findById(id)
+        OrderJpaEntity order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + id));
         boolean isAdmin = "ADMIN".equals(userRole);
         if (!isAdmin && !order.getUserEmail().equals(userEmail)) {
@@ -155,7 +155,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public PagedResponse<OrderDTO> getMyOrdersPaged(String userEmail, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Order> result = orderRepository.findByUserEmail(userEmail, pageable);
+        Page<OrderJpaEntity> result = orderRepository.findByUserEmail(userEmail, pageable);
         return new PagedResponse<>(
                 result.getContent().stream().map(this::toDTO).toList(),
                 result.getNumber(),
@@ -169,7 +169,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public PagedResponse<OrderDTO> getAllOrdersPaged(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Order> result = orderRepository.findAll(pageable);
+        Page<OrderJpaEntity> result = orderRepository.findAll(pageable);
         return new PagedResponse<>(
                 result.getContent().stream().map(this::toDTO).toList(),
                 result.getNumber(),
@@ -180,7 +180,7 @@ public class OrderServiceImpl implements OrderService {
         );
     }
 
-    private OrderDTO toDTO(Order o) {
+    private OrderDTO toDTO(OrderJpaEntity o) {
         List<OrderItemDTO> items = o.getItems() == null
                 ? List.of()
                 : o.getItems().stream()

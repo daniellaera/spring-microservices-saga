@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.model;
+package com.daniellaera.orderservice.adapter.out.persistence;
 
 import jakarta.persistence.*;
 import lombok.Getter;

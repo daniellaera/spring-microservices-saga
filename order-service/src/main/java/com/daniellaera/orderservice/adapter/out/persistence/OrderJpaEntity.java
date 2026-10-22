@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.model;
+package com.daniellaera.orderservice.adapter.out.persistence;
 
 import com.daniellaera.orderservice.domain.model.OrderStatus;
 import jakarta.persistence.*;
@@ -15,7 +15,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Order extends BaseEntity {
+public class OrderJpaEntity extends BaseEntity {
 
     // Legacy single-item fields — represent the FIRST item for backward compat.
     @Column(nullable = false)
@@ -41,5 +41,5 @@ public class Order extends BaseEntity {
     private String paymentIntentId;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    private List<OrderItem> items = new ArrayList<>();
+    private List<OrderItemJpaEntity> items = new ArrayList<>();
 }

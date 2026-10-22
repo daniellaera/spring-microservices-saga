@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.model;
+package com.daniellaera.orderservice.adapter.out.messaging.outbox;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -13,7 +13,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-public class OutboxEvent {
+public class OutboxEventJpaEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

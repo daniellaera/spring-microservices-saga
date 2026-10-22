@@ -2,8 +2,8 @@ package com.daniellaera.orderservice.controller;
 
 import com.daniellaera.orderservice.TestcontainersConfiguration;
 import com.daniellaera.orderservice.domain.model.OrderStatus;
-import com.daniellaera.orderservice.model.Order;
-import com.daniellaera.orderservice.repository.OrderRepository;
+import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaEntity;
+import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,13 +31,13 @@ public class OrderControllerITTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private OrderRepository orderRepository;
+    private OrderJpaRepository orderRepository;
 
     @BeforeEach
     void setUp() {
         orderRepository.deleteAll();
 
-        Order order = new Order();
+        OrderJpaEntity order = new OrderJpaEntity();
         order.setProductName("MacBook Pro");
         order.setQuantity(1);
         order.setPrice(BigDecimal.valueOf(1299.99));
@@ -58,7 +58,7 @@ public class OrderControllerITTest {
 
     @Test
     void getOrderById_shouldReturn200() throws Exception {
-        Order saved = orderRepository.findAll().get(0);
+        OrderJpaEntity saved = orderRepository.findAll().get(0);
 
         mockMvc.perform(get("/orders/" + saved.getId())
                         .header("X-User-Email", "user@test.com")
@@ -77,7 +77,7 @@ public class OrderControllerITTest {
 
     @Test
     void getOrderById_shouldReturn403_whenNotOwner() throws Exception {
-        Order saved = orderRepository.findAll().get(0);
+        OrderJpaEntity saved = orderRepository.findAll().get(0);
 
         mockMvc.perform(get("/orders/" + saved.getId())
                         .header("X-User-Email", "someone-else@test.com")
@@ -113,7 +113,7 @@ public class OrderControllerITTest {
 
     @Test
     void getMyOrders_shouldReturnOnlyOrdersForThatEmail() throws Exception {
-        Order alice = new Order();
+        OrderJpaEntity alice = new OrderJpaEntity();
         alice.setProductName("iPad");
         alice.setQuantity(1);
         alice.setPrice(BigDecimal.valueOf(599.99));
@@ -168,7 +168,7 @@ public class OrderControllerITTest {
                 .andExpect(jsonPath("$.items[0].productName").value("iPhone 16"))
                 .andExpect(jsonPath("$.items[1].productName").value("AirPods"));
 
-        Order saved = orderRepository.findByUserEmail("bob@example.com").get(0);
+        OrderJpaEntity saved = orderRepository.findByUserEmail("bob@example.com").get(0);
         assertThat(saved.getItems()).hasSize(2);
         assertThat(saved.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(2249.97));
     }
@@ -198,7 +198,7 @@ public class OrderControllerITTest {
 
     @Test
     void getAllOrders_paged_shouldReturnAllOrders() throws Exception {
-        Order second = new Order();
+        OrderJpaEntity second = new OrderJpaEntity();
         second.setProductName("iPad");
         second.setQuantity(1);
         second.setPrice(BigDecimal.valueOf(599.99));

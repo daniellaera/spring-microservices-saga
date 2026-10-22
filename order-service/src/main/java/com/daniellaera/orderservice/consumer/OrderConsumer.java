@@ -4,7 +4,7 @@ import com.daniellaera.orderservice.audit.AuditPublisher;
 import com.daniellaera.orderservice.dto.OrderStatusUpdate;
 import com.daniellaera.orderservice.dto.PaymentEvent;
 import com.daniellaera.orderservice.domain.model.OrderStatus;
-import com.daniellaera.orderservice.repository.OrderRepository;
+import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaRepository;
 import com.daniellaera.orderservice.sse.SseEmitterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +18,7 @@ import tools.jackson.databind.ObjectMapper;
 @Slf4j
 public class OrderConsumer {
 
-    private final OrderRepository orderRepository;
+    private final OrderJpaRepository orderRepository;
     private final ObjectMapper objectMapper;
     private final SseEmitterRegistry sseEmitterRegistry;
     private final AuditPublisher auditPublisher;

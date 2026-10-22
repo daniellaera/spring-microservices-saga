@@ -8,11 +8,11 @@ import com.daniellaera.orderservice.dto.OrderRequest;
 import com.daniellaera.orderservice.dto.PagedResponse;
 import com.daniellaera.orderservice.domain.model.OrderStatus;
 import com.daniellaera.orderservice.exception.ResourceNotFoundException;
-import com.daniellaera.orderservice.model.Order;
-import com.daniellaera.orderservice.model.OutboxEvent;
+import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaEntity;
+import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxEventJpaEntity;
 import com.daniellaera.orderservice.producer.OrderProducer;
-import com.daniellaera.orderservice.repository.OrderRepository;
-import com.daniellaera.orderservice.repository.OutboxEventRepository;
+import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaRepository;
+import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxEventJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,10 +42,10 @@ import static org.mockito.Mockito.*;
 class OrderServiceImplTest {
 
     @Mock
-    private OrderRepository orderRepository;
+    private OrderJpaRepository orderRepository;
 
     @Mock
-    private OutboxEventRepository outboxEventRepository;
+    private OutboxEventJpaRepository outboxEventRepository;
 
     @Mock
     private OrderProducer orderProducer;
@@ -59,11 +59,11 @@ class OrderServiceImplTest {
     @InjectMocks
     private OrderServiceImpl orderService;
 
-    private Order order;
+    private OrderJpaEntity order;
 
     @BeforeEach
     void setUp() {
-        order = new Order();
+        order = new OrderJpaEntity();
         order.setProductName("MacBook Pro");
         order.setQuantity(1);
         order.setPrice(BigDecimal.valueOf(1299.99));
@@ -125,16 +125,16 @@ class OrderServiceImplTest {
     @Test
     void createOrder_shouldSaveAndPublishToOutbox() throws Exception {
         OrderRequest request = new OrderRequest("MacBook Pro", 1, BigDecimal.valueOf(1299.99), null, null);
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
+        when(orderRepository.save(any(OrderJpaEntity.class))).thenReturn(order);
         when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
-        when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
+        when(outboxEventRepository.save(any(OutboxEventJpaEntity.class))).thenReturn(new OutboxEventJpaEntity());
 
         OrderDTO result = orderService.createOrder(request, "user@test.com");
 
         assertThat(result.productName()).isEqualTo("MacBook Pro");
         assertThat(result.status()).isEqualTo(OrderStatus.PENDING);
-        verify(orderRepository, times(1)).save(any(Order.class));
-        verify(outboxEventRepository, times(1)).save(any(OutboxEvent.class));
+        verify(orderRepository, times(1)).save(any(OrderJpaEntity.class));
+        verify(outboxEventRepository, times(1)).save(any(OutboxEventJpaEntity.class));
         verifyNoInteractions(orderProducer);
         verify(auditPublisher).publish(eq("ORDER_CREATED"), any(), any(), any(), any());
     }
@@ -142,9 +142,9 @@ class OrderServiceImplTest {
     @Test
     void createOrder_shouldSetUserEmail() throws Exception {
         OrderRequest request = new OrderRequest("iPhone", 1, BigDecimal.valueOf(799.99), null, null);
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
+        when(orderRepository.save(any(OrderJpaEntity.class))).thenReturn(order);
         when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
-        when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
+        when(outboxEventRepository.save(any(OutboxEventJpaEntity.class))).thenReturn(new OutboxEventJpaEntity());
 
         OrderDTO result = orderService.createOrder(request, "user@test.com");
 
@@ -158,9 +158,9 @@ class OrderServiceImplTest {
                 new OrderItemRequest("AirPods", 1, BigDecimal.valueOf(249.99)),
                 new OrderItemRequest("Case", 3, BigDecimal.valueOf(19.99))
         ));
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderRepository.save(any(OrderJpaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
-        when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
+        when(outboxEventRepository.save(any(OutboxEventJpaEntity.class))).thenReturn(new OutboxEventJpaEntity());
 
         OrderDTO result = orderService.createOrder(request, "user@test.com");
 
@@ -177,14 +177,14 @@ class OrderServiceImplTest {
                 new OrderItemRequest("iPhone 16", 2, BigDecimal.valueOf(999.99)),
                 new OrderItemRequest("AirPods", 1, BigDecimal.valueOf(249.99))
         ));
-        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        ArgumentCaptor<OrderJpaEntity> orderCaptor = ArgumentCaptor.forClass(OrderJpaEntity.class);
         when(orderRepository.save(orderCaptor.capture())).thenAnswer(inv -> inv.getArgument(0));
         when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
-        when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
+        when(outboxEventRepository.save(any(OutboxEventJpaEntity.class))).thenReturn(new OutboxEventJpaEntity());
 
         orderService.createOrder(request, "user@test.com");
 
-        Order savedOrder = orderCaptor.getValue();
+        OrderJpaEntity savedOrder = orderCaptor.getValue();
         assertThat(savedOrder.getItems()).hasSize(2);
         assertThat(savedOrder.getItems().get(0).getProductName()).isEqualTo("iPhone 16");
         assertThat(savedOrder.getItems().get(0).getTotalAmount())
@@ -194,15 +194,15 @@ class OrderServiceImplTest {
     @Test
     void createOrder_shouldSaveOutboxEventAfterOrderInSameCreateOrderCall() throws Exception {
         OrderRequest request = new OrderRequest("MacBook Pro", 1, BigDecimal.valueOf(1299.99), null, null);
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
+        when(orderRepository.save(any(OrderJpaEntity.class))).thenReturn(order);
         when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
-        when(outboxEventRepository.save(any(OutboxEvent.class))).thenReturn(new OutboxEvent());
+        when(outboxEventRepository.save(any(OutboxEventJpaEntity.class))).thenReturn(new OutboxEventJpaEntity());
 
         orderService.createOrder(request, "user@test.com");
 
         var inOrder = inOrder(orderRepository, outboxEventRepository);
-        inOrder.verify(orderRepository).save(any(Order.class));
-        inOrder.verify(outboxEventRepository).save(any(OutboxEvent.class));
+        inOrder.verify(orderRepository).save(any(OrderJpaEntity.class));
+        inOrder.verify(outboxEventRepository).save(any(OutboxEventJpaEntity.class));
     }
 
     @Test
@@ -231,7 +231,7 @@ class OrderServiceImplTest {
     @Test
     void getAllOrdersPaged_shouldReturnPagedResponse() {
         Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Order> page = new PageImpl<>(List.of(order), pageable, 1);
+        Page<OrderJpaEntity> page = new PageImpl<>(List.of(order), pageable, 1);
         when(orderRepository.findAll(any(Pageable.class))).thenReturn(page);
 
         PagedResponse<OrderDTO> result = orderService.getAllOrdersPaged(0, 10);
@@ -248,7 +248,7 @@ class OrderServiceImplTest {
     @Test
     void getMyOrdersPaged_shouldFilterByUserEmailAndReturnPagedResponse() {
         Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Order> page = new PageImpl<>(List.of(order), pageable, 1);
+        Page<OrderJpaEntity> page = new PageImpl<>(List.of(order), pageable, 1);
         when(orderRepository.findByUserEmail(eq("user@test.com"), any(Pageable.class))).thenReturn(page);
 
         PagedResponse<OrderDTO> result = orderService.getMyOrdersPaged("user@test.com", 0, 10);
