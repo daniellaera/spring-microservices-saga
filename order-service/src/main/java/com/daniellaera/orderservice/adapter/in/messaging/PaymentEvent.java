@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.dto;
+package com.daniellaera.orderservice.adapter.in.messaging;
 
 import java.math.BigDecimal;
 

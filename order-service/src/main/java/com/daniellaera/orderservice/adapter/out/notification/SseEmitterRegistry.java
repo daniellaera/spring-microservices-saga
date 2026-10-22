@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.sse;
+package com.daniellaera.orderservice.adapter.out.notification;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;

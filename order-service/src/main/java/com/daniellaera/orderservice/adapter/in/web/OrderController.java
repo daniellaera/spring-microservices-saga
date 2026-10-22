@@ -8,7 +8,7 @@ import com.daniellaera.orderservice.domain.port.in.GetOrderQuery;
 import com.daniellaera.orderservice.domain.port.in.ListOrdersQuery;
 import com.daniellaera.orderservice.domain.port.in.PlaceOrderUseCase;
 import com.daniellaera.orderservice.domain.port.in.Requester;
-import com.daniellaera.orderservice.sse.SseEmitterRegistry;
+import com.daniellaera.orderservice.adapter.out.notification.SseEmitterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;

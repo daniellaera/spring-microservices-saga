@@ -1,4 +1,4 @@
-package com.daniellaera.orderservice.sse;
+package com.daniellaera.orderservice.adapter.out.notification;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

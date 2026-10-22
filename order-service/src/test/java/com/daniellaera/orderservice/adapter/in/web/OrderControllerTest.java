@@ -7,7 +7,7 @@ import com.daniellaera.orderservice.domain.model.PageResult;
 import com.daniellaera.orderservice.domain.port.in.GetOrderQuery;
 import com.daniellaera.orderservice.domain.port.in.ListOrdersQuery;
 import com.daniellaera.orderservice.domain.port.in.PlaceOrderUseCase;
-import com.daniellaera.orderservice.sse.SseEmitterRegistry;
+import com.daniellaera.orderservice.adapter.out.notification.SseEmitterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
