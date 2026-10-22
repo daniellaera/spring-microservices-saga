@@ -1,0 +1,166 @@
+name: Docker Build Check
+
+# Builds every image without pushing when the build context or a Dockerfile changes.
+# main.yml only rebuilds services whose own paths changed, so it would not notice.
+on:
+  pull_request:
+    paths:
+      - '.dockerignore'
+      - '**/Dockerfile'
+      - '.gitea/workflows/docker-build-check.yml'
+  workflow_dispatch:
+
+jobs:
+  build-images:
+    name: Build all images (no push)
+    runs-on: ubuntu-latest
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # A clean checkout has no local configs; plant one so the check below proves .dockerignore excludes it
+      - name: Plant a local-only config file
+        run: echo "probe: true" > config-server/src/main/resources/configs/ci-probe-local.yml
+
+      - name: Build config-server
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: config-server/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: docker-build-check/config-server:${{ github.sha }}
+
+      - name: Check config-server.jar has no local configs
+        run: |
+          LOCAL=$(docker run --rm --entrypoint jar docker-build-check/config-server:${{ github.sha }} \
+            tf config-server.jar | grep -- '-local.yml' || true)
+          if [ -n "$LOCAL" ]; then
+            echo "Local config files packaged into config-server.jar:"; echo "$LOCAL"; exit 1
+          fi
+          echo "config-server.jar contains no *-local.yml"
+          docker image rm docker-build-check/config-server:${{ github.sha }}
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      - name: Build auth-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: auth-service/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: false
+          tags: docker-build-check/auth-service:${{ github.sha }}
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      - name: Build order-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: order-service/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: false
+          tags: docker-build-check/order-service:${{ github.sha }}
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      - name: Build inventory-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: inventory-service/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: false
+          tags: docker-build-check/inventory-service:${{ github.sha }}
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      - name: Build payment-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: payment-service/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: false
+          tags: docker-build-check/payment-service:${{ github.sha }}
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      - name: Build notification-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: notification-service/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: false
+          tags: docker-build-check/notification-service:${{ github.sha }}
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      - name: Build cart-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: cart-service/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: false
+          tags: docker-build-check/cart-service:${{ github.sha }}
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      - name: Build audit-trail-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: audit-trail-service/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: false
+          tags: docker-build-check/audit-trail-service:${{ github.sha }}
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      - name: Build gateway-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: gateway-service/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: false
+          tags: docker-build-check/gateway-service:${{ github.sha }}
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
+
+      - name: Build shop-ui
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: shop-ui/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: false
+          tags: docker-build-check/shop-ui:${{ github.sha }}
+
+      - name: Free up space
+        run: docker builder prune -f && docker image prune -f
