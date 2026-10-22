@@ -1,6 +1,6 @@
 package com.daniellaera.inventoryservice.consumer;
 
-import com.daniellaera.inventoryservice.audit.AuditPublisher;
+import com.daniellaera.inventoryservice.adapter.out.messaging.KafkaAuditPublisher;
 import com.daniellaera.inventoryservice.dto.InventoryResultEvent;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
 import com.daniellaera.inventoryservice.dto.OrderItemEvent;
@@ -36,7 +36,7 @@ public class InventoryConsumer {
     private final StockReservationJpaRepository stockReservationRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    private final AuditPublisher auditPublisher;
+    private final KafkaAuditPublisher auditPublisher;
     private final TransactionTemplate transactionTemplate;
 
     @KafkaListener(topics = "orders-topic", groupId = "inventory-group")

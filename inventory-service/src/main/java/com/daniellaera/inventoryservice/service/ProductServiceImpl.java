@@ -1,6 +1,6 @@
 package com.daniellaera.inventoryservice.service;
 
-import com.daniellaera.inventoryservice.audit.AuditPublisher;
+import com.daniellaera.inventoryservice.adapter.out.messaging.KafkaAuditPublisher;
 import com.daniellaera.inventoryservice.dto.ProductDTO;
 import com.daniellaera.inventoryservice.dto.ProductRequest;
 import com.daniellaera.inventoryservice.exception.ResourceAlreadyExistsException;
@@ -19,7 +19,7 @@ import java.util.List;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductJpaRepository productRepository;
-    private final AuditPublisher auditPublisher;
+    private final KafkaAuditPublisher auditPublisher;
 
     @Override
     @CacheEvict(value = "products", allEntries = true)

@@ -1,4 +1,4 @@
-package com.daniellaera.inventoryservice.audit;
+package com.daniellaera.inventoryservice.adapter.out.messaging;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +13,7 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class AuditPublisher {
+public class KafkaAuditPublisher {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;

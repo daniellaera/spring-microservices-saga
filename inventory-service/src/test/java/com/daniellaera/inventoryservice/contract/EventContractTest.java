@@ -1,19 +1,18 @@
 package com.daniellaera.inventoryservice.contract;
 
 import com.daniellaera.inventoryservice.NoCachingConfiguration;
-import com.daniellaera.inventoryservice.audit.AuditPublisher;
-import com.daniellaera.inventoryservice.consumer.InventoryConsumer;
+import com.daniellaera.inventoryservice.adapter.out.messaging.KafkaAuditPublisher;
+import com.daniellaera.inventoryservice.adapter.out.messaging.KafkaInventoryResultPublisher;
+import com.daniellaera.inventoryservice.adapter.out.messaging.TransactionAwareKafkaAuditTrail;
+import com.daniellaera.inventoryservice.domain.model.OrderLine;
+import com.daniellaera.inventoryservice.domain.model.Product;
+import com.daniellaera.inventoryservice.domain.model.ReservationDecision;
+import com.daniellaera.inventoryservice.domain.model.StockReservation;
+import com.daniellaera.inventoryservice.domain.port.in.ReserveStockCommand;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
 import com.daniellaera.inventoryservice.dto.OrderItemEvent;
 import com.daniellaera.inventoryservice.dto.PaymentEvent;
 import com.daniellaera.inventoryservice.dto.ProductDTO;
-import com.daniellaera.inventoryservice.dto.ProductRequest;
-import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaEntity;
-import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaEntity;
-import com.daniellaera.inventoryservice.adapter.out.persistence.CompensationLogJpaRepository;
-import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaRepository;
-import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaRepository;
-import com.daniellaera.inventoryservice.service.ProductServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -25,12 +24,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.support.SimpleTransactionStatus;
-import org.springframework.transaction.support.TransactionCallback;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -40,11 +33,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -72,17 +63,11 @@ class EventContractTest {
     private ObjectMapper objectMapper;
 
     private KafkaTemplate<String, String> kafkaTemplate;
-    private ProductJpaRepository productRepository;
-    private StockReservationJpaRepository stockReservationRepository;
-    private CompensationLogJpaRepository compensationLogRepository;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
         kafkaTemplate = mock(KafkaTemplate.class);
-        productRepository = mock(ProductJpaRepository.class);
-        stockReservationRepository = mock(StockReservationJpaRepository.class);
-        compensationLogRepository = mock(CompensationLogJpaRepository.class);
     }
 
     // ─── inbound events ──────────────────────────────────────────────────────
@@ -123,18 +108,14 @@ class EventContractTest {
 
     @Test
     void inventoryResult_approvedMultiItem_isSentToInventoryTopicWithoutKey() throws Exception {
-        stock(macbook(10), usbHub(50));
-
-        consumer(mock(AuditPublisher.class)).consumeOrder(fixture("order-event-multi-item.json"));
+        resultPublisher().publish(multiItemCommand(), ReservationDecision.APPROVED);
 
         assertInventoryResult("inventory-result-approved-multi-item.json");
     }
 
     @Test
     void inventoryResult_rejectedLegacySingleItem_carriesTheResolvedItemAndQuantityZero() throws Exception {
-        stock(keyboard(1));
-
-        consumer(mock(AuditPublisher.class)).consumeOrder(fixture("order-event-legacy-single-item.json"));
+        resultPublisher().publish(legacySingleItemCommand(), ReservationDecision.REJECTED);
 
         assertInventoryResult("inventory-result-rejected.json");
     }
@@ -143,9 +124,10 @@ class EventContractTest {
 
     @Test
     void auditStockDeducted_payloadIsTheOrderItem() throws Exception {
-        stock(macbook(10), usbHub(50));
+        List<OrderLine> lines = multiItemCommand().lines();
 
-        consumer(auditPublisher()).consumeOrder(fixture("order-event-multi-item.json"));
+        auditTrail().stockDeducted(macbook(9), lines.get(0), "user@test.com");
+        auditTrail().stockDeducted(usbHub(48), lines.get(1), "user@test.com");
 
         List<String> audits = sentAuditMessages(2);
         JSONAssert.assertEquals(fixture("audit-stock-deducted.json"), audits.get(0), IGNORE_TIMESTAMP);
@@ -157,10 +139,7 @@ class EventContractTest {
 
     @Test
     void auditStockRestored_payloadIsTheReservation() throws Exception {
-        stock(keyboard(1));
-        when(stockReservationRepository.findByOrderId(7L)).thenReturn(List.of(keyboardReservation()));
-
-        consumer(auditPublisher()).handlePaymentResult(fixture("payment-event-legacy-single-item.json"));
+        auditTrail().stockRestored(keyboard(3), keyboardReservation(), "buyer@test.com");
 
         String audit = sentAuditMessages(1).get(0);
         JSONAssert.assertEquals(fixture("audit-stock-restored.json"), audit, IGNORE_TIMESTAMP);
@@ -169,10 +148,7 @@ class EventContractTest {
 
     @Test
     void auditProductCreated_payloadIsTheSavedProduct() throws Exception {
-        when(productRepository.save(any(ProductJpaEntity.class))).thenAnswer(inv -> persisted(inv.getArgument(0), 12L));
-
-        new ProductServiceImpl(productRepository, auditPublisher())
-                .createProduct(new ProductRequest("USB-C Hub", 50, new BigDecimal("49.90")));
+        auditTrail().productCreated(usbHub(50));
 
         String audit = sentAuditMessages(1).get(0);
         JSONAssert.assertEquals(fixture("audit-product-created.json"), audit, IGNORE_TIMESTAMP);
@@ -181,11 +157,7 @@ class EventContractTest {
 
     @Test
     void auditProductRestocked_payloadIsTheSavedProduct() throws Exception {
-        ProductJpaEntity macbook = macbook(10);
-        when(productRepository.findById(11L)).thenReturn(Optional.of(macbook));
-        when(productRepository.save(macbook)).thenReturn(macbook);
-
-        new ProductServiceImpl(productRepository, auditPublisher()).restock(11L, 5);
+        auditTrail().productRestocked(macbook(15));
 
         String audit = sentAuditMessages(1).get(0);
         JSONAssert.assertEquals(fixture("audit-product-restocked.json"), audit, IGNORE_TIMESTAMP);
@@ -207,36 +179,20 @@ class EventContractTest {
 
     // ─── helpers ─────────────────────────────────────────────────────────────
 
-    private InventoryConsumer consumer(AuditPublisher auditPublisher) {
-        return new InventoryConsumer(productRepository, compensationLogRepository, stockReservationRepository,
-                kafkaTemplate, objectMapper, auditPublisher, inlineTransactionTemplate());
+    private KafkaInventoryResultPublisher resultPublisher() {
+        return new KafkaInventoryResultPublisher(kafkaTemplate, objectMapper);
     }
 
-    // Not proxied, so @Async does not apply and the message is sent synchronously
-    private AuditPublisher auditPublisher() {
-        return new AuditPublisher(kafkaTemplate, objectMapper);
-    }
-
-    // Runs the callback with synchronization active and fires afterCommit when it returns normally
-    private static TransactionTemplate inlineTransactionTemplate() {
-        TransactionTemplate template = mock(TransactionTemplate.class);
-        when(template.execute(any())).thenAnswer(inv -> {
-            TransactionCallback<?> callback = inv.getArgument(0);
-            TransactionSynchronizationManager.initSynchronization();
-            try {
-                Object result = callback.doInTransaction(new SimpleTransactionStatus());
-                TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
-                return result;
-            } finally {
-                TransactionSynchronizationManager.clearSynchronization();
-            }
-        });
-        return template;
+    // The publisher is not proxied, so @Async does not apply and the message is sent synchronously.
+    // No transaction is active, so the trail publishes right away.
+    private TransactionAwareKafkaAuditTrail auditTrail() {
+        return new TransactionAwareKafkaAuditTrail(new KafkaAuditPublisher(kafkaTemplate, objectMapper));
     }
 
     private void assertInventoryResult(String fixtureName) throws Exception {
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
         verify(kafkaTemplate).send(eq("inventory-topic"), message.capture());
+        verifyNoMoreInteractions(kafkaTemplate);
 
         String expected = fixture(fixtureName);
         JSONAssert.assertEquals(expected, message.getValue(), JSONCompareMode.STRICT);
@@ -246,6 +202,7 @@ class EventContractTest {
     private List<String> sentAuditMessages(int count) {
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
         verify(kafkaTemplate, times(count)).send(eq("audit-topic"), message.capture());
+        verifyNoMoreInteractions(kafkaTemplate);
         message.getAllValues().forEach(sent ->
                 assertThat(objectMapper.readValue(sent, Map.class)).containsKey("timestamp"));
         return message.getAllValues();
@@ -259,47 +216,36 @@ class EventContractTest {
         return payloadOf(fixture(auditFixture));
     }
 
-    private void stock(ProductJpaEntity... products) {
-        for (ProductJpaEntity product : products) {
-            when(productRepository.findByName(product.getName())).thenReturn(Optional.of(product));
-        }
+    // The command for order-event-multi-item.json
+    private static ReserveStockCommand multiItemCommand() {
+        return new ReserveStockCommand(42L, "MacBook Pro", 1, new BigDecimal("1299.99"), new BigDecimal("1399.79"),
+                "user@test.com", "pi_3QxYz123", List.of(
+                        new OrderLine("MacBook Pro", 1, new BigDecimal("1299.99"), new BigDecimal("1299.99")),
+                        new OrderLine("USB-C Hub", 2, new BigDecimal("49.90"), new BigDecimal("99.80"))));
     }
 
-    private static ProductJpaEntity macbook(int quantity) {
-        return product(11L, "MacBook Pro", quantity, "1299.99");
+    // The command for order-event-legacy-single-item.json: the single line is resolved from the legacy fields
+    private static ReserveStockCommand legacySingleItemCommand() {
+        return new ReserveStockCommand(7L, "Mechanical Keyboard", 2, new BigDecimal("89.50"), new BigDecimal("179.00"),
+                "buyer@test.com", "pi_legacy7", List.of(
+                        new OrderLine("Mechanical Keyboard", 2, new BigDecimal("89.50"), new BigDecimal("179.00"))));
     }
 
-    private static ProductJpaEntity usbHub(int quantity) {
-        return product(12L, "USB-C Hub", quantity, "49.90");
+    private static Product macbook(int quantity) {
+        return Product.restore(11L, "MacBook Pro", quantity, new BigDecimal("1299.99"), CREATED_AT);
     }
 
-    private static ProductJpaEntity keyboard(int quantity) {
-        return product(13L, "Mechanical Keyboard", quantity, "89.50");
+    private static Product usbHub(int quantity) {
+        return Product.restore(12L, "USB-C Hub", quantity, new BigDecimal("49.90"), CREATED_AT);
     }
 
-    private static ProductJpaEntity product(Long id, String name, int quantity, String price) {
-        ProductJpaEntity product = new ProductJpaEntity();
-        product.setName(name);
-        product.setQuantity(quantity);
-        product.setPrice(new BigDecimal(price));
-        return persisted(product, id);
+    private static Product keyboard(int quantity) {
+        return Product.restore(13L, "Mechanical Keyboard", quantity, new BigDecimal("89.50"), CREATED_AT);
     }
 
-    // Sets what JPA would: the generated id and the @PrePersist createdAt
-    private static ProductJpaEntity persisted(ProductJpaEntity product, Long id) {
-        ReflectionTestUtils.setField(product, "id", id);
-        ReflectionTestUtils.setField(product, "createdAt", CREATED_AT);
-        return product;
-    }
-
-    private static StockReservationJpaEntity keyboardReservation() {
-        StockReservationJpaEntity reservation = new StockReservationJpaEntity();
-        reservation.setId(UUID.fromString("3f2b8c1e-5d4a-4e7b-9c1f-2a6d8e0b4c71"));
-        reservation.setOrderId(7L);
-        reservation.setProductName("Mechanical Keyboard");
-        reservation.setQuantity(2);
-        reservation.setReservedAt(LocalDateTime.of(2026, 10, 22, 10, 0, 5, 250000000));
-        return reservation;
+    private static StockReservation keyboardReservation() {
+        return new StockReservation(UUID.fromString("3f2b8c1e-5d4a-4e7b-9c1f-2a6d8e0b4c71"), 7L,
+                "Mechanical Keyboard", 2, LocalDateTime.of(2026, 10, 22, 10, 0, 5, 250000000));
     }
 
     private static List<OrderItemEvent> multiItems() {
