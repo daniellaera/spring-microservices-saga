@@ -1,0 +1,71 @@
+package com.daniellaera.paymentservice.adapter.in.web;
+
+import com.daniellaera.paymentservice.TestcontainersConfiguration;
+import com.daniellaera.paymentservice.domain.model.PaymentStatus;
+import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaEntity;
+import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.math.BigDecimal;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
+@Import(TestcontainersConfiguration.class)
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+public class PaymentControllerITTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private TransactionJpaRepository transactionRepository;
+
+    @BeforeEach
+    void setUp() {
+        transactionRepository.deleteAll();
+
+        TransactionJpaEntity transaction = new TransactionJpaEntity();
+        transaction.setOrderId(1L);
+        transaction.setStatus(PaymentStatus.SUCCESS);
+        transaction.setTotalAmount(BigDecimal.valueOf(999.99));
+        transactionRepository.save(transaction);
+    }
+
+    @Test
+    void getAllTransactions_shouldReturn200AndList() throws Exception {
+        mockMvc.perform(get("/transactions")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].orderId").value(1))
+                .andExpect(jsonPath("$[0].status").value("SUCCESS"))
+                .andExpect(jsonPath("$[0].totalAmount").value(999.99));
+    }
+
+    @Test
+    void getTransactionById_shouldReturn200() throws Exception {
+        TransactionJpaEntity saved = transactionRepository.findAll().get(0);
+
+        mockMvc.perform(get("/transactions/" + saved.getId())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.orderId").value(1));
+    }
+
+    @Test
+    void getTransactionById_shouldReturn404_whenNotFound() throws Exception {
+        mockMvc.perform(get("/transactions/99999")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
+    }
+}
