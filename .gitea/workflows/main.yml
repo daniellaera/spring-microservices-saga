@@ -67,10 +67,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run backend tests
         run: |
-          mvn test \
-            -pl auth-service,order-service,inventory-service,payment-service,notification-service,cart-service,audit-trail-service \
+          mvn verify \
+            -pl auth-service,order-service,inventory-service,payment-service,notification-service,cart-service,audit-trail-service,coverage-report \
             -am \
             --no-transfer-progress
+      - name: Enforce coverage gate
+        run: ./scripts/check-coverage.sh
 
   test-frontend:
     name: Test Frontend

@@ -1,0 +1,21 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-backend:
+    name: Test Backend Services
+    runs-on: ubuntu-latest
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run backend tests
+        run: |
+          mvn verify \
+            -pl auth-service,order-service,inventory-service,payment-service,notification-service,cart-service,audit-trail-service,gateway-service,coverage-report \
+            -am \
+            --no-transfer-progress
+      - name: Enforce coverage gate
+        run: ./scripts/check-coverage.sh
