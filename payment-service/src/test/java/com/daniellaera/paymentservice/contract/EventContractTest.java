@@ -6,8 +6,9 @@ import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.domain.model.PaymentTransaction;
 import com.daniellaera.paymentservice.domain.port.in.CreatePaymentIntentCommand;
 import com.daniellaera.paymentservice.domain.port.in.InventoryResult;
-import com.daniellaera.paymentservice.dto.InventoryResultEvent;
-import com.daniellaera.paymentservice.dto.OrderItemEvent;
+import com.daniellaera.paymentservice.adapter.in.messaging.InventoryResultEvent;
+import com.daniellaera.paymentservice.adapter.in.messaging.InventoryResultEventListener;
+import com.daniellaera.paymentservice.adapter.in.messaging.OrderItemEvent;
 import com.daniellaera.paymentservice.adapter.in.web.dto.PaymentIntentResponse;
 import com.daniellaera.paymentservice.adapter.in.web.dto.TransactionDTO;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +28,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -163,14 +165,12 @@ class EventContractTest {
         return new KafkaAuditTrail(kafkaTemplate, objectMapper);
     }
 
-    // The inventory result as the use case receives it, read from the inventory-topic fixture
-    private InventoryResult inventoryResult(String fixtureName) {
-        InventoryResultEvent event = objectMapper.readValue(fixture(fixtureName), InventoryResultEvent.class);
-        return new InventoryResult(event.orderId(), event.status(), event.productName(), event.quantity(),
-                event.price(), event.totalAmount(), event.userEmail(), event.paymentIntentId(),
-                event.items() == null ? null : event.items().stream()
-                        .map(i -> new InventoryResult.Item(i.productName(), i.quantity(), i.price(), i.totalAmount()))
-                        .toList());
+    // What the listener hands to the use case for the inventory-topic fixture, so the adapter path is pinned
+    private InventoryResult inventoryResult(String fixtureName) throws Exception {
+        List<InventoryResult> results = new ArrayList<>();
+        new InventoryResultEventListener(results::add, objectMapper).handleInventoryResult(fixture(fixtureName));
+        assertThat(results).hasSize(1);
+        return results.get(0);
     }
 
     private void assertPaymentEvent(String fixtureName) throws Exception {

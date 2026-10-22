@@ -1,4 +1,4 @@
-package com.daniellaera.paymentservice.dto;
+package com.daniellaera.paymentservice.adapter.in.messaging;
 
 import java.math.BigDecimal;
 
