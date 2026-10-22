@@ -3,7 +3,9 @@ package com.daniellaera.sagae2e.steps;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * What one scenario created, shared by its step classes (one instance per scenario). Product names and the
@@ -36,6 +38,10 @@ public class ScenarioContext {
             throw new IllegalStateException("No product \"" + product + "\" was set up in this scenario");
         }
         return found;
+    }
+
+    public Set<Long> productIds() {
+        return products.values().stream().map(Product::id).collect(Collectors.toSet());
     }
 
     public void orderPlaced(long id) {

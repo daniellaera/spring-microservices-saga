@@ -41,3 +41,13 @@ Feature: Order saga across order, inventory and payment
     And "Laptop" still has 5 in stock
     And "Dock" still has 1 in stock
 
+  Scenario: A confirmed order leaves its trail on the audit topic
+    Given a product "Speaker" with 10 in stock
+    When the customer orders 2 "Speaker" paid with an accepted card
+    Then the order is CONFIRMED
+    And the audit trail of the order shows, in order:
+      | event             | service           |
+      | ORDER_CREATED     | order-service     |
+      | STOCK_DEDUCTED    | inventory-service |
+      | PAYMENT_SUCCEEDED | payment-service   |
+      | ORDER_CONFIRMED   | order-service     |
