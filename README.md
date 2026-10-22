@@ -207,18 +207,33 @@ Silent renewal in Angular interceptor — user never sees logout.
 ./scripts/create-admin.sh your@email.com yourpassword
 ```
 
-### Demo Credentials
-| User | Email | Password | Role |
-|------|-------|----------|------|
-| User | daniel@example.com | demo1234 | USER |
-| Admin | admin@example.com | demo1234 | ADMIN |
-
 ### Test Payment (Stripe test mode)
 | Card | Result |
 |------|--------|
 | 4242 4242 4242 4242 | Payment succeeds |
 | 4000 0000 0000 0002 | Card declined |
 | 4000 0025 0000 3155 | Requires 3D Secure |
+
+---
+
+## Accounts and access
+
+### Local development
+The Flyway seed creates two demo accounts for local use only:
+
+| Email | Password | Role |
+|---|---|---|
+| daniel@example.com | password123 | USER |
+| admin@example.com | password123 | ADMIN |
+
+Login uses email OTP. Locally, OTP emails are caught by Mailpit (http://localhost:8025), so these accounts work out of the box.
+
+### Public deployment (https://shop-staging.daniellaera.com)
+- The demo accounts above are **disabled** and cannot log in.
+- The login page does not show demo credentials in production builds.
+- Anyone can register and use the shop as a **USER** (browse, cart, orders, Stripe test payments). The OTP is sent to the email you register with, so use an address you can read.
+- **ADMIN** features (product management and restock, audit trail, all customers' orders) are restricted to a single maintainer-owned account. There is no way to obtain the ADMIN role through the UI.
+- Payments run in Stripe **test mode**: use test cards such as 4242 4242 4242 4242 (success) or 4000 0000 0000 0002 (declined). No real money is charged.
 
 ---
 
