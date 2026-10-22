@@ -22,8 +22,8 @@ import java.util.Optional;
  * saving and publishing), the stored outcome is published again, without asking the gateway, saving or auditing.
  * Two racing deliveries are settled by the unique constraint: the loser takes the same replay path.
  * <p>
- * Known bugs kept on purpose (see the backlog): an approved order without an intent is auto-approved and the
- * amount is never checked.
+ * An approved order without a payment intent (missing or blank) fails. Known bug kept on purpose (see the
+ * backlog): the amount is never checked.
  */
 public class ProcessInventoryResultService implements ProcessInventoryResultUseCase {
 
@@ -60,8 +60,8 @@ public class ProcessInventoryResultService implements ProcessInventoryResultUseC
                 log.info("=== Payment: Stripe verification orderId={}: {}",
                         result.orderId(), paymentSucceeded ? "SUCCESS" : "FAILED");
             } else {
-                paymentSucceeded = true;
-                log.info("=== Payment: no paymentIntentId for orderId {} — auto-approving", result.orderId());
+                log.warn("=== Payment: no paymentIntentId for orderId {} — FAILED (an order is never free)",
+                        result.orderId());
             }
         } else {
             log.warn("=== Payment: skipping payment for orderId={} — inventory REJECTED", result.orderId());

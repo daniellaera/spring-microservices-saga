@@ -85,24 +85,29 @@ class ProcessInventoryResultServiceTest {
     }
 
     @Test
-    void approvedWithoutIntent_isAutoApprovedWithoutAskingTheGateway() {
-        // known bug, kept on purpose (backlog: refuse orders with no intent)
+    void approvedWithoutIntent_isAFailureWithoutAskingTheGateway() {
+        // was approvedWithoutIntent_isAutoApprovedWithoutAskingTheGateway: an order without an intent was free
         service.process(approved(3L, null, null));
 
         assertThat(gateway.verifiedIntents()).isEmpty();
         assertThat(transactions.findAll()).singleElement()
-                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.SUCCESS));
+                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.FAILED));
+        assertThat(auditTrail.processed()).singleElement()
+                .satisfies(audit -> assertThat(audit.transaction().status()).isEqualTo(PaymentStatus.FAILED));
         assertThat(publisher.published()).singleElement()
-                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.SUCCESS));
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
     }
 
     @Test
-    void approvedWithBlankIntent_isAutoApprovedToo() {
+    void approvedWithBlankIntent_isAFailureToo() {
+        // was approvedWithBlankIntent_isAutoApprovedToo
         service.process(approved(3L, "  ", null));
 
         assertThat(gateway.verifiedIntents()).isEmpty();
         assertThat(transactions.findAll()).singleElement()
-                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.SUCCESS));
+                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.FAILED));
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
     }
 
     @Test
@@ -179,9 +184,10 @@ class ProcessInventoryResultServiceTest {
 
     @Test
     void saveFailure_propagatesBeforeAuditAndPublish() {
+        gateway.givenIntent("pi_123", "succeeded");
         transactions.failWith(new IllegalStateException("db down"));
 
-        assertThatThrownBy(() -> service.process(approved(1L, null, null)))
+        assertThatThrownBy(() -> service.process(approved(1L, "pi_123", null)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("db down");
         assertThat(effectLog.effects()).isEmpty();
@@ -189,9 +195,10 @@ class ProcessInventoryResultServiceTest {
 
     @Test
     void publishFailure_propagatesAfterSaveAndAudit() {
+        gateway.givenIntent("pi_123", "succeeded");
         publisher.failWith(new IllegalStateException("cannot serialize"));
 
-        assertThatThrownBy(() -> service.process(approved(1L, null, null)))
+        assertThatThrownBy(() -> service.process(approved(1L, "pi_123", null)))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(effectLog.effects()).containsExactly("save SUCCESS", "audit SUCCESS");
     }
