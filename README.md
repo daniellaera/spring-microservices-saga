@@ -251,9 +251,11 @@ Login uses email OTP. Locally, OTP emails are caught by Mailpit (http://localhos
 ## CI/CD Pipeline
 
 Gitea Actions with path-based change detection — only changed services are rebuilt:
-- Docker images built for `linux/amd64` + `linux/arm64`, pushed to Docker Hub
+- Docker images built for `linux/amd64`, pushed to Docker Hub as `:latest` and as the commit's short SHA
 - Secrets fetched from self-hosted Infisical via Machine Identity (Universal Auth)
-- Services deployed to Proxmox homelab (`infra-node1`) via SSH
+- Services deployed to Proxmox homelab (`infra-node1`) via SSH; the deploy log lists the tag and digest of
+  every restarted service
+- Rollback: point `:latest` back at an earlier SHA tag, see [docs/ROLLBACK.md](docs/ROLLBACK.md)
 
 ---
 
