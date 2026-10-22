@@ -1,0 +1,9 @@
+{
+  "entityType": "PRODUCT",
+  "eventType": "STOCK_RESTORED",
+  "payload": "{\"id\":\"3f2b8c1e-5d4a-4e7b-9c1f-2a6d8e0b4c71\",\"orderId\":7,\"productName\":\"Mechanical Keyboard\",\"quantity\":2,\"reservedAt\":\"2026-10-22T10:00:05.25\"}",
+  "serviceName": "inventory-service",
+  "timestamp": "IGNORED",
+  "userEmail": "buyer@test.com",
+  "entityId": "13"
+}

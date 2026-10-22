@@ -1,0 +1,45 @@
+package com.daniellaera.inventoryservice.application.fakes;
+
+import com.daniellaera.inventoryservice.domain.model.OrderLine;
+import com.daniellaera.inventoryservice.domain.model.Product;
+import com.daniellaera.inventoryservice.domain.model.StockReservation;
+import com.daniellaera.inventoryservice.domain.port.out.AuditTrail;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/** Records every call; the after-commit behaviour belongs to the adapter and is tested there. */
+public class RecordingAuditTrail implements AuditTrail {
+
+    public record Audit(String eventType, Product product, Object payload, String userEmail) {}
+
+    private final List<Audit> audits = new ArrayList<>();
+
+    @Override
+    public void stockDeducted(Product product, OrderLine line, String userEmail) {
+        audits.add(new Audit("STOCK_DEDUCTED", snapshot(product), line, userEmail));
+    }
+
+    @Override
+    public void stockRestored(Product product, StockReservation reservation, String userEmail) {
+        audits.add(new Audit("STOCK_RESTORED", snapshot(product), reservation, userEmail));
+    }
+
+    @Override
+    public void productCreated(Product product) {
+        audits.add(new Audit("PRODUCT_CREATED", snapshot(product), null, null));
+    }
+
+    @Override
+    public void productRestocked(Product product) {
+        audits.add(new Audit("PRODUCT_RESTOCKED", snapshot(product), null, null));
+    }
+
+    public List<Audit> audits() {
+        return List.copyOf(audits);
+    }
+
+    private static Product snapshot(Product p) {
+        return Product.restore(p.id(), p.name(), p.quantity(), p.price(), p.createdAt());
+    }
+}

@@ -1,0 +1,9 @@
+{
+  "entityType": "PRODUCT",
+  "eventType": "PRODUCT_CREATED",
+  "payload": "{\"createdAt\":\"2026-01-15T09:30:00.123456\",\"id\":12,\"name\":\"USB-C Hub\",\"price\":49.90,\"quantity\":50}",
+  "serviceName": "inventory-service",
+  "timestamp": "IGNORED",
+  "userEmail": "system",
+  "entityId": "12"
+}

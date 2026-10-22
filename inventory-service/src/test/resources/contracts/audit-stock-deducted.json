@@ -1,0 +1,9 @@
+{
+  "entityType": "PRODUCT",
+  "eventType": "STOCK_DEDUCTED",
+  "payload": "{\"productName\":\"MacBook Pro\",\"quantity\":1,\"price\":1299.99,\"totalAmount\":1299.99}",
+  "serviceName": "inventory-service",
+  "timestamp": "IGNORED",
+  "userEmail": "user@test.com",
+  "entityId": "11"
+}
