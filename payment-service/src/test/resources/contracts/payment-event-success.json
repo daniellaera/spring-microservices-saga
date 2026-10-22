@@ -1,0 +1,23 @@
+{
+  "orderId": 42,
+  "productName": "MacBook Pro",
+  "quantity": 1,
+  "status": "SUCCESS",
+  "price": 1299.99,
+  "totalAmount": 1399.79,
+  "userEmail": "user@test.com",
+  "items": [
+    {
+      "productName": "MacBook Pro",
+      "quantity": 1,
+      "price": 1299.99,
+      "totalAmount": 1299.99
+    },
+    {
+      "productName": "USB-C Hub",
+      "quantity": 2,
+      "price": 49.90,
+      "totalAmount": 99.80
+    }
+  ]
+}

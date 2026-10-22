@@ -1,0 +1,17 @@
+{
+  "orderId": 7,
+  "productName": "Mechanical Keyboard",
+  "quantity": 0,
+  "status": "FAILED",
+  "price": 89.50,
+  "totalAmount": 179.00,
+  "userEmail": "buyer@test.com",
+  "items": [
+    {
+      "productName": "Mechanical Keyboard",
+      "quantity": 2,
+      "price": 89.50,
+      "totalAmount": 179.00
+    }
+  ]
+}

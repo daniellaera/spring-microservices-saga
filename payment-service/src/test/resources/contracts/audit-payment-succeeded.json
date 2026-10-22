@@ -1,0 +1,9 @@
+{
+  "entityType": "PAYMENT",
+  "eventType": "PAYMENT_SUCCEEDED",
+  "payload": "{\"createdAt\":\"2026-10-22T10:00:07.123456\",\"id\":7,\"orderId\":42,\"status\":\"SUCCESS\",\"totalAmount\":1399.79}",
+  "serviceName": "payment-service",
+  "timestamp": "IGNORED",
+  "userEmail": "user@test.com",
+  "entityId": "42"
+}

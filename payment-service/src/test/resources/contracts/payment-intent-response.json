@@ -1,0 +1,6 @@
+{
+  "clientSecret": "pi_3QxYz123_secret_abc",
+  "paymentIntentId": "pi_3QxYz123",
+  "status": "requires_payment_method",
+  "publishableKey": "pk_test_contract"
+}

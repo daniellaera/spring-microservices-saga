@@ -1,0 +1,9 @@
+{
+  "entityType": "PAYMENT",
+  "eventType": "PAYMENT_INITIATED",
+  "payload": "{\"amount\":139979,\"currency\":\"chf\",\"productName\":\"MacBook Pro\"}",
+  "serviceName": "payment-service",
+  "timestamp": "IGNORED",
+  "userEmail": "user@test.com",
+  "entityId": "pi_3QxYz123"
+}

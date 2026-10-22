@@ -1,0 +1,9 @@
+{
+  "entityType": "PAYMENT",
+  "eventType": "PAYMENT_FAILED",
+  "payload": "{\"createdAt\":\"2026-10-22T10:00:07.123456\",\"id\":7,\"orderId\":7,\"status\":\"FAILED\",\"totalAmount\":179.00}",
+  "serviceName": "payment-service",
+  "timestamp": "IGNORED",
+  "userEmail": "buyer@test.com",
+  "entityId": "7"
+}
