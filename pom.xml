@@ -34,6 +34,7 @@
     <testcontainers.version>1.21.4</testcontainers.version>
     <archunit.version>1.5.1</archunit.version>
     <wiremock.version>3.13.2</wiremock.version>
+    <cucumber.version>8.0.4</cucumber.version>
   </properties>
 
   <dependencyManagement>
@@ -49,6 +50,13 @@
         <groupId>org.springframework.cloud</groupId>
         <artifactId>spring-cloud-dependencies</artifactId>
         <version>${spring-cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.cucumber</groupId>
+        <artifactId>cucumber-bom</artifactId>
+        <version>${cucumber.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -230,6 +238,16 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Cross-service saga e2e suite: mvn -Pe2e -pl saga-e2e -am verify. Kept out of the default build. -->
+    <profile>
+      <id>e2e</id>
+      <modules>
+        <module>saga-e2e</module>
+      </modules>
+    </profile>
+  </profiles>
 
   <distributionManagement>
     <repository>
