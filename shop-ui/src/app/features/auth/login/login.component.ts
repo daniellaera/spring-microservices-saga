@@ -12,6 +12,7 @@ import { PasswordModule } from 'primeng/password';
 import { InputOtpModule } from 'primeng/inputotp';
 import { MessageService } from 'primeng/api';
 import { AuthService } from '../../../core/services/auth.service';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -29,6 +30,7 @@ export class LoginComponent {
   password = '';
   loading = false;
   emailError = '';
+  readonly showDemoCredentials = environment.showDemoCredentials;
 
   showOtpStep = false;
   pendingEmail = '';

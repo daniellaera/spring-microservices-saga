@@ -43,17 +43,19 @@
             [loading]="loading"
             [disabled]="!email.trim() || !password"
             (onClick)="signIn()" />
-          <p-divider align="center">
-            <span class="text-color-secondary text-sm">
-              Demo credentials
-            </span>
-          </p-divider>
-          <div class="surface-50 border-round p-3 text-sm
-                      text-color-secondary">
-            <div><strong>User:</strong> daniel@example.com</div>
-            <div><strong>Admin:</strong> admin@example.com</div>
-            <div class="mt-1 text-xs">Password: demo1234</div>
-          </div>
+          @if (showDemoCredentials) {
+            <p-divider align="center">
+              <span class="text-color-secondary text-sm">
+                Demo credentials
+              </span>
+            </p-divider>
+            <div class="surface-50 border-round p-3 text-sm
+                        text-color-secondary">
+              <div><strong>User:</strong> daniel@example.com</div>
+              <div><strong>Admin:</strong> admin@example.com</div>
+              <div class="mt-1 text-xs">Password: password123</div>
+            </div>
+          }
           <p-divider />
           <div class="text-center text-sm text-color-secondary">
             Don't have an account?
