@@ -31,8 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # pr.yml already runs the services' own tests: here they are only packaged (and installed, so the
+      # saga-e2e build that follows resolves them), then the suite runs against their jars
+      - name: Build the saga services
+        run: mvn -pl order-service,inventory-service,payment-service -am install -DskipTests --no-transfer-progress
+
       - name: Run the saga e2e suite
-        run: mvn -Pe2e -pl saga-e2e -am verify --no-transfer-progress
+        run: mvn -Pe2e -pl saga-e2e verify --no-transfer-progress
 
       # The Cucumber summary (scenarios and steps passed) is also in the log of the step above
       - name: Upload Cucumber report
