@@ -4,8 +4,8 @@ import com.daniellaera.inventoryservice.audit.AuditPublisher;
 import com.daniellaera.inventoryservice.dto.ProductDTO;
 import com.daniellaera.inventoryservice.dto.ProductRequest;
 import com.daniellaera.inventoryservice.exception.ResourceNotFoundException;
-import com.daniellaera.inventoryservice.model.Product;
-import com.daniellaera.inventoryservice.repository.ProductRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +27,7 @@ import static org.mockito.Mockito.*;
 class ProductServiceImplTest {
 
     @Mock
-    private ProductRepository productRepository;
+    private ProductJpaRepository productRepository;
 
     @Mock
     private AuditPublisher auditPublisher;
@@ -35,11 +35,11 @@ class ProductServiceImplTest {
     @InjectMocks
     private ProductServiceImpl productService;
 
-    private Product product;
+    private ProductJpaEntity product;
 
     @BeforeEach
     void setUp() {
-        product = new Product();
+        product = new ProductJpaEntity();
         product.setName("MacBook Pro");
         product.setQuantity(10);
         product.setPrice(BigDecimal.valueOf(1299.99));
@@ -82,25 +82,25 @@ class ProductServiceImplTest {
     void createProduct_shouldSaveAndReturnDTO() {
         ProductRequest request = new ProductRequest("iPhone 16", 5, BigDecimal.valueOf(999.99));
 
-        when(productRepository.save(any(Product.class))).thenReturn(product);
+        when(productRepository.save(any(ProductJpaEntity.class))).thenReturn(product);
 
         ProductDTO result = productService.createProduct(request);
 
         assertThat(result.name()).isEqualTo("MacBook Pro");
         assertThat(result.quantity()).isEqualTo(10);
-        verify(productRepository, times(1)).save(any(Product.class));
+        verify(productRepository, times(1)).save(any(ProductJpaEntity.class));
         verify(auditPublisher).publish(eq("PRODUCT_CREATED"), any(), any(), any(), any());
     }
 
     @Test
     void createProduct_shouldSetNameAndQuantity() {
         ProductRequest request = new ProductRequest("iPhone 16", 5, BigDecimal.valueOf(999.99));
-        Product saved = new Product();
+        ProductJpaEntity saved = new ProductJpaEntity();
         saved.setName("iPhone 16");
         saved.setQuantity(5);
         saved.setPrice(BigDecimal.valueOf(999.99));
 
-        when(productRepository.save(any(Product.class))).thenReturn(saved);
+        when(productRepository.save(any(ProductJpaEntity.class))).thenReturn(saved);
 
         ProductDTO result = productService.createProduct(request);
 
@@ -112,17 +112,17 @@ class ProductServiceImplTest {
     @Test
     void restock_shouldAddQuantityAndReturnUpdatedDTO() {
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
-        Product restocked = new Product();
+        ProductJpaEntity restocked = new ProductJpaEntity();
         restocked.setName("MacBook Pro");
         restocked.setQuantity(25);
         restocked.setPrice(BigDecimal.valueOf(1299.99));
-        when(productRepository.save(any(Product.class))).thenReturn(restocked);
+        when(productRepository.save(any(ProductJpaEntity.class))).thenReturn(restocked);
 
         ProductDTO result = productService.restock(1L, 15);
 
         assertThat(result.quantity()).isEqualTo(25);
         assertThat(result.name()).isEqualTo("MacBook Pro");
-        verify(productRepository).save(any(Product.class));
+        verify(productRepository).save(any(ProductJpaEntity.class));
         verify(auditPublisher).publish(eq("PRODUCT_RESTOCKED"), any(), any(), any(), any());
     }
 

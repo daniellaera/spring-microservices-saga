@@ -5,8 +5,8 @@ import com.daniellaera.inventoryservice.dto.ProductDTO;
 import com.daniellaera.inventoryservice.dto.ProductRequest;
 import com.daniellaera.inventoryservice.exception.ResourceAlreadyExistsException;
 import com.daniellaera.inventoryservice.exception.ResourceNotFoundException;
-import com.daniellaera.inventoryservice.model.Product;
-import com.daniellaera.inventoryservice.repository.ProductRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -18,7 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
-    private final ProductRepository productRepository;
+    private final ProductJpaRepository productRepository;
     private final AuditPublisher auditPublisher;
 
     @Override
@@ -27,11 +27,11 @@ public class ProductServiceImpl implements ProductService {
         if (productRepository.existsByName(request.name())) {
             throw new ResourceAlreadyExistsException("Product already exists: " + request.name());
         }
-        Product product = new Product();
+        ProductJpaEntity product = new ProductJpaEntity();
         product.setName(request.name());
         product.setQuantity(request.quantity());
         product.setPrice(request.price() != null ? request.price() : java.math.BigDecimal.ZERO);
-        Product saved = productRepository.save(product);
+        ProductJpaEntity saved = productRepository.save(product);
         auditPublisher.publish("PRODUCT_CREATED", null, "PRODUCT", String.valueOf(saved.getId()), saved);
         return toDTO(saved);
     }
@@ -47,7 +47,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductDTO getProductById(Long id) {
-        Product product = productRepository.findById(id)
+        ProductJpaEntity product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
         return toDTO(product);
     }
@@ -55,15 +55,15 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @CacheEvict(value = "products", allEntries = true)
     public ProductDTO restock(Long id, Integer quantity) {
-        Product product = productRepository.findById(id)
+        ProductJpaEntity product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
         product.setQuantity(product.getQuantity() + quantity);
-        Product saved = productRepository.save(product);
+        ProductJpaEntity saved = productRepository.save(product);
         auditPublisher.publish("PRODUCT_RESTOCKED", null, "PRODUCT", String.valueOf(saved.getId()), saved);
         return toDTO(saved);
     }
 
-    private ProductDTO toDTO(Product p) {
+    private ProductDTO toDTO(ProductJpaEntity p) {
         return new ProductDTO(p.getId(), p.getName(), p.getQuantity(), p.getPrice(), p.getCreatedAt());
     }
 }

@@ -5,12 +5,12 @@ import com.daniellaera.inventoryservice.dto.InventoryResultEvent;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
 import com.daniellaera.inventoryservice.dto.OrderItemEvent;
 import com.daniellaera.inventoryservice.dto.PaymentEvent;
-import com.daniellaera.inventoryservice.model.CompensationLog;
-import com.daniellaera.inventoryservice.model.Product;
-import com.daniellaera.inventoryservice.model.StockReservation;
-import com.daniellaera.inventoryservice.repository.CompensationLogRepository;
-import com.daniellaera.inventoryservice.repository.ProductRepository;
-import com.daniellaera.inventoryservice.repository.StockReservationRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.CompensationLogJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.CompensationLogJpaRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.DltHandler;
@@ -31,9 +31,9 @@ import java.util.List;
 @Slf4j
 public class InventoryConsumer {
 
-    private final ProductRepository productRepository;
-    private final CompensationLogRepository compensationLogRepository;
-    private final StockReservationRepository stockReservationRepository;
+    private final ProductJpaRepository productRepository;
+    private final CompensationLogJpaRepository compensationLogRepository;
+    private final StockReservationJpaRepository stockReservationRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final AuditPublisher auditPublisher;
@@ -76,7 +76,7 @@ public class InventoryConsumer {
         log.info("=== Inventory: received order {} with {} item(s)", event.orderId(), items.size());
 
         // resolve products up front — product-not-found aborts processing entirely (no publish)
-        List<Product> products = items.stream()
+        List<ProductJpaEntity> products = items.stream()
                 .map(item -> productRepository.findByName(item.productName())
                         .orElseThrow(() -> new RuntimeException("Product not found: " + item.productName())))
                 .toList();
@@ -93,11 +93,11 @@ public class InventoryConsumer {
         int reservedQuantity;
         if (sufficientStock) {
             for (int i = 0; i < items.size(); i++) {
-                Product product = products.get(i);
+                ProductJpaEntity product = products.get(i);
                 OrderItemEvent item = items.get(i);
                 // reservation goes in before the deduction: the unique constraint on
                 // (order_id, product_name) is the last-line idempotency guard
-                StockReservation reservation = new StockReservation();
+                StockReservationJpaEntity reservation = new StockReservationJpaEntity();
                 reservation.setOrderId(event.orderId());
                 reservation.setProductName(item.productName());
                 reservation.setQuantity(item.quantity());
@@ -163,7 +163,7 @@ public class InventoryConsumer {
 
         // release only what was actually reserved for this order — a FAILED payment that follows a
         // REJECTED inventory result has no reservation and must not touch stock
-        List<StockReservation> reservations = stockReservationRepository.findByOrderId(event.orderId());
+        List<StockReservationJpaEntity> reservations = stockReservationRepository.findByOrderId(event.orderId());
         if (reservations.isEmpty()) {
             log.warn("=== Payment FAILED — no stock reservation recorded for orderId {} — nothing to release",
                     event.orderId());
@@ -173,8 +173,8 @@ public class InventoryConsumer {
                 reservations.size(), event.orderId());
 
         int releasedQuantity = 0;
-        for (StockReservation reservation : reservations) {
-            Product product = productRepository.findByName(reservation.getProductName()).orElse(null);
+        for (StockReservationJpaEntity reservation : reservations) {
+            ProductJpaEntity product = productRepository.findByName(reservation.getProductName()).orElse(null);
             if (product == null) {
                 log.error("=== Compensation FAILED — product {} not found", reservation.getProductName());
                 continue;
@@ -187,7 +187,7 @@ public class InventoryConsumer {
                     String.valueOf(product.getId()), reservation);
         }
 
-        CompensationLog entry = new CompensationLog();
+        CompensationLogJpaEntity entry = new CompensationLogJpaEntity();
         entry.setOrderId(event.orderId());
         entry.setProductName(reservations.get(0).getProductName());
         entry.setQuantity(releasedQuantity);

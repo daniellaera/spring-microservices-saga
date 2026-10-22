@@ -1,8 +1,8 @@
 package com.daniellaera.inventoryservice.controller;
 
 import com.daniellaera.inventoryservice.TestcontainersConfiguration;
-import com.daniellaera.inventoryservice.model.Product;
-import com.daniellaera.inventoryservice.repository.ProductRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +34,7 @@ public class ProductControllerITTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private ProductRepository productRepository;
+    private ProductJpaRepository productRepository;
 
     @MockitoBean
     private KafkaTemplate<String, String> kafkaTemplate;
@@ -43,7 +43,7 @@ public class ProductControllerITTest {
     void setUp() {
         productRepository.deleteAll();
 
-        Product product = new Product();
+        ProductJpaEntity product = new ProductJpaEntity();
         product.setName("MacBook Pro");
         product.setQuantity(10);
         product.setPrice(BigDecimal.valueOf(1299.99));
@@ -62,7 +62,7 @@ public class ProductControllerITTest {
 
     @Test
     void getProductById_shouldReturn200() throws Exception {
-        Product saved = productRepository.findAll().getFirst();
+        ProductJpaEntity saved = productRepository.findAll().getFirst();
 
         mockMvc.perform(get("/products/" + saved.getId())
                         .accept(MediaType.APPLICATION_JSON))
@@ -94,7 +94,7 @@ public class ProductControllerITTest {
 
     @Test
     void restock_shouldIncrementQuantityAndReturn200() throws Exception {
-        Product saved = productRepository.findAll().getFirst();
+        ProductJpaEntity saved = productRepository.findAll().getFirst();
 
         mockMvc.perform(put("/products/" + saved.getId() + "/restock")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -103,7 +103,7 @@ public class ProductControllerITTest {
                 .andExpect(jsonPath("$.name").value("MacBook Pro"))
                 .andExpect(jsonPath("$.quantity").value(15));
 
-        Product updated = productRepository.findById(saved.getId()).orElseThrow();
+        ProductJpaEntity updated = productRepository.findById(saved.getId()).orElseThrow();
         assertThat(updated.getQuantity()).isEqualTo(15);
     }
 

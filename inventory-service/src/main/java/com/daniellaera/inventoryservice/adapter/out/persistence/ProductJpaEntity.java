@@ -1,4 +1,4 @@
-package com.daniellaera.inventoryservice.model;
+package com.daniellaera.inventoryservice.adapter.out.persistence;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Product extends BaseEntity {
+public class ProductJpaEntity extends BaseEntity {
 
     @Column(nullable = false)
     private String name;

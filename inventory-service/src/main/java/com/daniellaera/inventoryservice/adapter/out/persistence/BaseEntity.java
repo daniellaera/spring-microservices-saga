@@ -1,4 +1,4 @@
-package com.daniellaera.inventoryservice.model;
+package com.daniellaera.inventoryservice.adapter.out.persistence;
 
 import jakarta.persistence.*;
 import lombok.Getter;

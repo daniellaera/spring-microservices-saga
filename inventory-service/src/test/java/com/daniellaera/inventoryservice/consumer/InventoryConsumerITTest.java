@@ -3,10 +3,10 @@ package com.daniellaera.inventoryservice.consumer;
 import com.daniellaera.inventoryservice.TestcontainersConfiguration;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
 import com.daniellaera.inventoryservice.dto.OrderItemEvent;
-import com.daniellaera.inventoryservice.model.Product;
-import com.daniellaera.inventoryservice.model.StockReservation;
-import com.daniellaera.inventoryservice.repository.ProductRepository;
-import com.daniellaera.inventoryservice.repository.StockReservationRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import jakarta.persistence.EntityManager;
@@ -48,7 +48,7 @@ class InventoryConsumerITTest {
     private InventoryConsumer inventoryConsumer;
 
     @Autowired
-    private ProductRepository productRepository;
+    private ProductJpaRepository productRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -57,7 +57,7 @@ class InventoryConsumerITTest {
     private EntityManager entityManager;
 
     @MockitoSpyBean
-    private StockReservationRepository stockReservationRepository;
+    private StockReservationJpaRepository stockReservationRepository;
 
     @MockitoBean
     private KafkaTemplate<String, String> kafkaTemplate;
@@ -87,10 +87,10 @@ class InventoryConsumerITTest {
             if (saves.incrementAndGet() == 2) {
                 throw new DataIntegrityViolationException("simulated reservation insert failure");
             }
-            StockReservation reservation = inv.getArgument(0);
+            StockReservationJpaEntity reservation = inv.getArgument(0);
             entityManager.persist(reservation);
             return reservation;
-        }).when(stockReservationRepository).save(any(StockReservation.class));
+        }).when(stockReservationRepository).save(any(StockReservationJpaEntity.class));
 
         inventoryConsumer.consumeOrder(message);
 
@@ -120,8 +120,8 @@ class InventoryConsumerITTest {
         return productRepository.findByName(name).orElseThrow().getQuantity();
     }
 
-    private static Product product(String name, int quantity, double price) {
-        Product p = new Product();
+    private static ProductJpaEntity product(String name, int quantity, double price) {
+        ProductJpaEntity p = new ProductJpaEntity();
         p.setName(name);
         p.setQuantity(quantity);
         p.setPrice(BigDecimal.valueOf(price));

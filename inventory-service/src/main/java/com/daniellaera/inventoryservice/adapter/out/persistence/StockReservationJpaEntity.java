@@ -1,4 +1,4 @@
-package com.daniellaera.inventoryservice.model;
+package com.daniellaera.inventoryservice.adapter.out.persistence;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -18,7 +18,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-public class StockReservation {
+public class StockReservationJpaEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

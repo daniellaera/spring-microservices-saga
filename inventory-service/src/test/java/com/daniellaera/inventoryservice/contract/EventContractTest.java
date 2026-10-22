@@ -7,11 +7,11 @@ import com.daniellaera.inventoryservice.dto.OrderItemEvent;
 import com.daniellaera.inventoryservice.dto.PaymentEvent;
 import com.daniellaera.inventoryservice.dto.ProductDTO;
 import com.daniellaera.inventoryservice.dto.ProductRequest;
-import com.daniellaera.inventoryservice.model.Product;
-import com.daniellaera.inventoryservice.model.StockReservation;
-import com.daniellaera.inventoryservice.repository.CompensationLogRepository;
-import com.daniellaera.inventoryservice.repository.ProductRepository;
-import com.daniellaera.inventoryservice.repository.StockReservationRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.CompensationLogJpaRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaRepository;
 import com.daniellaera.inventoryservice.service.ProductServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,17 +82,17 @@ class EventContractTest {
     private ObjectMapper objectMapper;
 
     private KafkaTemplate<String, String> kafkaTemplate;
-    private ProductRepository productRepository;
-    private StockReservationRepository stockReservationRepository;
-    private CompensationLogRepository compensationLogRepository;
+    private ProductJpaRepository productRepository;
+    private StockReservationJpaRepository stockReservationRepository;
+    private CompensationLogJpaRepository compensationLogRepository;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
         kafkaTemplate = mock(KafkaTemplate.class);
-        productRepository = mock(ProductRepository.class);
-        stockReservationRepository = mock(StockReservationRepository.class);
-        compensationLogRepository = mock(CompensationLogRepository.class);
+        productRepository = mock(ProductJpaRepository.class);
+        stockReservationRepository = mock(StockReservationJpaRepository.class);
+        compensationLogRepository = mock(CompensationLogJpaRepository.class);
     }
 
     // ─── inbound events ──────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ class EventContractTest {
 
     @Test
     void auditProductCreated_payloadIsTheSavedProduct() throws Exception {
-        when(productRepository.save(any(Product.class))).thenAnswer(inv -> persisted(inv.getArgument(0), 12L));
+        when(productRepository.save(any(ProductJpaEntity.class))).thenAnswer(inv -> persisted(inv.getArgument(0), 12L));
 
         new ProductServiceImpl(productRepository, auditPublisher())
                 .createProduct(new ProductRequest("USB-C Hub", 50, new BigDecimal("49.90")));
@@ -191,7 +191,7 @@ class EventContractTest {
 
     @Test
     void auditProductRestocked_payloadIsTheSavedProduct() throws Exception {
-        Product macbook = macbook(10);
+        ProductJpaEntity macbook = macbook(10);
         when(productRepository.findById(11L)).thenReturn(Optional.of(macbook));
         when(productRepository.save(macbook)).thenReturn(macbook);
 
@@ -269,26 +269,26 @@ class EventContractTest {
         return payloadOf(fixture(auditFixture));
     }
 
-    private void stock(Product... products) {
-        for (Product product : products) {
+    private void stock(ProductJpaEntity... products) {
+        for (ProductJpaEntity product : products) {
             when(productRepository.findByName(product.getName())).thenReturn(Optional.of(product));
         }
     }
 
-    private static Product macbook(int quantity) {
+    private static ProductJpaEntity macbook(int quantity) {
         return product(11L, "MacBook Pro", quantity, "1299.99");
     }
 
-    private static Product usbHub(int quantity) {
+    private static ProductJpaEntity usbHub(int quantity) {
         return product(12L, "USB-C Hub", quantity, "49.90");
     }
 
-    private static Product keyboard(int quantity) {
+    private static ProductJpaEntity keyboard(int quantity) {
         return product(13L, "Mechanical Keyboard", quantity, "89.50");
     }
 
-    private static Product product(Long id, String name, int quantity, String price) {
-        Product product = new Product();
+    private static ProductJpaEntity product(Long id, String name, int quantity, String price) {
+        ProductJpaEntity product = new ProductJpaEntity();
         product.setName(name);
         product.setQuantity(quantity);
         product.setPrice(new BigDecimal(price));
@@ -296,14 +296,14 @@ class EventContractTest {
     }
 
     // Sets what JPA would: the generated id and the @PrePersist createdAt
-    private static Product persisted(Product product, Long id) {
+    private static ProductJpaEntity persisted(ProductJpaEntity product, Long id) {
         ReflectionTestUtils.setField(product, "id", id);
         ReflectionTestUtils.setField(product, "createdAt", CREATED_AT);
         return product;
     }
 
-    private static StockReservation keyboardReservation() {
-        StockReservation reservation = new StockReservation();
+    private static StockReservationJpaEntity keyboardReservation() {
+        StockReservationJpaEntity reservation = new StockReservationJpaEntity();
         reservation.setId(UUID.fromString("3f2b8c1e-5d4a-4e7b-9c1f-2a6d8e0b4c71"));
         reservation.setOrderId(7L);
         reservation.setProductName("Mechanical Keyboard");

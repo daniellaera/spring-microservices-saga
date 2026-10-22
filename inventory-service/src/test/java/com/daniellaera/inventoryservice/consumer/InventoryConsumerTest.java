@@ -4,12 +4,12 @@ import com.daniellaera.inventoryservice.audit.AuditPublisher;
 import com.daniellaera.inventoryservice.dto.InventoryResultEvent;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
 import com.daniellaera.inventoryservice.dto.PaymentEvent;
-import com.daniellaera.inventoryservice.model.CompensationLog;
-import com.daniellaera.inventoryservice.model.Product;
-import com.daniellaera.inventoryservice.model.StockReservation;
-import com.daniellaera.inventoryservice.repository.CompensationLogRepository;
-import com.daniellaera.inventoryservice.repository.ProductRepository;
-import com.daniellaera.inventoryservice.repository.StockReservationRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.CompensationLogJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaEntity;
+import com.daniellaera.inventoryservice.adapter.out.persistence.CompensationLogJpaRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaRepository;
+import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,9 +39,9 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class InventoryConsumerTest {
 
-    @Mock private ProductRepository productRepository;
-    @Mock private CompensationLogRepository compensationLogRepository;
-    @Mock private StockReservationRepository stockReservationRepository;
+    @Mock private ProductJpaRepository productRepository;
+    @Mock private CompensationLogJpaRepository compensationLogRepository;
+    @Mock private StockReservationJpaRepository stockReservationRepository;
     @Mock private KafkaTemplate<String, String> kafkaTemplate;
     @Mock private ObjectMapper objectMapper;
     @Mock private AuditPublisher auditPublisher;
@@ -50,17 +50,17 @@ class InventoryConsumerTest {
     @InjectMocks
     private InventoryConsumer inventoryConsumer;
 
-    private Product macbook;
-    private Product airpods;
+    private ProductJpaEntity macbook;
+    private ProductJpaEntity airpods;
 
     @BeforeEach
     void setUp() {
-        macbook = new Product();
+        macbook = new ProductJpaEntity();
         macbook.setName("MacBook Pro");
         macbook.setQuantity(10);
         macbook.setPrice(BigDecimal.valueOf(1299.99));
 
-        airpods = new Product();
+        airpods = new ProductJpaEntity();
         airpods.setName("AirPods");
         airpods.setQuantity(5);
         airpods.setPrice(BigDecimal.valueOf(249.99));
@@ -80,8 +80,8 @@ class InventoryConsumerTest {
         });
     }
 
-    private static StockReservation reservation(Long orderId, String productName, int quantity) {
-        StockReservation r = new StockReservation();
+    private static StockReservationJpaEntity reservation(Long orderId, String productName, int quantity) {
+        StockReservationJpaEntity r = new StockReservationJpaEntity();
         r.setOrderId(orderId);
         r.setProductName(productName);
         r.setQuantity(quantity);
@@ -103,7 +103,7 @@ class InventoryConsumerTest {
         assertThat(macbook.getQuantity()).isEqualTo(8); // 10 - 2
         verify(productRepository).save(macbook);
 
-        ArgumentCaptor<StockReservation> reservationCaptor = ArgumentCaptor.forClass(StockReservation.class);
+        ArgumentCaptor<StockReservationJpaEntity> reservationCaptor = ArgumentCaptor.forClass(StockReservationJpaEntity.class);
         verify(stockReservationRepository).save(reservationCaptor.capture());
         assertThat(reservationCaptor.getValue().getOrderId()).isEqualTo(1L);
         assertThat(reservationCaptor.getValue().getProductName()).isEqualTo("MacBook Pro");
@@ -174,7 +174,7 @@ class InventoryConsumerTest {
         assertThat(airpods.getQuantity()).isEqualTo(2);
         verify(productRepository).save(macbook);
         verify(productRepository).save(airpods);
-        verify(stockReservationRepository, times(2)).save(any(StockReservation.class));
+        verify(stockReservationRepository, times(2)).save(any(StockReservationJpaEntity.class));
 
         ArgumentCaptor<InventoryResultEvent> captor = ArgumentCaptor.forClass(InventoryResultEvent.class);
         verify(objectMapper).writeValueAsString(captor.capture());
@@ -223,7 +223,7 @@ class InventoryConsumerTest {
 
         assertThat(macbook.getQuantity()).isEqualTo(8); // deducted once, not twice
         verify(transactionTemplate, times(1)).execute(any());
-        verify(stockReservationRepository, times(1)).save(any(StockReservation.class));
+        verify(stockReservationRepository, times(1)).save(any(StockReservationJpaEntity.class));
         verify(productRepository, times(1)).save(macbook);
         verify(kafkaTemplate, times(1)).send(eq("inventory-topic"), anyString());
     }
@@ -235,7 +235,7 @@ class InventoryConsumerTest {
         when(objectMapper.readValue(anyString(), eq(OrderEvent.class))).thenReturn(event);
         when(productRepository.findByName("MacBook Pro")).thenReturn(Optional.of(macbook));
         // e.g. the unique constraint on (order_id, product_name) firing on a concurrent duplicate
-        when(stockReservationRepository.save(any(StockReservation.class)))
+        when(stockReservationRepository.save(any(StockReservationJpaEntity.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate reservation"));
 
         inventoryConsumer.consumeOrder("{}");
@@ -258,7 +258,7 @@ class InventoryConsumerTest {
         when(productRepository.findByName("MacBook Pro")).thenReturn(Optional.of(macbook));
         when(productRepository.findByName("AirPods")).thenReturn(Optional.of(airpods));
         // MacBook reservation + deduction go through, the AirPods reservation insert fails
-        when(stockReservationRepository.save(any(StockReservation.class)))
+        when(stockReservationRepository.save(any(StockReservationJpaEntity.class)))
                 .thenAnswer(inv -> inv.getArgument(0))
                 .thenThrow(new DataIntegrityViolationException("simulated insert failure"));
 
@@ -298,7 +298,7 @@ class InventoryConsumerTest {
         assertThat(macbook.getQuantity()).isEqualTo(12); // 10 + 2 restored
         verify(productRepository).save(macbook);
 
-        ArgumentCaptor<CompensationLog> logCaptor = ArgumentCaptor.forClass(CompensationLog.class);
+        ArgumentCaptor<CompensationLogJpaEntity> logCaptor = ArgumentCaptor.forClass(CompensationLogJpaEntity.class);
         verify(compensationLogRepository).save(logCaptor.capture());
         assertThat(logCaptor.getValue().getOrderId()).isEqualTo(1L);
         assertThat(logCaptor.getValue().getProductName()).isEqualTo("MacBook Pro");
@@ -328,7 +328,7 @@ class InventoryConsumerTest {
         assertThat(airpods.getQuantity()).isEqualTo(8);
         verify(productRepository).save(macbook);
         verify(productRepository).save(airpods);
-        verify(compensationLogRepository).save(any(CompensationLog.class));
+        verify(compensationLogRepository).save(any(CompensationLogJpaEntity.class));
     }
 
     @Test
@@ -385,7 +385,7 @@ class InventoryConsumerTest {
 
         assertThat(macbook.getQuantity()).isEqualTo(13); // 10 + 3 reserved, not + 20 requested
 
-        ArgumentCaptor<CompensationLog> logCaptor = ArgumentCaptor.forClass(CompensationLog.class);
+        ArgumentCaptor<CompensationLogJpaEntity> logCaptor = ArgumentCaptor.forClass(CompensationLogJpaEntity.class);
         verify(compensationLogRepository).save(logCaptor.capture());
         assertThat(logCaptor.getValue().getQuantity()).isEqualTo(3);
     }
