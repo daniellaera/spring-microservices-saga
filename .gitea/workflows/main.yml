@@ -97,6 +97,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Compute image tag
+        id: tag
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Images are pushed as :latest and :${SHORT_SHA}"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -114,7 +121,9 @@ jobs:
           file: config-server/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: daniellaera/config-server:latest
+          tags: |
+            daniellaera/config-server:latest
+            daniellaera/config-server:${{ steps.tag.outputs.sha }}
 
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
@@ -127,7 +136,9 @@ jobs:
           file: auth-service/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: daniellaera/auth-service:latest
+          tags: |
+            daniellaera/auth-service:latest
+            daniellaera/auth-service:${{ steps.tag.outputs.sha }}
 
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
@@ -140,7 +151,9 @@ jobs:
           file: order-service/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: daniellaera/order-service:latest
+          tags: |
+            daniellaera/order-service:latest
+            daniellaera/order-service:${{ steps.tag.outputs.sha }}
 
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
@@ -153,7 +166,9 @@ jobs:
           file: inventory-service/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: daniellaera/inventory-service:latest
+          tags: |
+            daniellaera/inventory-service:latest
+            daniellaera/inventory-service:${{ steps.tag.outputs.sha }}
 
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
@@ -166,7 +181,9 @@ jobs:
           file: payment-service/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: daniellaera/payment-service:latest
+          tags: |
+            daniellaera/payment-service:latest
+            daniellaera/payment-service:${{ steps.tag.outputs.sha }}
 
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
@@ -179,7 +196,9 @@ jobs:
           file: notification-service/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: daniellaera/notification-service:latest
+          tags: |
+            daniellaera/notification-service:latest
+            daniellaera/notification-service:${{ steps.tag.outputs.sha }}
 
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
@@ -192,7 +211,9 @@ jobs:
           file: cart-service/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: daniellaera/cart-service:latest
+          tags: |
+            daniellaera/cart-service:latest
+            daniellaera/cart-service:${{ steps.tag.outputs.sha }}
 
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
@@ -205,7 +226,9 @@ jobs:
           file: audit-trail-service/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: daniellaera/audit-trail-service:latest
+          tags: |
+            daniellaera/audit-trail-service:latest
+            daniellaera/audit-trail-service:${{ steps.tag.outputs.sha }}
 
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
@@ -218,7 +241,9 @@ jobs:
           file: gateway-service/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: daniellaera/gateway-service:latest
+          tags: |
+            daniellaera/gateway-service:latest
+            daniellaera/gateway-service:${{ steps.tag.outputs.sha }}
 
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
@@ -226,7 +251,7 @@ jobs:
       - name: Inject build version into shop-ui
         if: needs.detect-changes.outputs.shop-ui == 'true'
         run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          SHORT_SHA="${{ steps.tag.outputs.sha }}"
           sed -i "s/BUILD_NUMBER_PLACEHOLDER/${SHORT_SHA}/" \
             shop-ui/src/environments/environment.prod.ts
           echo "Build version: ${SHORT_SHA}"
@@ -239,7 +264,9 @@ jobs:
           file: shop-ui/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: daniellaera/shop-ui:latest
+          tags: |
+            daniellaera/shop-ui:latest
+            daniellaera/shop-ui:${{ steps.tag.outputs.sha }}
 
       - name: Final Runner Purge
         if: always()
@@ -328,12 +355,22 @@ jobs:
             ${{ needs.detect-changes.outputs.audit-trail-service == 'true' && 'CHANGED="$CHANGED audit-trail-service"' || '' }}
             ${{ needs.detect-changes.outputs.shop-ui == 'true' && 'CHANGED="$CHANGED shop-ui"' || '' }}
 
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
             if [ -n "$CHANGED" ]; then
               echo "Restarting: $CHANGED"
               docker compose -f docker-compose.yml \
                 up -d --no-deps --pull always $CHANGED
+
+              # This run pushed every changed image as both :latest and :SHORT_SHA.
+              # The digest identifies the image actually running; compare it with the tag on Docker Hub.
+              echo "=== Deployed image tags ==="
+              for SERVICE in $CHANGED; do
+                IMAGE_ID=$(docker inspect --format '{{.Image}}' "$SERVICE")
+                DIGEST=$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE_ID")
+                echo "Deployed $SERVICE: daniellaera/$SERVICE:${SHORT_SHA} (= :latest), running $DIGEST"
+              done
             else
-              echo "No services changed — skipping restart"
+              echo "No services changed — skipping restart (nothing deployed for ${SHORT_SHA})"
             fi
 
             echo "=== Cleaning up ==="
