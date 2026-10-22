@@ -1,7 +1,7 @@
 package com.daniellaera.paymentservice.controller;
 
 import com.daniellaera.paymentservice.TestcontainersConfiguration;
-import com.daniellaera.paymentservice.enums.PaymentStatus;
+import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.model.Transaction;
 import com.daniellaera.paymentservice.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;

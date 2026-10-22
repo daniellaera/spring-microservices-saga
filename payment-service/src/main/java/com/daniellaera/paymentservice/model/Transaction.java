@@ -1,6 +1,6 @@
 package com.daniellaera.paymentservice.model;
 
-import com.daniellaera.paymentservice.enums.PaymentStatus;
+import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

@@ -7,7 +7,7 @@ import com.daniellaera.paymentservice.dto.OrderItemEvent;
 import com.daniellaera.paymentservice.dto.PaymentIntentRequest;
 import com.daniellaera.paymentservice.dto.PaymentIntentResponse;
 import com.daniellaera.paymentservice.dto.TransactionDTO;
-import com.daniellaera.paymentservice.enums.PaymentStatus;
+import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.model.Transaction;
 import com.daniellaera.paymentservice.repository.TransactionRepository;
 import com.daniellaera.paymentservice.service.PaymentServiceImpl;

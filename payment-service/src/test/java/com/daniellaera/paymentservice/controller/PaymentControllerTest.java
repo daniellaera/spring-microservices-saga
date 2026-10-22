@@ -1,7 +1,7 @@
 package com.daniellaera.paymentservice.controller;
 
 import com.daniellaera.paymentservice.dto.TransactionDTO;
-import com.daniellaera.paymentservice.enums.PaymentStatus;
+import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.exception.GlobalExceptionHandler;
 import com.daniellaera.paymentservice.exception.ResourceNotFoundException;
 import com.daniellaera.paymentservice.service.PaymentService;

@@ -5,7 +5,7 @@ import com.daniellaera.paymentservice.dto.InventoryResultEvent;
 import com.daniellaera.paymentservice.dto.OrderItemEvent;
 import com.daniellaera.paymentservice.dto.PaymentEvent;
 import com.daniellaera.paymentservice.dto.TransactionDTO;
-import com.daniellaera.paymentservice.enums.PaymentStatus;
+import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.exception.ResourceNotFoundException;
 import com.daniellaera.paymentservice.model.Transaction;
 import com.daniellaera.paymentservice.repository.TransactionRepository;
