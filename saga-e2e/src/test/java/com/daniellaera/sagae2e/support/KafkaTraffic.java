@@ -23,13 +23,14 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Records audit-topic and payment-topic from the beginning, can publish raw messages, and can tell whether a consumer
+ * Records audit-topic, payment-topic and inventory-topic from the beginning, can publish raw messages, and can tell whether a consumer
  * group has consumed past a given record.
  */
 public final class KafkaTraffic {
 
     public static final String AUDIT_TOPIC = "audit-topic";
     public static final String PAYMENT_TOPIC = "payment-topic";
+    public static final String INVENTORY_TOPIC = "inventory-topic";
 
     public record Message(String topic, int partition, long offset, String value, JsonNode json) {
 
@@ -67,7 +68,7 @@ public final class KafkaTraffic {
                 ConsumerConfig.METADATA_MAX_AGE_CONFIG, 1000,
                 ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class,
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class))) {
-            consumer.subscribe(List.of(AUDIT_TOPIC, PAYMENT_TOPIC));
+            consumer.subscribe(List.of(AUDIT_TOPIC, PAYMENT_TOPIC, INVENTORY_TOPIC));
             while (!Thread.currentThread().isInterrupted()) {
                 for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(200))) {
                     messages.add(new Message(record.topic(), record.partition(), record.offset(), record.value(),

@@ -51,3 +51,26 @@ Feature: Order saga across order, inventory and payment
       | STOCK_DEDUCTED    | inventory-service |
       | PAYMENT_SUCCEEDED | payment-service   |
       | ORDER_CONFIRMED   | order-service     |
+
+  Scenario: An order without a payment intent is not confirmed for free
+    Given a product "Keyboard" with 10 in stock
+    When the customer orders 2 "Keyboard" without a payment intent
+    Then the order is CANCELLED
+    And "Keyboard" has 10 in stock
+    And one FAILED payment transaction exists for the order
+
+  Scenario: A payment intent for a different amount does not pay for the order
+    Given a product "Keyboard" priced 25.00 with 10 in stock
+    And an accepted card payment intent for 1.00
+    When the customer orders 2 "Keyboard" paid with that intent
+    Then the order is CANCELLED
+    And "Keyboard" has 10 in stock
+
+  Scenario: A redelivered inventory result is not paid twice
+    Given a product "Keyboard" with 10 in stock
+    And the customer orders 2 "Keyboard" paid with an accepted card
+    And the order is CONFIRMED
+    When the inventory result of the order is delivered again
+    Then one SUCCESS payment transaction exists for the order
+    And PAYMENT_SUCCEEDED is audited exactly once for the order
+    And ORDER_CONFIRMED is audited exactly once for the order

@@ -27,10 +27,15 @@ public class ProductSteps {
 
     @Given("a product {string} with {int} in stock")
     public void aProductWithStock(String product, int quantity) {
-        JsonNode created = shop.createProduct(context.uniqueName(product), quantity, PRICE);
+        aPricedProductWithStock(product, PRICE, quantity);
+    }
+
+    @Given("a product {string} priced {bigdecimal} with {int} in stock")
+    public void aPricedProductWithStock(String product, BigDecimal price, int quantity) {
+        JsonNode created = shop.createProduct(context.uniqueName(product), quantity, price);
         assertThat(created.path("quantity").asInt()).isEqualTo(quantity);
         context.addProduct(product, new ScenarioContext.Product(created.path("id").asLong(),
-                created.path("name").asString(), PRICE));
+                created.path("name").asString(), price));
     }
 
     @Then("{string} has {int} in stock")

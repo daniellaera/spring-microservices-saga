@@ -10,6 +10,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.StreamSupport;
@@ -45,11 +46,17 @@ public final class ShopApi {
         return send(HttpRequest.newBuilder(URI.create(environment.inventoryServiceUrl() + "/products/" + id)).GET());
     }
 
+    /** paymentIntentId may be null: the field is then left out of the request. */
     public JsonNode placeOrder(String customerEmail, List<OrderLine> lines, String paymentIntentId) {
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("items", lines);
+        if (paymentIntentId != null) {
+            request.put("paymentIntentId", paymentIntentId);
+        }
         return send(HttpRequest.newBuilder(URI.create(environment.orderServiceUrl() + "/orders"))
                 .header("X-User-Email", customerEmail)
                 .header("Content-Type", "application/json")
-                .POST(body(Map.of("items", lines, "paymentIntentId", paymentIntentId))));
+                .POST(body(request)));
     }
 
     public JsonNode order(long id, String customerEmail) {

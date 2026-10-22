@@ -4,6 +4,7 @@ import com.daniellaera.sagae2e.support.SagaEnvironment;
 import com.daniellaera.sagae2e.support.ShopApi;
 import com.daniellaera.sagae2e.support.ShopApi.OrderLine;
 import com.daniellaera.sagae2e.support.WireMockStubs;
+import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import tools.jackson.databind.JsonNode;
@@ -40,6 +41,23 @@ public class OrderSteps {
     public void ordersTwoProductsPaidWithAnAcceptedCard(int firstQuantity, String firstProduct,
                                                         int secondQuantity, String secondProduct) {
         payWithCard(List.of(line(firstProduct, firstQuantity), line(secondProduct, secondQuantity)), "succeeded");
+    }
+
+    @When("the customer orders {int} {string} without a payment intent")
+    public void ordersWithoutAPaymentIntent(int quantity, String product) {
+        placeOrder(List.of(line(product, quantity)), null);
+    }
+
+    @Given("an accepted card payment intent for {bigdecimal}")
+    public void anAcceptedCardPaymentIntentFor(BigDecimal amount) {
+        String intentId = context.newPaymentIntentId();
+        stripe.stubPaymentIntent(intentId, "succeeded", minorUnits(amount), SHOP_CURRENCY);
+        context.intentPrepared(intentId);
+    }
+
+    @When("the customer orders {int} {string} paid with that intent")
+    public void ordersPaidWithThatIntent(int quantity, String product) {
+        placeOrder(List.of(line(product, quantity)), context.preparedIntentId());
     }
 
     @Then("the order is {word}")

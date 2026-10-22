@@ -5,6 +5,7 @@ import com.daniellaera.sagae2e.support.KafkaTraffic.Message;
 import com.daniellaera.sagae2e.support.SagaEnvironment;
 import io.cucumber.java.en.Then;
 
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 public class AuditSteps {
+
+    // The audit events are sent asynchronously: how long to keep checking that no further one shows up
+    private static final Duration AUDIT_GRACE = Duration.ofSeconds(3);
 
     private final ScenarioContext context;
     private final KafkaTraffic kafka = SagaEnvironment.get().kafka();
@@ -49,6 +53,21 @@ public class AuditSteps {
                     .allSatisfy(message -> assertThat(message.json().path("entityId").asString()).isEqualTo(orderId));
         });
         assertThat(kafka.messages(AUDIT_TOPIC)).extracting(Message::partition).containsOnly(0);
+    }
+
+    @Then("{word} is audited exactly once for the order")
+    public void isAuditedExactlyOnceForTheOrder(String eventType) {
+        String orderId = String.valueOf(context.orderId());
+        await().untilAsserted(() -> assertThat(auditEvents(eventType, orderId)).isNotEmpty());
+        await().during(AUDIT_GRACE).atMost(AUDIT_GRACE.plusSeconds(10))
+                .untilAsserted(() -> assertThat(auditEvents(eventType, orderId)).hasSize(1));
+    }
+
+    private List<Message> auditEvents(String eventType, String entityId) {
+        return kafka.messages(AUDIT_TOPIC).stream()
+                .filter(message -> message.json().path("eventType").asString().equals(eventType))
+                .filter(message -> message.json().path("entityId").asString().equals(entityId))
+                .toList();
     }
 
     private boolean concernsTheOrder(Message message, String orderId) {
