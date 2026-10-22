@@ -1,11 +1,18 @@
 package com.daniellaera.orderservice.contract;
 
-import com.daniellaera.orderservice.audit.AuditPublisher;
-import com.daniellaera.orderservice.dto.OrderEvent;
-import com.daniellaera.orderservice.dto.OrderItemEvent;
+import com.daniellaera.orderservice.adapter.out.messaging.KafkaAuditTrail;
+import com.daniellaera.orderservice.adapter.out.messaging.KafkaOrderEventSender;
+import com.daniellaera.orderservice.adapter.out.messaging.OrderEvent;
+import com.daniellaera.orderservice.adapter.out.messaging.OrderItemEvent;
+import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxEventJpaEntity;
+import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxEventJpaRepository;
+import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxOrderEventPublisher;
+import com.daniellaera.orderservice.domain.model.Order;
+import com.daniellaera.orderservice.domain.model.OrderItem;
+import com.daniellaera.orderservice.domain.model.OrderStatus;
+import com.daniellaera.orderservice.domain.port.in.PaymentResult;
 import com.daniellaera.orderservice.dto.OrderStatusUpdate;
 import com.daniellaera.orderservice.dto.PaymentEvent;
-import com.daniellaera.orderservice.producer.OrderProducer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -21,6 +28,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +66,7 @@ class EventContractTest {
 
     @Test
     void orderEvent_multiItemWithLegacyFields_isSentToOrdersTopicWithoutKey() throws Exception {
-        new OrderProducer(kafkaTemplate, objectMapper).sendOrderEvent(multiItemOrderEvent());
+        new KafkaOrderEventSender(kafkaTemplate, objectMapper).send(multiItemOrderEvent());
 
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
         verify(kafkaTemplate).send(eq("orders-topic"), message.capture());
@@ -67,6 +75,19 @@ class EventContractTest {
         String expected = fixture("order-event.json");
         JSONAssert.assertEquals(expected, message.getValue(), JSONCompareMode.STRICT);
         assertThat(message.getValue()).isEqualTo(compact(expected));
+    }
+
+    @Test
+    void orderEvent_outboxPayload_isTheOrderEventOfThePlacedOrder() {
+        OutboxEventJpaRepository outboxRepository = mock(OutboxEventJpaRepository.class);
+
+        new OutboxOrderEventPublisher(outboxRepository, objectMapper).orderPlaced(placedOrder(OrderStatus.PENDING));
+
+        ArgumentCaptor<OutboxEventJpaEntity> row = ArgumentCaptor.forClass(OutboxEventJpaEntity.class);
+        verify(outboxRepository).save(row.capture());
+        assertThat(row.getValue().getEventType()).isEqualTo("ORDER_CREATED");
+        assertThat(row.getValue().getAggregateId()).isEqualTo(42L);
+        assertThat(row.getValue().getPayload()).isEqualTo(compact(fixture("order-event.json")));
     }
 
     @Test
@@ -105,8 +126,7 @@ class EventContractTest {
 
     @Test
     void auditOrderCreated_payloadIsTheOrderEvent() throws Exception {
-        new AuditPublisher(kafkaTemplate, objectMapper)
-                .publish("ORDER_CREATED", "user@test.com", "ORDER", "42", multiItemOrderEvent());
+        new KafkaAuditTrail(kafkaTemplate, objectMapper).orderPlaced(placedOrder(OrderStatus.PENDING));
 
         String message = sentAuditMessage();
         JSONAssert.assertEquals(fixture("audit-order-created.json"), message, IGNORE_TIMESTAMP);
@@ -116,9 +136,10 @@ class EventContractTest {
     @Test
     void auditOrderConfirmed_payloadIsThePaymentEventAsRead() throws Exception {
         PaymentEvent event = objectMapper.readValue(fixture("payment-event-multi-item.json"), PaymentEvent.class);
+        PaymentResult result = new PaymentResult(event.orderId(), event.productName(), event.quantity(),
+                event.status(), event.price(), event.totalAmount(), event.userEmail());
 
-        new AuditPublisher(kafkaTemplate, objectMapper)
-                .publish("ORDER_CONFIRMED", "user@test.com", "ORDER", "42", event);
+        new KafkaAuditTrail(kafkaTemplate, objectMapper).paymentResultApplied(placedOrder(OrderStatus.CONFIRMED), result);
 
         String message = sentAuditMessage();
         JSONAssert.assertEquals(fixture("audit-order-confirmed.json"), message, IGNORE_TIMESTAMP);
@@ -138,6 +159,14 @@ class EventContractTest {
 
     private String payloadOf(String auditMessage) {
         return (String) objectMapper.readValue(auditMessage, Map.class).get("payload");
+    }
+
+    // The domain order whose OrderEvent is the order-event.json fixture
+    private static Order placedOrder(OrderStatus status) {
+        return Order.restore(42L, "user@test.com", "pi_3QxYz123", status, new BigDecimal("1399.79"),
+                LocalDateTime.of(2026, 10, 22, 10, 0), "MacBook Pro", 1, new BigDecimal("1299.99"), List.of(
+                        new OrderItem(1L, "MacBook Pro", 1, new BigDecimal("1299.99"), new BigDecimal("1299.99")),
+                        new OrderItem(2L, "USB-C Hub", 2, new BigDecimal("49.90"), new BigDecimal("99.80"))));
     }
 
     private static OrderEvent multiItemOrderEvent() {

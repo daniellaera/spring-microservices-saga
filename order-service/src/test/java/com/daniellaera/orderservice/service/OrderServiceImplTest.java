@@ -1,18 +1,15 @@
 package com.daniellaera.orderservice.service;
 
-import com.daniellaera.orderservice.audit.AuditPublisher;
 import com.daniellaera.orderservice.dto.OrderDTO;
-import com.daniellaera.orderservice.dto.OrderEvent;
 import com.daniellaera.orderservice.dto.OrderItemRequest;
 import com.daniellaera.orderservice.dto.OrderRequest;
 import com.daniellaera.orderservice.dto.PagedResponse;
 import com.daniellaera.orderservice.domain.model.OrderStatus;
 import com.daniellaera.orderservice.exception.ResourceNotFoundException;
 import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaEntity;
-import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxEventJpaEntity;
-import com.daniellaera.orderservice.producer.OrderProducer;
 import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaRepository;
-import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxEventJpaRepository;
+import com.daniellaera.orderservice.domain.port.out.AuditTrail;
+import com.daniellaera.orderservice.domain.port.out.OrderEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,7 +18,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
-import tools.jackson.databind.ObjectMapper;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -45,16 +41,10 @@ class OrderServiceImplTest {
     private OrderJpaRepository orderRepository;
 
     @Mock
-    private OutboxEventJpaRepository outboxEventRepository;
+    private OrderEventPublisher orderEventPublisher;
 
     @Mock
-    private OrderProducer orderProducer;
-
-    @Mock
-    private ObjectMapper objectMapper;
-
-    @Mock
-    private AuditPublisher auditPublisher;
+    private AuditTrail auditTrail;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -126,25 +116,20 @@ class OrderServiceImplTest {
     void createOrder_shouldSaveAndPublishToOutbox() throws Exception {
         OrderRequest request = new OrderRequest("MacBook Pro", 1, BigDecimal.valueOf(1299.99), null, null);
         when(orderRepository.save(any(OrderJpaEntity.class))).thenReturn(order);
-        when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
-        when(outboxEventRepository.save(any(OutboxEventJpaEntity.class))).thenReturn(new OutboxEventJpaEntity());
 
         OrderDTO result = orderService.createOrder(request, "user@test.com");
 
         assertThat(result.productName()).isEqualTo("MacBook Pro");
         assertThat(result.status()).isEqualTo(OrderStatus.PENDING);
         verify(orderRepository, times(1)).save(any(OrderJpaEntity.class));
-        verify(outboxEventRepository, times(1)).save(any(OutboxEventJpaEntity.class));
-        verifyNoInteractions(orderProducer);
-        verify(auditPublisher).publish(eq("ORDER_CREATED"), any(), any(), any(), any());
+        verify(orderEventPublisher, times(1)).orderPlaced(any());
+        verify(auditTrail).orderPlaced(any());
     }
 
     @Test
     void createOrder_shouldSetUserEmail() throws Exception {
         OrderRequest request = new OrderRequest("iPhone", 1, BigDecimal.valueOf(799.99), null, null);
         when(orderRepository.save(any(OrderJpaEntity.class))).thenReturn(order);
-        when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
-        when(outboxEventRepository.save(any(OutboxEventJpaEntity.class))).thenReturn(new OutboxEventJpaEntity());
 
         OrderDTO result = orderService.createOrder(request, "user@test.com");
 
@@ -159,8 +144,6 @@ class OrderServiceImplTest {
                 new OrderItemRequest("Case", 3, BigDecimal.valueOf(19.99))
         ));
         when(orderRepository.save(any(OrderJpaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
-        when(outboxEventRepository.save(any(OutboxEventJpaEntity.class))).thenReturn(new OutboxEventJpaEntity());
 
         OrderDTO result = orderService.createOrder(request, "user@test.com");
 
@@ -179,8 +162,6 @@ class OrderServiceImplTest {
         ));
         ArgumentCaptor<OrderJpaEntity> orderCaptor = ArgumentCaptor.forClass(OrderJpaEntity.class);
         when(orderRepository.save(orderCaptor.capture())).thenAnswer(inv -> inv.getArgument(0));
-        when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
-        when(outboxEventRepository.save(any(OutboxEventJpaEntity.class))).thenReturn(new OutboxEventJpaEntity());
 
         orderService.createOrder(request, "user@test.com");
 
@@ -195,14 +176,12 @@ class OrderServiceImplTest {
     void createOrder_shouldSaveOutboxEventAfterOrderInSameCreateOrderCall() throws Exception {
         OrderRequest request = new OrderRequest("MacBook Pro", 1, BigDecimal.valueOf(1299.99), null, null);
         when(orderRepository.save(any(OrderJpaEntity.class))).thenReturn(order);
-        when(objectMapper.writeValueAsString(any(OrderEvent.class))).thenReturn("{\"orderId\":1}");
-        when(outboxEventRepository.save(any(OutboxEventJpaEntity.class))).thenReturn(new OutboxEventJpaEntity());
 
         orderService.createOrder(request, "user@test.com");
 
-        var inOrder = inOrder(orderRepository, outboxEventRepository);
+        var inOrder = inOrder(orderRepository, orderEventPublisher);
         inOrder.verify(orderRepository).save(any(OrderJpaEntity.class));
-        inOrder.verify(outboxEventRepository).save(any(OutboxEventJpaEntity.class));
+        inOrder.verify(orderEventPublisher).orderPlaced(any());
     }
 
     @Test
@@ -213,7 +192,7 @@ class OrderServiceImplTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("at least one item");
 
-        verifyNoInteractions(orderRepository, outboxEventRepository);
+        verifyNoInteractions(orderRepository, orderEventPublisher);
     }
 
     @Test

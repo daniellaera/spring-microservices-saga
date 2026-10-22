@@ -1,10 +1,12 @@
 package com.daniellaera.orderservice.consumer;
 
-import com.daniellaera.orderservice.audit.AuditPublisher;
 import com.daniellaera.orderservice.dto.OrderStatusUpdate;
 import com.daniellaera.orderservice.dto.PaymentEvent;
 import com.daniellaera.orderservice.domain.model.OrderStatus;
+import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaMapper;
 import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaRepository;
+import com.daniellaera.orderservice.domain.port.in.PaymentResult;
+import com.daniellaera.orderservice.domain.port.out.AuditTrail;
 import com.daniellaera.orderservice.sse.SseEmitterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +23,7 @@ public class OrderConsumer {
     private final OrderJpaRepository orderRepository;
     private final ObjectMapper objectMapper;
     private final SseEmitterRegistry sseEmitterRegistry;
-    private final AuditPublisher auditPublisher;
+    private final AuditTrail auditTrail;
 
     @KafkaListener(topics = "payment-topic", groupId = "order-group")
     public void handlePaymentEvent(String message) {
@@ -37,9 +39,9 @@ public class OrderConsumer {
                 orderRepository.save(order);
                 log.info("=== Order: status updated to {} for orderId {}", order.getStatus(), order.getId());
 
-                auditPublisher.publish(
-                        order.getStatus() == OrderStatus.CONFIRMED ? "ORDER_CONFIRMED" : "ORDER_CANCELLED",
-                        order.getUserEmail(), "ORDER", String.valueOf(order.getId()), event);
+                auditTrail.paymentResultApplied(OrderJpaMapper.toDomain(order), new PaymentResult(
+                        event.orderId(), event.productName(), event.quantity(), event.status(),
+                        event.price(), event.totalAmount(), event.userEmail()));
 
                 try {
                     OrderStatusUpdate update = new OrderStatusUpdate(

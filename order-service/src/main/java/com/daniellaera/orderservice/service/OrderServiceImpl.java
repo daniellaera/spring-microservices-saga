@@ -1,9 +1,7 @@
 package com.daniellaera.orderservice.service;
 
 import com.daniellaera.orderservice.dto.OrderDTO;
-import com.daniellaera.orderservice.dto.OrderEvent;
 import com.daniellaera.orderservice.dto.OrderItemDTO;
-import com.daniellaera.orderservice.dto.OrderItemEvent;
 import com.daniellaera.orderservice.dto.OrderItemRequest;
 import com.daniellaera.orderservice.dto.OrderRequest;
 import com.daniellaera.orderservice.dto.PagedResponse;
@@ -11,26 +9,23 @@ import com.daniellaera.orderservice.domain.model.OrderStatus;
 import com.daniellaera.orderservice.exception.ResourceNotFoundException;
 import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaEntity;
 import com.daniellaera.orderservice.adapter.out.persistence.OrderItemJpaEntity;
-import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxEventJpaEntity;
-import com.daniellaera.orderservice.audit.AuditPublisher;
+import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaMapper;
+import com.daniellaera.orderservice.domain.model.Order;
+import com.daniellaera.orderservice.domain.port.out.AuditTrail;
+import com.daniellaera.orderservice.domain.port.out.OrderEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import com.daniellaera.orderservice.producer.OrderProducer;
 import com.daniellaera.orderservice.adapter.out.persistence.OrderJpaRepository;
-import com.daniellaera.orderservice.adapter.out.messaging.outbox.OutboxEventJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
-import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -39,10 +34,8 @@ import java.util.List;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderJpaRepository orderRepository;
-    private final OutboxEventJpaRepository outboxEventRepository;
-    private final OrderProducer orderProducer;
-    private final ObjectMapper objectMapper;
-    private final AuditPublisher auditPublisher;
+    private final OrderEventPublisher orderEventPublisher;
+    private final AuditTrail auditTrail;
 
     @Override
     @Transactional
@@ -82,47 +75,11 @@ public class OrderServiceImpl implements OrderService {
 
         OrderJpaEntity saved = orderRepository.save(order);
 
-        List<OrderItemEvent> itemEvents = saved.getItems().stream()
-                .map(i -> new OrderItemEvent(i.getProductName(), i.getQuantity(), i.getPrice(), i.getTotalAmount()))
-                .toList();
-
-        OrderEvent orderEvent = new OrderEvent(saved.getId(), saved.getProductName(), saved.getQuantity(),
-                saved.getPrice(), saved.getTotalAmount(), saved.getUserEmail(), saved.getPaymentIntentId(), itemEvents);
-
-        try {
-            OutboxEventJpaEntity outboxEvent = new OutboxEventJpaEntity();
-            outboxEvent.setAggregateId(saved.getId());
-            outboxEvent.setEventType("ORDER_CREATED");
-            outboxEvent.setPayload(objectMapper.writeValueAsString(orderEvent));
-            outboxEventRepository.save(outboxEvent);
-        } catch (Exception e) {
-            log.error("=== Outbox: failed to persist outbox event for orderId {}: {}", saved.getId(), e.getMessage());
-            throw new RuntimeException("Failed to save outbox event", e);
-        }
-
-        auditPublisher.publish("ORDER_CREATED", saved.getUserEmail(), "ORDER",
-                String.valueOf(saved.getId()), orderEvent);
+        Order placed = OrderJpaMapper.toDomain(saved);
+        orderEventPublisher.orderPlaced(placed);
+        auditTrail.orderPlaced(placed);
 
         return toDTO(saved);
-    }
-
-    @Scheduled(fixedDelay = 5000)
-    @Transactional
-    public void publishOutboxEvents() {
-        List<OutboxEventJpaEntity> unpublished = outboxEventRepository.findByPublishedFalseOrderByCreatedAtAsc();
-
-        for (OutboxEventJpaEntity event : unpublished) {
-            try {
-                OrderEvent orderEvent = objectMapper.readValue(event.getPayload(), OrderEvent.class);
-                orderProducer.sendOrderEvent(orderEvent);
-                event.setPublished(true);
-                event.setPublishedAt(Instant.now());
-                outboxEventRepository.save(event);
-                log.info("=== Outbox: published event for orderId: {}", event.getAggregateId());
-            } catch (Exception e) {
-                log.error("=== Outbox: failed to publish event {}: {}", event.getId(), e.getMessage());
-            }
-        }
     }
 
     @Override
