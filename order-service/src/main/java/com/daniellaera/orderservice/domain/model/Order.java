@@ -53,9 +53,18 @@ public class Order {
                 productName, quantity, price, items);
     }
 
-    // No transition guard: a confirmed order can still be cancelled and vice versa (current behaviour)
-    public void applyPaymentResult(boolean succeeded) {
+    /**
+     * Confirms or cancels a PENDING order. An order that is already CONFIRMED or CANCELLED keeps its status: a
+     * redelivered or replayed payment result must not flip it.
+     *
+     * @return true if the status changed, false if the order was no longer PENDING
+     */
+    public boolean applyPaymentResult(boolean succeeded) {
+        if (status != OrderStatus.PENDING) {
+            return false;
+        }
         status = succeeded ? OrderStatus.CONFIRMED : OrderStatus.CANCELLED;
+        return true;
     }
 
     public void ensureReadableBy(String requesterEmail, boolean admin) {

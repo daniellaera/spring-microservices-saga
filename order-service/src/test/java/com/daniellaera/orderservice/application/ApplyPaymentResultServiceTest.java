@@ -92,6 +92,45 @@ class ApplyPaymentResultServiceTest {
     }
 
     @Test
+    void redeliveredResult_forAConfirmedOrder_isSkippedWithoutSaveAuditOrNotify() {
+        long orderId = placeOrder("user@test.com");
+        service.applyPaymentResult(payment(orderId, "SUCCESS"));
+        int savesBefore = repository.saved().size();
+
+        service.applyPaymentResult(payment(orderId, "SUCCESS"));
+
+        assertThat(repository.findById(orderId).orElseThrow().status()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(repository.saved()).hasSize(savesBefore);
+        assertThat(auditTrail.paymentResults()).hasSize(1);
+        assertThat(notifier.notified()).hasSize(1);
+    }
+
+    @Test
+    void failureAfterConfirmation_doesNotCancelTheOrder() {
+        long orderId = placeOrder("user@test.com");
+        service.applyPaymentResult(payment(orderId, "SUCCESS"));
+
+        service.applyPaymentResult(payment(orderId, "FAILED"));
+
+        assertThat(repository.findById(orderId).orElseThrow().status()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(auditTrail.paymentResults()).singleElement()
+                .satisfies(audit -> assertThat(audit.order().status()).isEqualTo(OrderStatus.CONFIRMED));
+        assertThat(notifier.notified()).hasSize(1);
+    }
+
+    @Test
+    void successAfterCancellation_doesNotConfirmTheOrder() {
+        long orderId = placeOrder("user@test.com");
+        service.applyPaymentResult(payment(orderId, "FAILED"));
+
+        service.applyPaymentResult(payment(orderId, "SUCCESS"));
+
+        assertThat(repository.findById(orderId).orElseThrow().status()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(auditTrail.paymentResults()).hasSize(1);
+        assertThat(notifier.notified()).hasSize(1);
+    }
+
+    @Test
     void isNotTransactional() throws NoSuchMethodException {
         assertThat(ApplyPaymentResultService.class.isAnnotationPresent(Transactional.class)).isFalse();
         assertThat(ApplyPaymentResultService.class.getMethod("applyPaymentResult", PaymentResult.class)
