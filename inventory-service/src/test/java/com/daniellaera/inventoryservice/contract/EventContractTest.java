@@ -1,5 +1,6 @@
 package com.daniellaera.inventoryservice.contract;
 
+import com.daniellaera.inventoryservice.NoCachingConfiguration;
 import com.daniellaera.inventoryservice.audit.AuditPublisher;
 import com.daniellaera.inventoryservice.consumer.InventoryConsumer;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
@@ -22,10 +23,7 @@ import org.skyscreamer.jsonassert.JSONCompareMode;
 import org.skyscreamer.jsonassert.comparator.CustomComparator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.support.NoOpCacheManager;
-import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.SimpleTransactionStatus;
@@ -61,20 +59,12 @@ import static org.mockito.Mockito.*;
  * compared as text.
  */
 @JsonTest
+@Import(NoCachingConfiguration.class)
 class EventContractTest {
 
     // Envelope timestamps come from LocalDateTime.now()
     private static final CustomComparator IGNORE_TIMESTAMP = new CustomComparator(JSONCompareMode.STRICT,
             new Customization("timestamp", (expected, actual) -> true));
-
-    // @EnableCaching on the application class needs a CacheManager, which the JSON slice does not configure
-    @TestConfiguration(proxyBeanMethods = false)
-    static class NoCaching {
-        @Bean
-        CacheManager cacheManager() {
-            return new NoOpCacheManager();
-        }
-    }
 
     private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 1, 15, 9, 30, 0, 123456000);
 
