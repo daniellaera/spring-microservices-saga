@@ -11,7 +11,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Deliberately not transactional: the status update commits on its own before the audit event and the
- * SSE push, so the UI never hears about a status that is not committed yet.
+ * SSE push, so the UI never hears about a status that is not committed yet. Only a PENDING order changes:
+ * a result for an order that is already CONFIRMED or CANCELLED (a redelivery, or payment-service replaying
+ * a stored outcome) is logged and skipped, with no save, audit or SSE push.
  */
 public class ApplyPaymentResultService implements ApplyPaymentResultUseCase {
 
@@ -31,7 +33,11 @@ public class ApplyPaymentResultService implements ApplyPaymentResultUseCase {
     @Override
     public void applyPaymentResult(PaymentResult result) {
         orderRepository.findById(result.orderId()).ifPresent(order -> {
-            order.applyPaymentResult(result.succeeded());
+            if (!order.applyPaymentResult(result.succeeded())) {
+                log.info("=== Order: orderId {} is already {} — payment result {} ignored",
+                        order.id(), order.status(), result.status());
+                return;
+            }
             Order saved = orderRepository.save(order);
             log.info("=== Order: status updated to {} for orderId {}", saved.status(), saved.id());
 

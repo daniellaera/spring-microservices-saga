@@ -1,5 +1,6 @@
 package com.daniellaera.paymentservice.adapter.out.stripe;
 
+import com.daniellaera.paymentservice.domain.model.IntentVerification;
 import com.daniellaera.paymentservice.domain.model.PaymentGatewayException;
 import com.daniellaera.paymentservice.domain.port.in.CreatedPaymentIntent;
 import com.daniellaera.paymentservice.domain.port.out.PaymentGateway;
@@ -8,6 +9,8 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+
+import java.util.Optional;
 
 /**
  * Stripe through its static SDK API (the API key is global, see StripeApiKeyInitializer). The only place, with
@@ -40,14 +43,15 @@ public class StripePaymentGateway implements PaymentGateway {
     }
 
     @Override
-    public boolean isSucceeded(String intentId) {
+    public Optional<IntentVerification> verifyIntent(String intentId) {
         try {
             PaymentIntent intent = PaymentIntent.retrieve(intentId);
-            log.info("=== Stripe: PaymentIntent {} status: {}", intentId, intent.getStatus());
-            return "succeeded".equals(intent.getStatus());
+            log.info("=== Stripe: PaymentIntent {} status: {} amount: {} {}", intentId, intent.getStatus(),
+                    intent.getAmount(), intent.getCurrency());
+            return Optional.of(new IntentVerification(intent.getStatus(), intent.getAmount(), intent.getCurrency()));
         } catch (StripeException e) {
             log.error("=== Stripe: failed to confirm payment: {}", e.getMessage());
-            return false;
+            return Optional.empty();
         }
     }
 }

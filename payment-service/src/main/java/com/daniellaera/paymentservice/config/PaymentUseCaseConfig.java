@@ -8,6 +8,7 @@ import com.daniellaera.paymentservice.domain.port.out.AuditTrail;
 import com.daniellaera.paymentservice.domain.port.out.PaymentGateway;
 import com.daniellaera.paymentservice.domain.port.out.PaymentResultPublisher;
 import com.daniellaera.paymentservice.domain.port.out.TransactionRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -18,9 +19,10 @@ public class PaymentUseCaseConfig {
     public ProcessInventoryResultService processInventoryResultService(PaymentGateway paymentGateway,
                                                                        TransactionRepository transactionRepository,
                                                                        AuditTrail auditTrail,
-                                                                       PaymentResultPublisher paymentResultPublisher) {
+                                                                       PaymentResultPublisher paymentResultPublisher,
+                                                                       @Value("${payment.currency:eur}") String shopCurrency) {
         return new ProcessInventoryResultService(paymentGateway, transactionRepository, auditTrail,
-                paymentResultPublisher);
+                paymentResultPublisher, shopCurrency);
     }
 
     @Bean

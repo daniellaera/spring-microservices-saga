@@ -18,10 +18,28 @@ public class ScenarioContext {
     private final String suffix = UUID.randomUUID().toString().substring(0, 8);
     private final String customerEmail = "customer-" + suffix + "@e2e.test";
     private final Map<String, Product> products = new HashMap<>();
+    private int intents;
+    private String preparedIntentId;
     private Long orderId;
 
     public String uniqueName(String product) {
         return product + " " + suffix;
+    }
+
+    /** A payment intent id no other scenario uses: an intent can pay for one order only. */
+    public String newPaymentIntentId() {
+        return "pi_e2e_" + suffix + "_" + (++intents);
+    }
+
+    public void intentPrepared(String intentId) {
+        preparedIntentId = intentId;
+    }
+
+    public String preparedIntentId() {
+        if (preparedIntentId == null) {
+            throw new IllegalStateException("No payment intent was prepared in this scenario");
+        }
+        return preparedIntentId;
     }
 
     public String customerEmail() {

@@ -32,4 +32,19 @@ class PaymentTransactionTest {
     void record_keepsAMissingAmount() {
         assertThat(PaymentTransaction.record(7L, null, true).totalAmount()).isNull();
     }
+
+    @Test
+    void record_hasNoPayingIntent() {
+        assertThat(PaymentTransaction.record(7L, BigDecimal.TEN, false).paymentIntentId()).isNull();
+    }
+
+    @Test
+    void paid_isASuccessByThatIntent() {
+        PaymentTransaction transaction = PaymentTransaction.paid(42L, new BigDecimal("1399.79"), "pi_42");
+
+        assertThat(transaction.id()).isNull();
+        assertThat(transaction.createdAt()).isNull();
+        assertThat(transaction.status()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(transaction.paymentIntentId()).isEqualTo("pi_42");
+    }
 }

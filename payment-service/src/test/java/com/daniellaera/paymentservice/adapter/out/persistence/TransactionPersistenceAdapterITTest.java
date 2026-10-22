@@ -1,18 +1,23 @@
 package com.daniellaera.paymentservice.adapter.out.persistence;
 
 import com.daniellaera.paymentservice.TestcontainersConfiguration;
+import com.daniellaera.paymentservice.domain.model.PaymentIntentAlreadyUsedException;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.domain.model.PaymentTransaction;
+import com.daniellaera.paymentservice.domain.model.TransactionAlreadyRecordedException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -51,13 +56,61 @@ class TransactionPersistenceAdapterITTest {
     }
 
     @Test
-    void sameOrderTwice_isStoredTwice() {
-        // no uniqueness per order: a redelivered inventory result records a second transaction (current behaviour)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED) // as in prod: no surrounding transaction to abort
+    void sameOrderTwice_isRejected() {
+        // was sameOrderTwice_isStoredTwice: uk_transaction_order_id now allows one transaction per order
         adapter.save(PaymentTransaction.record(9003L, BigDecimal.TEN, true));
-        adapter.save(PaymentTransaction.record(9003L, BigDecimal.TEN, true));
+
+        assertThatThrownBy(() -> adapter.save(PaymentTransaction.record(9003L, BigDecimal.TEN, false)))
+                .isInstanceOf(TransactionAlreadyRecordedException.class)
+                .hasMessage("A transaction is already recorded for order 9003");
+
+        assertThat(adapter.findAll()).filteredOn(t -> t.orderId() == 9003L).singleElement()
+                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.SUCCESS));
+    }
+
+    @Test
+    void findByOrderId_findsTheOrdersTransaction() {
+        PaymentTransaction saved = adapter.save(PaymentTransaction.record(9004L, BigDecimal.ONE, false));
         flushAndClear();
 
-        assertThat(adapter.findAll()).filteredOn(t -> t.orderId() == 9003L).hasSize(2);
+        assertThat(adapter.findByOrderId(9004L)).hasValueSatisfying(t -> {
+            assertThat(t.id()).isEqualTo(saved.id());
+            assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
+        });
+        assertThat(adapter.findByOrderId(424_242L)).isEmpty();
+    }
+
+    @Test
+    void payingIntent_roundTripsAndIsFoundByIntent() {
+        PaymentTransaction saved = adapter.save(PaymentTransaction.paid(9005L, BigDecimal.TEN, "pi_it_9005"));
+        flushAndClear();
+
+        assertThat(adapter.findById(saved.id()).orElseThrow().paymentIntentId()).isEqualTo("pi_it_9005");
+        assertThat(adapter.findByPaymentIntentId("pi_it_9005"))
+                .hasValueSatisfying(t -> assertThat(t.orderId()).isEqualTo(9005L));
+        assertThat(adapter.findByPaymentIntentId("pi_it_unknown")).isEmpty();
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED) // as in prod: no surrounding transaction to abort
+    void sameIntentForAnotherOrder_isRejected() {
+        adapter.save(PaymentTransaction.paid(9006L, BigDecimal.TEN, "pi_it_shared"));
+
+        assertThatThrownBy(() -> adapter.save(PaymentTransaction.paid(9007L, BigDecimal.TEN, "pi_it_shared")))
+                .isInstanceOf(PaymentIntentAlreadyUsedException.class)
+                .hasMessage("Payment intent pi_it_shared already paid for another order");
+        assertThat(adapter.findByOrderId(9007L)).isEmpty();
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void failuresWithoutIntent_neverCollide() {
+        adapter.save(PaymentTransaction.record(9008L, BigDecimal.TEN, false));
+        adapter.save(PaymentTransaction.record(9009L, BigDecimal.TEN, false));
+
+        assertThat(adapter.findByOrderId(9008L)).isPresent();
+        assertThat(adapter.findByOrderId(9009L)).isPresent();
     }
 
     @Test

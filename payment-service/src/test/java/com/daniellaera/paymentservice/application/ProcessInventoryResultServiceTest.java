@@ -25,11 +25,11 @@ class ProcessInventoryResultServiceTest {
     private final RecordingAuditTrail auditTrail = new RecordingAuditTrail(effectLog);
     private final RecordingPaymentResultPublisher publisher = new RecordingPaymentResultPublisher(effectLog);
     private final ProcessInventoryResultService service =
-            new ProcessInventoryResultService(gateway, transactions, auditTrail, publisher);
+            new ProcessInventoryResultService(gateway, transactions, auditTrail, publisher, "eur");
 
     @Test
     void approvedAndIntentSucceeded_recordsAuditsAndPublishesSuccess() {
-        gateway.givenIntent("pi_123", "succeeded");
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
         InventoryResult result = approved(1L, "pi_123", null);
 
         service.process(result);
@@ -50,7 +50,7 @@ class ProcessInventoryResultServiceTest {
 
     @Test
     void approved_itemsArePassedThroughUntouched() {
-        gateway.givenIntent("pi_999", "succeeded");
+        gateway.givenIntent("pi_999", "succeeded", 129_999L, "eur");
         List<InventoryResult.Item> items = List.of(
                 new InventoryResult.Item("MacBook Pro", 1, new BigDecimal("1299.99"), new BigDecimal("1299.99")));
 
@@ -62,7 +62,7 @@ class ProcessInventoryResultServiceTest {
 
     @Test
     void approvedAndIntentNotSucceeded_recordsAndPublishesFailure() {
-        gateway.givenIntent("pi_456", "requires_payment_method");
+        gateway.givenIntent("pi_456", "requires_payment_method", 129_999L, "eur");
 
         service.process(approved(2L, "pi_456", null));
 
@@ -76,7 +76,7 @@ class ProcessInventoryResultServiceTest {
 
     @Test
     void approvedAndGatewayError_isAFailure() {
-        // the fake answers false for an intent it does not know, as the Stripe adapter does on a StripeException
+        // the fake answers nothing for an intent it does not know, as the Stripe adapter does on a StripeException
         service.process(approved(2L, "pi_unknown", null));
 
         assertThat(gateway.verifiedIntents()).containsExactly("pi_unknown");
@@ -85,24 +85,135 @@ class ProcessInventoryResultServiceTest {
     }
 
     @Test
-    void approvedWithoutIntent_isAutoApprovedWithoutAskingTheGateway() {
-        // known bug, kept on purpose (backlog: refuse orders with no intent)
-        service.process(approved(3L, null, null));
+    void approvedAndIntentSucceededForAnotherAmount_isAFailure() {
+        gateway.givenIntent("pi_low", "succeeded", 100L, "eur");
 
-        assertThat(gateway.verifiedIntents()).isEmpty();
+        service.process(approved(2L, "pi_low", null));
+
+        assertThat(gateway.verifiedIntents()).containsExactly("pi_low");
         assertThat(transactions.findAll()).singleElement()
-                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.SUCCESS));
+                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.FAILED));
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void approvedAndIntentSucceededInAnotherCurrency_isAFailure() {
+        gateway.givenIntent("pi_usd", "succeeded", 129_999L, "usd");
+
+        service.process(approved(2L, "pi_usd", null));
+
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void shopCurrency_comesFromConfiguration() {
+        ProcessInventoryResultService chfShop =
+                new ProcessInventoryResultService(gateway, transactions, auditTrail, publisher, "chf");
+        gateway.givenIntent("pi_chf", "succeeded", 129_999L, "chf");
+
+        chfShop.process(approved(2L, "pi_chf", null));
+
         assertThat(publisher.published()).singleElement()
                 .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.SUCCESS));
     }
 
     @Test
-    void approvedWithBlankIntent_isAutoApprovedToo() {
+    void orderTotalWithFractionsOfACent_neverMatches() {
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
+
+        service.process(new InventoryResult(2L, "APPROVED", "MacBook Pro", 1, new BigDecimal("1299.99"),
+                new BigDecimal("1299.995"), "user@test.com", "pi_123", null));
+
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void success_recordsThePayingIntent_failureRecordsNone() {
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
+        gateway.givenIntent("pi_456", "requires_payment_method", 129_999L, "eur");
+
+        service.process(approved(1L, "pi_123", null));
+        service.process(approved(2L, "pi_456", null));
+
+        assertThat(transactions.findAll()).extracting(PaymentTransaction::paymentIntentId)
+                .containsExactly("pi_123", null);
+    }
+
+    @Test
+    void intentThatAlreadyPaidAnotherOrder_isAFailureWithoutAskingTheGateway() {
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
+        service.process(approved(1L, "pi_123", null));
+
+        service.process(approved(2L, "pi_123", null));
+
+        assertThat(gateway.verifiedIntents()).containsExactly("pi_123");
+        assertThat(transactions.findByOrderId(2L)).hasValueSatisfying(t -> {
+            assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
+            assertThat(t.paymentIntentId()).isNull();
+        });
+        assertThat(auditTrail.processed()).extracting(audit -> audit.transaction().status())
+                .containsExactly(PaymentStatus.SUCCESS, PaymentStatus.FAILED);
+        assertThat(publisher.published()).extracting(RecordingPaymentResultPublisher.Published::status)
+                .containsExactly(PaymentStatus.SUCCESS, PaymentStatus.FAILED);
+    }
+
+    @Test
+    void intentThatFailedForAnotherOrder_canStillPayThisOne() {
+        // only a paying intent is recorded: a declined attempt does not burn the intent
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
+        service.process(new InventoryResult(1L, "REJECTED", "MacBook Pro", 0, new BigDecimal("1299.99"),
+                new BigDecimal("1299.99"), "user@test.com", "pi_123", null));
+
+        service.process(approved(2L, "pi_123", null));
+
+        assertThat(transactions.findByOrderId(2L)).hasValueSatisfying(
+                t -> assertThat(t.status()).isEqualTo(PaymentStatus.SUCCESS));
+    }
+
+    @Test
+    void concurrentOrderPaidWithTheSameIntent_losesTheRaceAndFails() {
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
+        transactions.insertConcurrentlyBeforeNextSave(PaymentTransaction.paid(9L, new BigDecimal("1299.99"), "pi_123"));
+
+        service.process(approved(2L, "pi_123", null));
+
+        assertThat(transactions.findByOrderId(2L)).hasValueSatisfying(t -> {
+            assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
+            assertThat(t.paymentIntentId()).isNull();
+        });
+        assertThat(auditTrail.processed()).singleElement()
+                .satisfies(audit -> assertThat(audit.transaction().status()).isEqualTo(PaymentStatus.FAILED));
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void approvedWithoutIntent_isAFailureWithoutAskingTheGateway() {
+        // was approvedWithoutIntent_isAutoApprovedWithoutAskingTheGateway: an order without an intent was free
+        service.process(approved(3L, null, null));
+
+        assertThat(gateway.verifiedIntents()).isEmpty();
+        assertThat(transactions.findAll()).singleElement()
+                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.FAILED));
+        assertThat(auditTrail.processed()).singleElement()
+                .satisfies(audit -> assertThat(audit.transaction().status()).isEqualTo(PaymentStatus.FAILED));
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void approvedWithBlankIntent_isAFailureToo() {
+        // was approvedWithBlankIntent_isAutoApprovedToo
         service.process(approved(3L, "  ", null));
 
         assertThat(gateway.verifiedIntents()).isEmpty();
         assertThat(transactions.findAll()).singleElement()
-                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.SUCCESS));
+                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.FAILED));
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
     }
 
     @Test
@@ -121,7 +232,7 @@ class ProcessInventoryResultServiceTest {
 
     @Test
     void effects_happenInOrder_saveThenAuditThenPublish() {
-        gateway.givenIntent("pi_123", "succeeded");
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
 
         service.process(approved(1L, "pi_123", null));
 
@@ -129,24 +240,60 @@ class ProcessInventoryResultServiceTest {
     }
 
     @Test
-    void redelivery_recordsAndPublishesASecondTime_preservedBug() {
-        // no idempotency per order (backlog: fix/saga-integrity)
-        gateway.givenIntent("pi_123", "succeeded");
+    void redelivery_republishesTheStoredOutcomeOnly() {
+        // was redelivery_recordsAndPublishesASecondTime_preservedBug: a redelivery used to record, audit and
+        // publish a second time
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
         InventoryResult result = approved(1L, "pi_123", null);
-
-        service.process(result);
         service.process(result);
 
-        assertThat(transactions.findAll()).extracting(PaymentTransaction::orderId).containsExactly(1L, 1L);
-        assertThat(auditTrail.processed()).hasSize(2);
-        assertThat(publisher.published()).hasSize(2);
+        service.process(result);
+
+        assertThat(gateway.verifiedIntents()).containsExactly("pi_123");
+        assertThat(transactions.findAll()).extracting(PaymentTransaction::orderId).containsExactly(1L);
+        assertThat(auditTrail.processed()).hasSize(1);
+        assertThat(effectLog.effects()).containsExactly(
+                "save SUCCESS", "audit SUCCESS", "publish SUCCESS", "publish SUCCESS");
+        assertThat(publisher.published()).containsExactly(
+                new RecordingPaymentResultPublisher.Published(result, PaymentStatus.SUCCESS),
+                new RecordingPaymentResultPublisher.Published(result, PaymentStatus.SUCCESS));
+    }
+
+    @Test
+    void alreadyRecorded_republishesTheStoredStatusEvenIfTheGatewayNowAnswersDifferently() {
+        // a crash between saving and publishing: the retry publishes what was decided, without asking again
+        transactions.save(PaymentTransaction.record(1L, new BigDecimal("1299.99"), false));
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
+
+        service.process(approved(1L, "pi_123", null));
+
+        assertThat(gateway.verifiedIntents()).isEmpty();
+        assertThat(transactions.findAll()).hasSize(1);
+        assertThat(auditTrail.processed()).isEmpty();
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void concurrentDelivery_losesTheRaceAndRepublishesTheWinnersOutcome() {
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
+        transactions.insertConcurrentlyBeforeNextSave(
+                PaymentTransaction.paid(1L, new BigDecimal("1299.99"), "pi_123"));
+
+        service.process(approved(1L, "pi_123", null));
+
+        assertThat(transactions.findAll()).hasSize(1);
+        assertThat(auditTrail.processed()).isEmpty();
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.SUCCESS));
     }
 
     @Test
     void saveFailure_propagatesBeforeAuditAndPublish() {
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
         transactions.failWith(new IllegalStateException("db down"));
 
-        assertThatThrownBy(() -> service.process(approved(1L, null, null)))
+        assertThatThrownBy(() -> service.process(approved(1L, "pi_123", null)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("db down");
         assertThat(effectLog.effects()).isEmpty();
@@ -154,9 +301,10 @@ class ProcessInventoryResultServiceTest {
 
     @Test
     void publishFailure_propagatesAfterSaveAndAudit() {
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
         publisher.failWith(new IllegalStateException("cannot serialize"));
 
-        assertThatThrownBy(() -> service.process(approved(1L, null, null)))
+        assertThatThrownBy(() -> service.process(approved(1L, "pi_123", null)))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(effectLog.effects()).containsExactly("save SUCCESS", "audit SUCCESS");
     }

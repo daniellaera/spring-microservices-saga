@@ -89,7 +89,7 @@ class OrderTest {
     void applyPaymentResult_success_confirms() {
         Order order = Order.place("user@test.com", null, ITEMS);
 
-        order.applyPaymentResult(true);
+        assertThat(order.applyPaymentResult(true)).isTrue();
 
         assertThat(order.status()).isEqualTo(OrderStatus.CONFIRMED);
     }
@@ -98,19 +98,40 @@ class OrderTest {
     void applyPaymentResult_failure_cancels() {
         Order order = Order.place("user@test.com", null, ITEMS);
 
-        order.applyPaymentResult(false);
+        assertThat(order.applyPaymentResult(false)).isTrue();
 
         assertThat(order.status()).isEqualTo(OrderStatus.CANCELLED);
     }
 
     @Test
-    void applyPaymentResult_hasNoTransitionGuard() {
+    void applyPaymentResult_onlyFromPending_aConfirmedOrderIsNotCancelled() {
+        // was applyPaymentResult_hasNoTransitionGuard: a confirmed order used to be cancelled by a later failure
         Order order = Order.place("user@test.com", null, ITEMS);
-
         order.applyPaymentResult(true);
+
+        assertThat(order.applyPaymentResult(false)).isFalse();
+
+        assertThat(order.status()).isEqualTo(OrderStatus.CONFIRMED);
+    }
+
+    @Test
+    void applyPaymentResult_onlyFromPending_aCancelledOrderIsNotConfirmed() {
+        Order order = Order.place("user@test.com", null, ITEMS);
         order.applyPaymentResult(false);
 
+        assertThat(order.applyPaymentResult(true)).isFalse();
+
         assertThat(order.status()).isEqualTo(OrderStatus.CANCELLED);
+    }
+
+    @Test
+    void applyPaymentResult_onlyFromPending_sameResultTwiceChangesOnce() {
+        Order order = Order.place("user@test.com", null, ITEMS);
+
+        assertThat(order.applyPaymentResult(true)).isTrue();
+        assertThat(order.applyPaymentResult(true)).isFalse();
+
+        assertThat(order.status()).isEqualTo(OrderStatus.CONFIRMED);
     }
 
     @Test

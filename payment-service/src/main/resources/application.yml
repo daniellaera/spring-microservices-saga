@@ -35,6 +35,10 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+# The currency every order is paid in (shop-ui creates its intents in eur); an intent in another one never pays
+payment:
+  currency: eur
+
 management:
   endpoints:
     web:
