@@ -1,4 +1,4 @@
-package com.daniellaera.inventoryservice.dto;
+package com.daniellaera.inventoryservice.adapter.in.messaging;
 
 import java.math.BigDecimal;
 

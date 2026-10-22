@@ -1,6 +1,10 @@
 package com.daniellaera.inventoryservice.contract;
 
 import com.daniellaera.inventoryservice.NoCachingConfiguration;
+import com.daniellaera.inventoryservice.adapter.in.messaging.OrderEvent;
+import com.daniellaera.inventoryservice.adapter.in.messaging.OrderEventListener;
+import com.daniellaera.inventoryservice.adapter.in.messaging.OrderItemEvent;
+import com.daniellaera.inventoryservice.adapter.in.messaging.PaymentEvent;
 import com.daniellaera.inventoryservice.adapter.out.messaging.KafkaAuditPublisher;
 import com.daniellaera.inventoryservice.adapter.out.messaging.KafkaInventoryResultPublisher;
 import com.daniellaera.inventoryservice.adapter.out.messaging.TransactionAwareKafkaAuditTrail;
@@ -9,9 +13,6 @@ import com.daniellaera.inventoryservice.domain.model.Product;
 import com.daniellaera.inventoryservice.domain.model.ReservationDecision;
 import com.daniellaera.inventoryservice.domain.model.StockReservation;
 import com.daniellaera.inventoryservice.domain.port.in.ReserveStockCommand;
-import com.daniellaera.inventoryservice.dto.OrderEvent;
-import com.daniellaera.inventoryservice.dto.OrderItemEvent;
-import com.daniellaera.inventoryservice.dto.PaymentEvent;
 import com.daniellaera.inventoryservice.adapter.in.web.dto.ProductDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,8 +32,10 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -106,16 +109,17 @@ class EventContractTest {
 
     // ─── inventory-topic ─────────────────────────────────────────────────────
 
+    // The command is what the order listener makes of the input fixture, so the whole adapter path is pinned
     @Test
     void inventoryResult_approvedMultiItem_isSentToInventoryTopicWithoutKey() throws Exception {
-        resultPublisher().publish(multiItemCommand(), ReservationDecision.APPROVED);
+        resultPublisher().publish(commandFor("order-event-multi-item.json"), ReservationDecision.APPROVED);
 
         assertInventoryResult("inventory-result-approved-multi-item.json");
     }
 
     @Test
     void inventoryResult_rejectedLegacySingleItem_carriesTheResolvedItemAndQuantityZero() throws Exception {
-        resultPublisher().publish(legacySingleItemCommand(), ReservationDecision.REJECTED);
+        resultPublisher().publish(commandFor("order-event-legacy-single-item.json"), ReservationDecision.REJECTED);
 
         assertInventoryResult("inventory-result-rejected.json");
     }
@@ -124,7 +128,7 @@ class EventContractTest {
 
     @Test
     void auditStockDeducted_payloadIsTheOrderItem() throws Exception {
-        List<OrderLine> lines = multiItemCommand().lines();
+        List<OrderLine> lines = commandFor("order-event-multi-item.json").lines();
 
         auditTrail().stockDeducted(macbook(9), lines.get(0), "user@test.com");
         auditTrail().stockDeducted(usbHub(48), lines.get(1), "user@test.com");
@@ -216,19 +220,14 @@ class EventContractTest {
         return payloadOf(fixture(auditFixture));
     }
 
-    // The command for order-event-multi-item.json
-    private static ReserveStockCommand multiItemCommand() {
-        return new ReserveStockCommand(42L, "MacBook Pro", 1, new BigDecimal("1299.99"), new BigDecimal("1399.79"),
-                "user@test.com", "pi_3QxYz123", List.of(
-                        new OrderLine("MacBook Pro", 1, new BigDecimal("1299.99"), new BigDecimal("1299.99")),
-                        new OrderLine("USB-C Hub", 2, new BigDecimal("49.90"), new BigDecimal("99.80"))));
-    }
-
-    // The command for order-event-legacy-single-item.json: the single line is resolved from the legacy fields
-    private static ReserveStockCommand legacySingleItemCommand() {
-        return new ReserveStockCommand(7L, "Mechanical Keyboard", 2, new BigDecimal("89.50"), new BigDecimal("179.00"),
-                "buyer@test.com", "pi_legacy7", List.of(
-                        new OrderLine("Mechanical Keyboard", 2, new BigDecimal("89.50"), new BigDecimal("179.00"))));
+    private ReserveStockCommand commandFor(String orderEventFixture) {
+        List<ReserveStockCommand> commands = new ArrayList<>();
+        new OrderEventListener(command -> {
+            commands.add(command);
+            return Optional.empty();
+        }, objectMapper).consumeOrder(fixture(orderEventFixture));
+        assertThat(commands).hasSize(1);
+        return commands.get(0);
     }
 
     private static Product macbook(int quantity) {

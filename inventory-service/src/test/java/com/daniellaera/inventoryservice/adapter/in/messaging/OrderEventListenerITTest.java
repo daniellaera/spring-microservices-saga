@@ -1,8 +1,6 @@
-package com.daniellaera.inventoryservice.consumer;
+package com.daniellaera.inventoryservice.adapter.in.messaging;
 
 import com.daniellaera.inventoryservice.TestcontainersConfiguration;
-import com.daniellaera.inventoryservice.dto.OrderEvent;
-import com.daniellaera.inventoryservice.dto.OrderItemEvent;
 import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaEntity;
 import com.daniellaera.inventoryservice.adapter.out.persistence.StockReservationJpaEntity;
 import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaRepository;
@@ -42,10 +40,10 @@ import static org.mockito.Mockito.verify;
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-class InventoryConsumerITTest {
+class OrderEventListenerITTest {
 
     @Autowired
-    private InventoryConsumer inventoryConsumer;
+    private OrderEventListener inventoryConsumer;
 
     @Autowired
     private ProductJpaRepository productRepository;
