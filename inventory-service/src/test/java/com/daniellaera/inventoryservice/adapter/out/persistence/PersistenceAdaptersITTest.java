@@ -13,6 +13,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -73,6 +74,8 @@ class PersistenceAdaptersITTest {
         flushAndClear();
 
         Product loaded = products.findByName("IT Widget").orElseThrow();
+        // as stored: PostgreSQL keeps microseconds, the in-memory value from save() may carry nanoseconds
+        LocalDateTime storedCreatedAt = loaded.createdAt();
         loaded.deduct(3);
         Product updated = products.save(loaded);
         flushAndClear();
@@ -82,7 +85,7 @@ class PersistenceAdaptersITTest {
         assertThat(reloaded.quantity()).isEqualTo(4);
         assertThat(reloaded.name()).isEqualTo("IT Widget");
         assertThat(reloaded.price()).isEqualByComparingTo("12.50");
-        assertThat(reloaded.createdAt()).isEqualTo(saved.createdAt());
+        assertThat(reloaded.createdAt()).isEqualTo(storedCreatedAt);
     }
 
     @Test
