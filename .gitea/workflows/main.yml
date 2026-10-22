@@ -10,7 +10,7 @@ jobs:
   detect-changes:
     name: Detect Changed Services
     runs-on: ubuntu-latest
-    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
     outputs:
       config-server: ${{ steps.filter.outputs.config-server }}
       auth-service: ${{ steps.filter.outputs.auth-service }}
@@ -52,7 +52,7 @@ jobs:
   test-backend:
     name: Test Backend Services
     runs-on: ubuntu-latest
-    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
     needs: detect-changes
     if: |
       needs.detect-changes.outputs.auth-service == 'true' ||
@@ -77,7 +77,7 @@ jobs:
   test-frontend:
     name: Test Frontend
     runs-on: ubuntu-latest
-    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
     needs: detect-changes
     if: needs.detect-changes.outputs.shop-ui == 'true'
     steps:
@@ -91,7 +91,7 @@ jobs:
   build-and-push:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
     needs: [ detect-changes, test-backend, test-frontend ]
     if: always() && !failure() && !cancelled()
     steps:
@@ -248,7 +248,7 @@ jobs:
   deploy:
     name: Deploy to infra-node1
     runs-on: ubuntu-latest
-    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
     needs: [ detect-changes, build-and-push ]
     if: always() && !failure() && !cancelled()
     steps:

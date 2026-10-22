@@ -8,7 +8,7 @@ jobs:
   test-backend:
     name: Test Backend Services
     runs-on: ubuntu-latest
-    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
     steps:
       - uses: actions/checkout@v4
       - name: Run backend tests

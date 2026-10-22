@@ -16,6 +16,7 @@ awk -F, -v min="$MIN" '
   END {
     total = missed + covered
     if (total == 0) { print "No coverage data in report" > "/dev/stderr"; exit 1 }
+    if (covered == 0) { print "No JaCoCo execution data: tests did not run or the agent was not attached" > "/dev/stderr"; exit 1 }
     ratio = covered / total
     printf "Aggregate instruction coverage: %.2f%% (minimum %.2f%%)\n", ratio * 100, min * 100
     if (ratio < min) exit 1
