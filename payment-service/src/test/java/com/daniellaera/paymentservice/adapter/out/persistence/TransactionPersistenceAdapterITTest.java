@@ -1,6 +1,7 @@
 package com.daniellaera.paymentservice.adapter.out.persistence;
 
 import com.daniellaera.paymentservice.TestcontainersConfiguration;
+import com.daniellaera.paymentservice.domain.model.PaymentIntentAlreadyUsedException;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.domain.model.PaymentTransaction;
 import com.daniellaera.paymentservice.domain.model.TransactionAlreadyRecordedException;
@@ -78,6 +79,38 @@ class TransactionPersistenceAdapterITTest {
             assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
         });
         assertThat(adapter.findByOrderId(424_242L)).isEmpty();
+    }
+
+    @Test
+    void payingIntent_roundTripsAndIsFoundByIntent() {
+        PaymentTransaction saved = adapter.save(PaymentTransaction.paid(9005L, BigDecimal.TEN, "pi_it_9005"));
+        flushAndClear();
+
+        assertThat(adapter.findById(saved.id()).orElseThrow().paymentIntentId()).isEqualTo("pi_it_9005");
+        assertThat(adapter.findByPaymentIntentId("pi_it_9005"))
+                .hasValueSatisfying(t -> assertThat(t.orderId()).isEqualTo(9005L));
+        assertThat(adapter.findByPaymentIntentId("pi_it_unknown")).isEmpty();
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED) // as in prod: no surrounding transaction to abort
+    void sameIntentForAnotherOrder_isRejected() {
+        adapter.save(PaymentTransaction.paid(9006L, BigDecimal.TEN, "pi_it_shared"));
+
+        assertThatThrownBy(() -> adapter.save(PaymentTransaction.paid(9007L, BigDecimal.TEN, "pi_it_shared")))
+                .isInstanceOf(PaymentIntentAlreadyUsedException.class)
+                .hasMessage("Payment intent pi_it_shared already paid for another order");
+        assertThat(adapter.findByOrderId(9007L)).isEmpty();
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void failuresWithoutIntent_neverCollide() {
+        adapter.save(PaymentTransaction.record(9008L, BigDecimal.TEN, false));
+        adapter.save(PaymentTransaction.record(9009L, BigDecimal.TEN, false));
+
+        assertThat(adapter.findByOrderId(9008L)).isPresent();
+        assertThat(adapter.findByOrderId(9009L)).isPresent();
     }
 
     @Test

@@ -34,7 +34,7 @@ class PaymentControllerTest {
     private MockMvc mockMvc;
 
     private final PaymentTransaction transaction =
-            new PaymentTransaction(1L, 1L, BigDecimal.valueOf(999.99), PaymentStatus.SUCCESS, null);
+            new PaymentTransaction(1L, 1L, BigDecimal.valueOf(999.99), PaymentStatus.SUCCESS, "pi_1", null);
 
     @BeforeEach
     void setUp() {

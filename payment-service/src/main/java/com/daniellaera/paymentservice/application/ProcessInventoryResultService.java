@@ -1,6 +1,7 @@
 package com.daniellaera.paymentservice.application;
 
 import com.daniellaera.paymentservice.domain.model.IntentVerification;
+import com.daniellaera.paymentservice.domain.model.PaymentIntentAlreadyUsedException;
 import com.daniellaera.paymentservice.domain.model.PaymentTransaction;
 import com.daniellaera.paymentservice.domain.model.TransactionAlreadyRecordedException;
 import com.daniellaera.paymentservice.domain.port.in.InventoryResult;
@@ -24,7 +25,9 @@ import java.util.Optional;
  * Two racing deliveries are settled by the unique constraint: the loser takes the same replay path.
  * <p>
  * An approved order succeeds only when its payment intent succeeded for exactly the order's total, in the shop
- * currency. Without an intent (missing or blank), or on a provider error, it fails.
+ * currency, and only if that intent has not already paid for another order (it then fails without asking the
+ * provider; a concurrent order paid with the same intent loses on the unique constraint and fails too). Without an
+ * intent (missing or blank), or on a provider error, it fails.
  */
 public class ProcessInventoryResultService implements ProcessInventoryResultUseCase {
 
@@ -57,29 +60,45 @@ public class ProcessInventoryResultService implements ProcessInventoryResultUseC
         }
 
         boolean paymentSucceeded = false;
-
-        if (result.approved()) {
-            if (result.hasPaymentIntent()) {
-                paymentSucceeded = verify(result);
-            } else {
-                log.warn("=== Payment: no paymentIntentId for orderId {} — FAILED (an order is never free)",
-                        result.orderId());
-            }
-        } else {
+        if (!result.approved()) {
             log.warn("=== Payment: skipping payment for orderId={} — inventory REJECTED", result.orderId());
+        } else if (!result.hasPaymentIntent()) {
+            log.warn("=== Payment: no paymentIntentId for orderId {} — FAILED (an order is never free)",
+                    result.orderId());
+        } else if (intentPaidAnotherOrder(result)) {
+            log.warn("=== Payment: intent of orderId {} already paid for another order — FAILED", result.orderId());
+        } else {
+            paymentSucceeded = verify(result);
         }
 
-        PaymentTransaction saved;
-        try {
-            saved = transactionRepository.save(
-                    PaymentTransaction.record(result.orderId(), result.totalAmount(), paymentSucceeded));
-        } catch (TransactionAlreadyRecordedException e) {
-            // a concurrent delivery recorded it first
-            replay(result, transactionRepository.findByOrderId(result.orderId()).orElseThrow(() -> e));
+        Optional<PaymentTransaction> saved = record(result, paymentSucceeded
+                ? PaymentTransaction.paid(result.orderId(), result.totalAmount(), result.paymentIntentId())
+                : PaymentTransaction.record(result.orderId(), result.totalAmount(), false));
+        if (saved.isEmpty()) {
             return;
         }
-        auditTrail.paymentProcessed(saved, result.userEmail());
-        paymentResultPublisher.publish(result, saved.status());
+        auditTrail.paymentProcessed(saved.get(), result.userEmail());
+        paymentResultPublisher.publish(result, saved.get().status());
+    }
+
+    /** Saves the transaction; empty when the order turned out to be recorded already and its outcome was replayed. */
+    private Optional<PaymentTransaction> record(InventoryResult result, PaymentTransaction transaction) {
+        try {
+            return Optional.of(transactionRepository.save(transaction));
+        } catch (TransactionAlreadyRecordedException e) {
+            // a concurrent delivery of the same result recorded it first
+            replay(result, transactionRepository.findByOrderId(result.orderId()).orElseThrow(() -> e));
+            return Optional.empty();
+        } catch (PaymentIntentAlreadyUsedException e) {
+            log.warn("=== Payment: intent of orderId {} paid for another order concurrently — FAILED", result.orderId());
+            return record(result, PaymentTransaction.record(result.orderId(), result.totalAmount(), false));
+        }
+    }
+
+    private boolean intentPaidAnotherOrder(InventoryResult result) {
+        return transactionRepository.findByPaymentIntentId(result.paymentIntentId())
+                .filter(paid -> !paid.orderId().equals(result.orderId()))
+                .isPresent();
     }
 
     private boolean verify(InventoryResult result) {

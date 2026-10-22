@@ -1,5 +1,6 @@
 package com.daniellaera.paymentservice.application.fakes;
 
+import com.daniellaera.paymentservice.domain.model.PaymentIntentAlreadyUsedException;
 import com.daniellaera.paymentservice.domain.model.PaymentTransaction;
 import com.daniellaera.paymentservice.domain.model.TransactionAlreadyRecordedException;
 import com.daniellaera.paymentservice.domain.port.out.TransactionRepository;
@@ -9,7 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Behaves like the persistence adapter: inserts only, assigning id and createdAt, at most one per order. */
+/**
+ * Behaves like the persistence adapter: inserts only, assigning id and createdAt, at most one per order and one per
+ * paying intent.
+ */
 public class InMemoryTransactionRepository implements TransactionRepository {
 
     private final List<PaymentTransaction> transactions = new ArrayList<>();
@@ -45,6 +49,9 @@ public class InMemoryTransactionRepository implements TransactionRepository {
         if (findByOrderId(transaction.orderId()).isPresent()) {
             throw new TransactionAlreadyRecordedException(transaction.orderId(), null);
         }
+        if (transaction.paymentIntentId() != null && findByPaymentIntentId(transaction.paymentIntentId()).isPresent()) {
+            throw new PaymentIntentAlreadyUsedException(transaction.paymentIntentId(), null);
+        }
         PaymentTransaction stored = insert(transaction);
         effectLog.add("save " + stored.status());
         return stored;
@@ -53,7 +60,7 @@ public class InMemoryTransactionRepository implements TransactionRepository {
     private PaymentTransaction insert(PaymentTransaction transaction) {
         clock = clock.plusMinutes(1);
         PaymentTransaction stored = new PaymentTransaction(nextId++, transaction.orderId(), transaction.totalAmount(),
-                transaction.status(), clock);
+                transaction.status(), transaction.paymentIntentId(), clock);
         transactions.add(stored);
         return stored;
     }
@@ -61,6 +68,11 @@ public class InMemoryTransactionRepository implements TransactionRepository {
     @Override
     public Optional<PaymentTransaction> findByOrderId(long orderId) {
         return transactions.stream().filter(t -> t.orderId() == orderId).findFirst();
+    }
+
+    @Override
+    public Optional<PaymentTransaction> findByPaymentIntentId(String paymentIntentId) {
+        return transactions.stream().filter(t -> paymentIntentId.equals(t.paymentIntentId())).findFirst();
     }
 
     @Override

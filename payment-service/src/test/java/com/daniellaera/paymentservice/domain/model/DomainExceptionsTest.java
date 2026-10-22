@@ -29,4 +29,10 @@ class DomainExceptionsTest {
                 .hasMessage("A transaction is already recorded for order 42")
                 .hasCause(cause);
     }
+
+    @Test
+    void paymentIntentAlreadyUsed_namesTheIntent() {
+        assertThat(new PaymentIntentAlreadyUsedException("pi_42", null))
+                .hasMessage("Payment intent pi_42 already paid for another order");
+    }
 }

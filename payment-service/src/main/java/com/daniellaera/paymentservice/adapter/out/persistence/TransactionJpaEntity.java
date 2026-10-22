@@ -24,4 +24,6 @@ public class TransactionJpaEntity extends BaseEntity {
 
     @Column(precision = 10, scale = 2)
     private BigDecimal totalAmount;
+
+    private String paymentIntentId;
 }
