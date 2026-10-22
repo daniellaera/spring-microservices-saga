@@ -76,6 +76,7 @@ public final class SagaEnvironment {
             .waitingFor(Wait.forHttp("/__admin/health").forPort(8080).forStatusCode(200));
 
     private final Map<String, GenericContainer<?>> services = new LinkedHashMap<>();
+    private WireMockStubs stubs;
     private KafkaTraffic kafkaTraffic;
 
     private SagaEnvironment() {
@@ -93,7 +94,7 @@ public final class SagaEnvironment {
     private void start() {
         long started = System.nanoTime();
         Startables.deepStart(postgres, kafka, redis, wiremock).join();
-        WireMockStubs.install(wiremock.getHost(), wiremock.getMappedPort(8080));
+        stubs = WireMockStubs.install(wiremock.getHost(), wiremock.getMappedPort(8080));
 
         services.put("order-service", service("order-service", 8081, Map.of()));
         services.put("inventory-service", service("inventory-service", 8082, Map.of("REDIS_HOST", "redis")));
@@ -182,6 +183,10 @@ public final class SagaEnvironment {
     private String baseUrl(String service, int port) {
         GenericContainer<?> container = services.get(service);
         return "http://" + container.getHost() + ":" + container.getMappedPort(port);
+    }
+
+    public WireMockStubs stubs() {
+        return stubs;
     }
 
     public KafkaTraffic kafka() {

@@ -8,6 +8,7 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import tools.jackson.databind.JsonNode;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,8 +16,11 @@ import static org.awaitility.Awaitility.await;
 
 public class OrderSteps {
 
+    private static final String SHOP_CURRENCY = "eur";
+
     private final ScenarioContext context;
     private final ShopApi shop = new ShopApi(SagaEnvironment.get());
+    private final WireMockStubs stripe = SagaEnvironment.get().stubs();
 
     public OrderSteps(ScenarioContext context) {
         this.context = context;
@@ -24,19 +28,18 @@ public class OrderSteps {
 
     @When("the customer orders {int} {string} paid with an accepted card")
     public void ordersPaidWithAnAcceptedCard(int quantity, String product) {
-        placeOrder(List.of(line(product, quantity)), WireMockStubs.ACCEPTED_INTENT);
+        payWithCard(List.of(line(product, quantity)), "succeeded");
     }
 
     @When("the customer orders {int} {string} paid with a declined card")
     public void ordersPaidWithADeclinedCard(int quantity, String product) {
-        placeOrder(List.of(line(product, quantity)), WireMockStubs.DECLINED_INTENT);
+        payWithCard(List.of(line(product, quantity)), "requires_payment_method");
     }
 
     @When("the customer orders {int} {string} and {int} {string} paid with an accepted card")
     public void ordersTwoProductsPaidWithAnAcceptedCard(int firstQuantity, String firstProduct,
                                                         int secondQuantity, String secondProduct) {
-        placeOrder(List.of(line(firstProduct, firstQuantity), line(secondProduct, secondQuantity)),
-                WireMockStubs.ACCEPTED_INTENT);
+        payWithCard(List.of(line(firstProduct, firstQuantity), line(secondProduct, secondQuantity)), "succeeded");
     }
 
     @Then("the order is {word}")
@@ -57,6 +60,23 @@ public class OrderSteps {
     private OrderLine line(String product, int quantity) {
         ScenarioContext.Product known = context.product(product);
         return new OrderLine(known.name(), quantity, known.price());
+    }
+
+    // The card's intent is stubbed for exactly the order total in the shop currency, as shop-ui creates it
+    private void payWithCard(List<OrderLine> lines, String intentStatus) {
+        String intentId = context.newPaymentIntentId();
+        stripe.stubPaymentIntent(intentId, intentStatus, minorUnits(total(lines)), SHOP_CURRENCY);
+        placeOrder(lines, intentId);
+    }
+
+    private static BigDecimal total(List<OrderLine> lines) {
+        return lines.stream()
+                .map(line -> line.price().multiply(BigDecimal.valueOf(line.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private static long minorUnits(BigDecimal amount) {
+        return amount.setScale(2).movePointRight(2).longValueExact();
     }
 
     private void placeOrder(List<OrderLine> lines, String paymentIntentId) {
