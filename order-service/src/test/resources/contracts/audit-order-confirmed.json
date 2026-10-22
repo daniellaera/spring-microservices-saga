@@ -1,0 +1,9 @@
+{
+  "entityType": "ORDER",
+  "eventType": "ORDER_CONFIRMED",
+  "payload": "{\"orderId\":42,\"productName\":\"MacBook Pro\",\"quantity\":1,\"status\":\"SUCCESS\",\"price\":1299.99,\"totalAmount\":1399.79,\"userEmail\":\"user@test.com\"}",
+  "serviceName": "order-service",
+  "timestamp": "IGNORED",
+  "userEmail": "user@test.com",
+  "entityId": "42"
+}
