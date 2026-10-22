@@ -1,4 +1,4 @@
-package com.daniellaera.inventoryservice.dto;
+package com.daniellaera.inventoryservice.adapter.in.web.dto;
 
 import java.io.Serializable;
 import java.math.BigDecimal;

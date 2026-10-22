@@ -1,6 +1,8 @@
-package com.daniellaera.inventoryservice.exception;
+package com.daniellaera.inventoryservice.adapter.in.web;
 
-import com.daniellaera.inventoryservice.dto.ErrorResponse;
+import com.daniellaera.inventoryservice.adapter.in.web.dto.ErrorResponse;
+import com.daniellaera.inventoryservice.domain.model.ProductAlreadyExistsException;
+import com.daniellaera.inventoryservice.domain.model.ProductNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,8 +30,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(response);
     }
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(ProductNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(404, ex.getMessage()));
     }
@@ -41,8 +43,8 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(500, ex.getMessage() != null ? ex.getMessage() : "Internal server error"));
     }
 
-    @ExceptionHandler(ResourceAlreadyExistsException.class)
-    public ResponseEntity<ErrorResponse> handleAlreadyExists(ResourceAlreadyExistsException ex) {
+    @ExceptionHandler(ProductAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleAlreadyExists(ProductAlreadyExistsException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse(409, ex.getMessage()));
     }

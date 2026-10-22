@@ -1,4 +1,4 @@
-package com.daniellaera.inventoryservice.controller;
+package com.daniellaera.inventoryservice.adapter.in.web;
 
 import com.daniellaera.inventoryservice.TestcontainersConfiguration;
 import com.daniellaera.inventoryservice.adapter.out.persistence.ProductJpaEntity;

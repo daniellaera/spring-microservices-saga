@@ -1,4 +1,4 @@
-package com.daniellaera.inventoryservice.dto;
+package com.daniellaera.inventoryservice.adapter.in.web.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;

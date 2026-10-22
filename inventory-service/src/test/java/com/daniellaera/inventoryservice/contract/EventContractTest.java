@@ -12,7 +12,7 @@ import com.daniellaera.inventoryservice.domain.port.in.ReserveStockCommand;
 import com.daniellaera.inventoryservice.dto.OrderEvent;
 import com.daniellaera.inventoryservice.dto.OrderItemEvent;
 import com.daniellaera.inventoryservice.dto.PaymentEvent;
-import com.daniellaera.inventoryservice.dto.ProductDTO;
+import com.daniellaera.inventoryservice.adapter.in.web.dto.ProductDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;

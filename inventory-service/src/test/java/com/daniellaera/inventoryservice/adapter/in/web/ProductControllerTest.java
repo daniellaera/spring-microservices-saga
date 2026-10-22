@@ -1,14 +1,12 @@
-package com.daniellaera.inventoryservice.controller;
+package com.daniellaera.inventoryservice.adapter.in.web;
 
-import com.daniellaera.inventoryservice.dto.ProductDTO;
-import com.daniellaera.inventoryservice.dto.ProductRequest;
-import com.daniellaera.inventoryservice.exception.GlobalExceptionHandler;
-import com.daniellaera.inventoryservice.exception.ResourceNotFoundException;
-import com.daniellaera.inventoryservice.service.ProductService;
+import com.daniellaera.inventoryservice.domain.model.Product;
+import com.daniellaera.inventoryservice.domain.model.ProductNotFoundException;
+import com.daniellaera.inventoryservice.domain.port.in.ManageProductsUseCase;
+import com.daniellaera.inventoryservice.domain.port.in.ProductQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
@@ -31,27 +29,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class ProductControllerTest {
 
-    @InjectMocks
-    private ProductController productController;
+    @Mock
+    private ProductQuery productQuery;
 
     @Mock
-    private ProductService productService;
+    private ManageProductsUseCase manageProductsUseCase;
 
     private MockMvc mockMvc;
 
-    private final ProductDTO dto = new ProductDTO(1L, "MacBook Pro", 10, BigDecimal.valueOf(1299.99), LocalDateTime.now());
+    private final Product product = Product.restore(1L, "MacBook Pro", 10, BigDecimal.valueOf(1299.99), LocalDateTime.now());
 
     @BeforeEach
     void setUp() {
+        // not proxied, so no caching here: CachedProductCatalogCachingTest covers the cache
         mockMvc = MockMvcBuilders
-                .standaloneSetup(productController)
+                .standaloneSetup(new ProductController(new CachedProductCatalog(productQuery, manageProductsUseCase)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
     @Test
     void getAllProducts_shouldReturn200() throws Exception {
-        when(productService.getAllProducts()).thenReturn(List.of(dto));
+        when(productQuery.getAllProducts()).thenReturn(List.of(product));
 
         mockMvc.perform(get("/products"))
                 .andExpect(status().isOk())
@@ -62,7 +61,7 @@ class ProductControllerTest {
 
     @Test
     void getProductById_shouldReturn200() throws Exception {
-        when(productService.getProductById(1L)).thenReturn(dto);
+        when(productQuery.getProductById(1L)).thenReturn(product);
 
         mockMvc.perform(get("/products/1"))
                 .andExpect(status().isOk())
@@ -71,8 +70,8 @@ class ProductControllerTest {
 
     @Test
     void getProductById_shouldReturn404_whenNotFound() throws Exception {
-        when(productService.getProductById(999L))
-                .thenThrow(new ResourceNotFoundException("Product not found with id: 999"));
+        when(productQuery.getProductById(999L))
+                .thenThrow(ProductNotFoundException.withId(999L));
 
         mockMvc.perform(get("/products/999"))
                 .andExpect(status().isNotFound())
@@ -82,7 +81,7 @@ class ProductControllerTest {
 
     @Test
     void createProduct_shouldReturn200() throws Exception {
-        when(productService.createProduct(any(ProductRequest.class))).thenReturn(dto);
+        when(manageProductsUseCase.createProduct(eq("MacBook Pro"), eq(10), any())).thenReturn(product);
 
         mockMvc.perform(post("/products")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -94,8 +93,8 @@ class ProductControllerTest {
 
     @Test
     void restock_shouldReturn200AndUpdatedQuantity() throws Exception {
-        ProductDTO restocked = new ProductDTO(1L, "MacBook Pro", 25, BigDecimal.valueOf(1299.99), LocalDateTime.now());
-        when(productService.restock(eq(1L), eq(15))).thenReturn(restocked);
+        Product restocked = Product.restore(1L, "MacBook Pro", 25, BigDecimal.valueOf(1299.99), LocalDateTime.now());
+        when(manageProductsUseCase.restock(1L, 15)).thenReturn(restocked);
 
         mockMvc.perform(put("/products/1/restock")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -107,8 +106,8 @@ class ProductControllerTest {
 
     @Test
     void restock_shouldReturn404_whenProductNotFound() throws Exception {
-        when(productService.restock(eq(999L), eq(10)))
-                .thenThrow(new ResourceNotFoundException("Product not found: 999"));
+        when(manageProductsUseCase.restock(999L, 10))
+                .thenThrow(ProductNotFoundException.forRestock(999L));
 
         mockMvc.perform(put("/products/999/restock")
                         .contentType(MediaType.APPLICATION_JSON)
