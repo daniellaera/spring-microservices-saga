@@ -23,7 +23,8 @@ jobs:
 
       # A clean checkout has no local configs; plant one so the check below proves .dockerignore excludes it
       - name: Plant a local-only config file
-        run: echo "probe: true" > config-server/src/main/resources/configs/ci-probe-local.yml
+        run: |
+          echo "probe: true" > config-server/src/main/resources/configs/ci-probe-local.yml
 
       - name: Build config-server
         uses: docker/build-push-action@v5
