@@ -4,7 +4,7 @@
 set -euo pipefail
 
 CSV="${1:-coverage-report/target/site/jacoco-aggregate/jacoco.csv}"
-MIN="${2:-0.85}"
+MIN="${2:-0.90}"
 
 if [[ ! -f "$CSV" ]]; then
   echo "Coverage report not found: $CSV (run mvn verify first)" >&2
