@@ -2,5 +2,6 @@ export const environment = {
   production: true,
   apiUrl: '',
   version: 'prod',
-  buildNumber: 'BUILD_NUMBER_PLACEHOLDER'
+  buildNumber: 'BUILD_NUMBER_PLACEHOLDER',
+  showDemoCredentials: false
 };
