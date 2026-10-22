@@ -1,5 +1,6 @@
 package com.daniellaera.paymentservice.service;
 
+import com.daniellaera.paymentservice.adapter.out.stripe.StripePaymentGateway;
 import com.daniellaera.paymentservice.audit.AuditPublisher;
 import com.daniellaera.paymentservice.config.StripeConfig;
 import com.daniellaera.paymentservice.dto.PaymentIntentRequest;
@@ -12,7 +13,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -35,13 +35,13 @@ class StripePaymentServiceTest {
     @Mock
     private AuditPublisher auditPublisher;
 
-    @InjectMocks
     private StripePaymentService stripePaymentService;
 
     private MockedStatic<PaymentIntent> paymentIntentStatic;
 
     @BeforeEach
     void setUp() {
+        stripePaymentService = new StripePaymentService(stripeConfig, auditPublisher, new StripePaymentGateway());
         paymentIntentStatic = mockStatic(PaymentIntent.class);
     }
 

@@ -57,7 +57,8 @@ class StripeGatewayITTest {
 
         StripeConfig stripeConfig = new StripeConfig();
         ReflectionTestUtils.setField(stripeConfig, "publishableKey", "pk_test_wiremock");
-        StripePaymentService stripePaymentService = new StripePaymentService(stripeConfig, mock(AuditPublisher.class));
+        StripePaymentService stripePaymentService = new StripePaymentService(stripeConfig, mock(AuditPublisher.class),
+                new StripePaymentGateway());
         mockMvc = MockMvcBuilders.standaloneSetup(new StripePaymentController(stripePaymentService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();

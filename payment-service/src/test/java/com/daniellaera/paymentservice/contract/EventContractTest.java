@@ -1,5 +1,6 @@
 package com.daniellaera.paymentservice.contract;
 
+import com.daniellaera.paymentservice.adapter.out.stripe.StripePaymentGateway;
 import com.daniellaera.paymentservice.audit.AuditPublisher;
 import com.daniellaera.paymentservice.config.StripeConfig;
 import com.daniellaera.paymentservice.dto.InventoryResultEvent;
@@ -145,7 +146,7 @@ class EventContractTest {
         try (MockedStatic<PaymentIntent> paymentIntents = mockStatic(PaymentIntent.class)) {
             paymentIntents.when(() -> PaymentIntent.create(any(PaymentIntentCreateParams.class))).thenReturn(intent);
 
-            new StripePaymentService(stripeConfig, auditPublisher())
+            new StripePaymentService(stripeConfig, auditPublisher(), new StripePaymentGateway())
                     .createPaymentIntent(new PaymentIntentRequest(139979L, "chf", "MacBook Pro"), "user@test.com");
         }
 
