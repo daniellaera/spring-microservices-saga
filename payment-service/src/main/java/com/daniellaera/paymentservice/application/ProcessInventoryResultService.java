@@ -1,5 +1,6 @@
 package com.daniellaera.paymentservice.application;
 
+import com.daniellaera.paymentservice.domain.model.IntentVerification;
 import com.daniellaera.paymentservice.domain.model.PaymentTransaction;
 import com.daniellaera.paymentservice.domain.model.TransactionAlreadyRecordedException;
 import com.daniellaera.paymentservice.domain.port.in.InventoryResult;
@@ -22,8 +23,8 @@ import java.util.Optional;
  * saving and publishing), the stored outcome is published again, without asking the gateway, saving or auditing.
  * Two racing deliveries are settled by the unique constraint: the loser takes the same replay path.
  * <p>
- * An approved order without a payment intent (missing or blank) fails. Known bug kept on purpose (see the
- * backlog): the amount is never checked.
+ * An approved order succeeds only when its payment intent succeeded for exactly the order's total, in the shop
+ * currency. Without an intent (missing or blank), or on a provider error, it fails.
  */
 public class ProcessInventoryResultService implements ProcessInventoryResultUseCase {
 
@@ -33,13 +34,16 @@ public class ProcessInventoryResultService implements ProcessInventoryResultUseC
     private final TransactionRepository transactionRepository;
     private final AuditTrail auditTrail;
     private final PaymentResultPublisher paymentResultPublisher;
+    private final String shopCurrency;
 
     public ProcessInventoryResultService(PaymentGateway paymentGateway, TransactionRepository transactionRepository,
-                                         AuditTrail auditTrail, PaymentResultPublisher paymentResultPublisher) {
+                                         AuditTrail auditTrail, PaymentResultPublisher paymentResultPublisher,
+                                         String shopCurrency) {
         this.paymentGateway = paymentGateway;
         this.transactionRepository = transactionRepository;
         this.auditTrail = auditTrail;
         this.paymentResultPublisher = paymentResultPublisher;
+        this.shopCurrency = shopCurrency;
     }
 
     @Override
@@ -56,9 +60,7 @@ public class ProcessInventoryResultService implements ProcessInventoryResultUseC
 
         if (result.approved()) {
             if (result.hasPaymentIntent()) {
-                paymentSucceeded = paymentGateway.isSucceeded(result.paymentIntentId());
-                log.info("=== Payment: Stripe verification orderId={}: {}",
-                        result.orderId(), paymentSucceeded ? "SUCCESS" : "FAILED");
+                paymentSucceeded = verify(result);
             } else {
                 log.warn("=== Payment: no paymentIntentId for orderId {} — FAILED (an order is never free)",
                         result.orderId());
@@ -78,6 +80,15 @@ public class ProcessInventoryResultService implements ProcessInventoryResultUseC
         }
         auditTrail.paymentProcessed(saved, result.userEmail());
         paymentResultPublisher.publish(result, saved.status());
+    }
+
+    private boolean verify(InventoryResult result) {
+        Optional<IntentVerification> verification = paymentGateway.verifyIntent(result.paymentIntentId());
+        boolean paid = verification.map(v -> v.pays(result.totalAmount(), shopCurrency)).orElse(false);
+        log.info("=== Payment: Stripe verification orderId={}: {} (intent: {}, order: {} {})", result.orderId(),
+                paid ? "SUCCESS" : "FAILED", verification.map(Object::toString).orElse("provider error"),
+                result.totalAmount(), shopCurrency);
+        return paid;
     }
 
     private void replay(InventoryResult result, PaymentTransaction recorded) {

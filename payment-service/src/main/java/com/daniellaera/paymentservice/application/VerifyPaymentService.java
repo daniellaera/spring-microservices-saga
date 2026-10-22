@@ -1,5 +1,6 @@
 package com.daniellaera.paymentservice.application;
 
+import com.daniellaera.paymentservice.domain.model.IntentVerification;
 import com.daniellaera.paymentservice.domain.port.in.VerifyPaymentQuery;
 import com.daniellaera.paymentservice.domain.port.out.PaymentGateway;
 
@@ -13,6 +14,6 @@ public class VerifyPaymentService implements VerifyPaymentQuery {
 
     @Override
     public boolean isSucceeded(String paymentIntentId) {
-        return paymentGateway.isSucceeded(paymentIntentId);
+        return paymentGateway.verifyIntent(paymentIntentId).map(IntentVerification::succeeded).orElse(false);
     }
 }

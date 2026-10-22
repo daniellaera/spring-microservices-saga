@@ -5,6 +5,7 @@ import com.daniellaera.paymentservice.adapter.in.web.StripePaymentController;
 import com.daniellaera.paymentservice.application.CreatePaymentIntentService;
 import com.daniellaera.paymentservice.application.VerifyPaymentService;
 import com.daniellaera.paymentservice.config.StripeConfig;
+import com.daniellaera.paymentservice.domain.model.IntentVerification;
 import com.daniellaera.paymentservice.domain.port.out.AuditTrail;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
@@ -48,6 +49,7 @@ class StripeGatewayITTest {
             .build();
 
     private String previousApiKey;
+    private StripePaymentGateway gateway;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -58,7 +60,7 @@ class StripeGatewayITTest {
 
         StripeConfig stripeConfig = new StripeConfig();
         ReflectionTestUtils.setField(stripeConfig, "publishableKey", "pk_test_wiremock");
-        StripePaymentGateway gateway = new StripePaymentGateway();
+        gateway = new StripePaymentGateway();
         StripePaymentController controller = new StripePaymentController(
                 new CreatePaymentIntentService(gateway, mock(AuditTrail.class)), new VerifyPaymentService(gateway),
                 stripeConfig);
@@ -152,10 +154,37 @@ class StripeGatewayITTest {
                 .andExpect(content().json("{\"success\":false}", true));
     }
 
+    @Test
+    void verifyIntent_returnsStatusAmountAndCurrency() {
+        stubRetrieve("pi_wm_3", "succeeded");
+
+        assertThat(gateway.verifyIntent("pi_wm_3"))
+                .contains(new IntentVerification("succeeded", 139_979L, "eur"));
+
+        LoggedRequest request = singleRequest();
+        assertThat(request.getMethod().getName()).isEqualTo("GET");
+        assertThat(request.getUrl()).isEqualTo("/v1/payment_intents/pi_wm_3");
+        assertThat(request.getHeader("Authorization")).isEqualTo("Bearer sk_test_wiremock");
+    }
+
+    @Test
+    void verifyIntent_stripeError_isEmpty() {
+        stripe.stubFor(WireMock.get(WireMock.urlEqualTo("/v1/payment_intents/pi_missing")).willReturn(WireMock.aResponse()
+                .withStatus(404)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                        {"error":{"type":"invalid_request_error","code":"resource_missing",
+                         "message":"No such payment_intent: 'pi_missing'"}}""")));
+
+        assertThat(gateway.verifyIntent("pi_missing")).isEmpty();
+    }
+
+    // Retrieve answers carry amount and currency: payment-service checks both against the order
     private static void stubRetrieve(String id, String intentStatus) {
         stripe.stubFor(WireMock.get(WireMock.urlEqualTo("/v1/payment_intents/" + id)).willReturn(WireMock.aResponse()
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"id\":\"" + id + "\",\"object\":\"payment_intent\",\"status\":\"" + intentStatus + "\"}")));
+                .withBody("{\"id\":\"" + id + "\",\"object\":\"payment_intent\",\"status\":\"" + intentStatus
+                        + "\",\"amount\":139979,\"currency\":\"eur\"}")));
     }
 
     private static LoggedRequest singleRequest() {
