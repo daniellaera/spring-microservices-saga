@@ -1,24 +1,18 @@
 package com.daniellaera.paymentservice.contract;
 
-import com.daniellaera.paymentservice.adapter.out.stripe.StripePaymentGateway;
-import com.daniellaera.paymentservice.audit.AuditPublisher;
-import com.daniellaera.paymentservice.config.StripeConfig;
+import com.daniellaera.paymentservice.adapter.out.messaging.KafkaAuditTrail;
+import com.daniellaera.paymentservice.adapter.out.messaging.KafkaPaymentResultPublisher;
+import com.daniellaera.paymentservice.domain.model.PaymentStatus;
+import com.daniellaera.paymentservice.domain.model.PaymentTransaction;
+import com.daniellaera.paymentservice.domain.port.in.CreatePaymentIntentCommand;
+import com.daniellaera.paymentservice.domain.port.in.InventoryResult;
 import com.daniellaera.paymentservice.dto.InventoryResultEvent;
 import com.daniellaera.paymentservice.dto.OrderItemEvent;
-import com.daniellaera.paymentservice.dto.PaymentIntentRequest;
 import com.daniellaera.paymentservice.dto.PaymentIntentResponse;
 import com.daniellaera.paymentservice.dto.TransactionDTO;
-import com.daniellaera.paymentservice.domain.model.PaymentStatus;
-import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaEntity;
-import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaRepository;
-import com.daniellaera.paymentservice.service.PaymentServiceImpl;
-import com.daniellaera.paymentservice.service.StripePaymentService;
-import com.stripe.model.PaymentIntent;
-import com.stripe.param.PaymentIntentCreateParams;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.MockedStatic;
 import org.skyscreamer.jsonassert.Customization;
 import org.skyscreamer.jsonassert.JSONAssert;
 import org.skyscreamer.jsonassert.JSONCompareMode;
@@ -26,7 +20,6 @@ import org.skyscreamer.jsonassert.comparator.CustomComparator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -38,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -66,22 +58,11 @@ class EventContractTest {
     private ObjectMapper objectMapper;
 
     private KafkaTemplate<String, String> kafkaTemplate;
-    private TransactionJpaRepository transactionRepository;
-    private StripePaymentService stripePaymentService;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
         kafkaTemplate = mock(KafkaTemplate.class);
-        transactionRepository = mock(TransactionJpaRepository.class);
-        stripePaymentService = mock(StripePaymentService.class);
-        // what JPA does on insert: assign the id and the @PrePersist createdAt to the saved instance
-        when(transactionRepository.save(any(TransactionJpaEntity.class))).thenAnswer(inv -> {
-            TransactionJpaEntity transaction = inv.getArgument(0);
-            ReflectionTestUtils.setField(transaction, "id", 7L);
-            ReflectionTestUtils.setField(transaction, "createdAt", CREATED_AT);
-            return transaction;
-        });
     }
 
     // ─── inventory-topic (input) ─────────────────────────────────────────────
@@ -118,9 +99,12 @@ class EventContractTest {
 
     @Test
     void paymentSucceeded_eventAndAudit() throws Exception {
-        when(stripePaymentService.confirmPayment("pi_3QxYz123")).thenReturn(true);
+        InventoryResult result = inventoryResult("inventory-result-approved-multi-item-with-intent.json");
 
-        paymentService().handleInventoryResult(fixture("inventory-result-approved-multi-item-with-intent.json"));
+        resultPublisher().publish(result, PaymentStatus.SUCCESS);
+        auditTrail().paymentProcessed(
+                new PaymentTransaction(7L, 42L, new BigDecimal("1399.79"), PaymentStatus.SUCCESS, CREATED_AT),
+                result.userEmail());
 
         assertPaymentEvent("payment-event-success.json");
         assertAudit("audit-payment-succeeded.json");
@@ -128,7 +112,12 @@ class EventContractTest {
 
     @Test
     void paymentFailed_eventAndAudit() throws Exception {
-        paymentService().handleInventoryResult(fixture("inventory-result-rejected.json"));
+        InventoryResult result = inventoryResult("inventory-result-rejected.json");
+
+        resultPublisher().publish(result, PaymentStatus.FAILED);
+        auditTrail().paymentProcessed(
+                new PaymentTransaction(7L, 7L, new BigDecimal("179.00"), PaymentStatus.FAILED, CREATED_AT),
+                result.userEmail());
 
         assertPaymentEvent("payment-event-failed.json");
         assertAudit("audit-payment-failed.json");
@@ -138,17 +127,8 @@ class EventContractTest {
 
     @Test
     void paymentInitiated_payloadIsTheRequest() throws Exception {
-        PaymentIntent intent = mock(PaymentIntent.class);
-        when(intent.getId()).thenReturn("pi_3QxYz123");
-        StripeConfig stripeConfig = new StripeConfig();
-        ReflectionTestUtils.setField(stripeConfig, "publishableKey", "pk_test_contract");
-
-        try (MockedStatic<PaymentIntent> paymentIntents = mockStatic(PaymentIntent.class)) {
-            paymentIntents.when(() -> PaymentIntent.create(any(PaymentIntentCreateParams.class))).thenReturn(intent);
-
-            new StripePaymentService(stripeConfig, auditPublisher(), new StripePaymentGateway())
-                    .createPaymentIntent(new PaymentIntentRequest(139979L, "chf", "MacBook Pro"), "user@test.com");
-        }
+        auditTrail().paymentInitiated("pi_3QxYz123",
+                new CreatePaymentIntentCommand(139979L, "chf", "MacBook Pro", "user@test.com"));
 
         assertAudit("audit-payment-initiated.json");
     }
@@ -174,14 +154,23 @@ class EventContractTest {
 
     // ─── helpers ─────────────────────────────────────────────────────────────
 
-    private PaymentServiceImpl paymentService() {
-        return new PaymentServiceImpl(transactionRepository, kafkaTemplate, objectMapper, stripePaymentService,
-                auditPublisher());
+    private KafkaPaymentResultPublisher resultPublisher() {
+        return new KafkaPaymentResultPublisher(kafkaTemplate, objectMapper);
     }
 
     // Not proxied, so @Async does not apply and the message is sent synchronously
-    private AuditPublisher auditPublisher() {
-        return new AuditPublisher(kafkaTemplate, objectMapper);
+    private KafkaAuditTrail auditTrail() {
+        return new KafkaAuditTrail(kafkaTemplate, objectMapper);
+    }
+
+    // The inventory result as the use case receives it, read from the inventory-topic fixture
+    private InventoryResult inventoryResult(String fixtureName) {
+        InventoryResultEvent event = objectMapper.readValue(fixture(fixtureName), InventoryResultEvent.class);
+        return new InventoryResult(event.orderId(), event.status(), event.productName(), event.quantity(),
+                event.price(), event.totalAmount(), event.userEmail(), event.paymentIntentId(),
+                event.items() == null ? null : event.items().stream()
+                        .map(i -> new InventoryResult.Item(i.productName(), i.quantity(), i.price(), i.totalAmount()))
+                        .toList());
     }
 
     private void assertPaymentEvent(String fixtureName) throws Exception {
