@@ -38,7 +38,7 @@ class KafkaAuditTrailTest {
     void everyAuditMethod_isAsync() {
         assertThat(Arrays.stream(KafkaAuditTrail.class.getDeclaredMethods())
                 .filter(m -> m.getName().startsWith("payment")))
-                .hasSize(3)
+                .hasSize(5)
                 .allSatisfy(m -> assertThat(m.isAnnotationPresent(Async.class)).isTrue());
     }
 
@@ -52,6 +52,30 @@ class KafkaAuditTrailTest {
         assertThat(message.get("entityType")).isEqualTo("PAYMENT");
         assertThat(message.get("entityId")).isEqualTo("9");
         assertThat(message.get("serviceName")).isEqualTo("payment-service");
+    }
+
+    @Test
+    void refund_isAuditedAsPaymentRefundedForTheOrder() {
+        auditTrail.paymentRefunded(new PaymentTransaction(1L, 9L, BigDecimal.TEN, PaymentStatus.FAILED, "pi_9", "re_9",
+                null), "user@test.com");
+
+        Map<?, ?> message = sentMessage();
+        assertThat(message.get("eventType")).isEqualTo("PAYMENT_REFUNDED");
+        assertThat(message.get("entityType")).isEqualTo("PAYMENT");
+        assertThat(message.get("entityId")).isEqualTo("9");
+        assertThat(message.get("payload")).isEqualTo("{\"orderId\":9,\"paymentIntentId\":\"pi_9\",\"refundId\":\"re_9\"}");
+    }
+
+    @Test
+    void refusedRefund_isAuditedAsPaymentRefundFailedWithStripesCode() {
+        auditTrail.paymentRefundFailed(new PaymentTransaction(1L, 9L, BigDecimal.TEN, PaymentStatus.FAILED, "pi_9", null,
+                null), "charge_disputed", "user@test.com");
+
+        Map<?, ?> message = sentMessage();
+        assertThat(message.get("eventType")).isEqualTo("PAYMENT_REFUND_FAILED");
+        assertThat(message.get("entityId")).isEqualTo("9");
+        assertThat(message.get("payload"))
+                .isEqualTo("{\"orderId\":9,\"paymentIntentId\":\"pi_9\",\"errorCode\":\"charge_disputed\"}");
     }
 
     @Test

@@ -7,6 +7,8 @@ import com.daniellaera.paymentservice.application.VerifyPaymentService;
 import com.daniellaera.paymentservice.config.StripeConfig;
 import com.daniellaera.paymentservice.domain.model.IntentVerification;
 import com.daniellaera.paymentservice.domain.model.PaymentGatewayUnavailableException;
+import com.daniellaera.paymentservice.domain.model.PaymentRefund;
+import com.daniellaera.paymentservice.domain.model.PaymentRefundRefusedException;
 import com.daniellaera.paymentservice.domain.port.out.AuditTrail;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.http.Fault;
@@ -214,6 +216,57 @@ class StripeGatewayITTest {
         mockMvc.perform(get("/payments/confirm/pi_wm_5xx"))
                 .andExpect(status().isOk())
                 .andExpect(content().json("{\"success\":false}", true));
+    }
+
+    @Test
+    void refund_refundsTheWholeIntentWithTheIdempotencyKey() {
+        stripe.stubFor(WireMock.post(WireMock.urlEqualTo("/v1/refunds")).willReturn(WireMock.aResponse()
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                        {"id":"re_wm_1","object":"refund","status":"succeeded","amount":139979,"currency":"eur",
+                         "payment_intent":"pi_wm_1"}""")));
+
+        assertThat(gateway.refund("pi_wm_1", "refund-order-42")).isEqualTo(new PaymentRefund("re_wm_1", "succeeded"));
+
+        LoggedRequest request = singleRequest();
+        assertThat(request.getMethod().getName()).isEqualTo("POST");
+        assertThat(request.getUrl()).isEqualTo("/v1/refunds");
+        assertThat(request.getHeader("Idempotency-Key")).isEqualTo("refund-order-42");
+        assertThat(request.getHeader("Authorization")).isEqualTo("Bearer sk_test_wiremock");
+        // no amount: the whole payment is refunded
+        assertThat(formParameters(request)).isEqualTo(Map.of("payment_intent", "pi_wm_1"));
+    }
+
+    @Test
+    void refund_alreadyRefunded_isNotAFailure() {
+        stubRefundError(400, "invalid_request_error", "charge_already_refunded");
+
+        assertThat(gateway.refund("pi_wm_1", "refund-order-42")).isEqualTo(PaymentRefund.alreadyRefunded());
+    }
+
+    @Test
+    void refund_otherRefusal_carriesStripesCode() {
+        stubRefundError(400, "invalid_request_error", "charge_disputed");
+
+        assertThatThrownBy(() -> gateway.refund("pi_wm_1", "refund-order-42"))
+                .isInstanceOfSatisfying(PaymentRefundRefusedException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo("charge_disputed"));
+    }
+
+    @Test
+    void refund_serverError_isTemporary() {
+        stubRefundError(500, "api_error", null);
+
+        assertThatThrownBy(() -> gateway.refund("pi_wm_1", "refund-order-42"))
+                .isInstanceOf(PaymentGatewayUnavailableException.class);
+    }
+
+    private static void stubRefundError(int httpStatus, String type, String code) {
+        stripe.stubFor(WireMock.post(WireMock.urlEqualTo("/v1/refunds")).willReturn(WireMock.aResponse()
+                .withStatus(httpStatus)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"error\":{\"type\":\"" + type + "\"" + (code != null ? ",\"code\":\"" + code + "\"" : "")
+                        + ",\"message\":\"Stripe says no\"}}")));
     }
 
     private static void stubRetrieveError(String id, int httpStatus, String type, String code) {

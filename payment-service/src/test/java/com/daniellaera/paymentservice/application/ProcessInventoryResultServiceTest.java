@@ -6,6 +6,7 @@ import com.daniellaera.paymentservice.application.fakes.InMemoryTransactionRepos
 import com.daniellaera.paymentservice.application.fakes.RecordingAuditTrail;
 import com.daniellaera.paymentservice.application.fakes.RecordingPaymentResultPublisher;
 import com.daniellaera.paymentservice.domain.model.PaymentGatewayUnavailableException;
+import com.daniellaera.paymentservice.domain.model.PaymentRefund;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.domain.model.PaymentTransaction;
 import com.daniellaera.paymentservice.domain.port.in.InventoryResult;
@@ -21,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ProcessInventoryResultServiceTest {
 
     private final EffectLog effectLog = new EffectLog();
-    private final FakePaymentGateway gateway = new FakePaymentGateway();
+    private final FakePaymentGateway gateway = new FakePaymentGateway(effectLog);
     private final InMemoryTransactionRepository transactions = new InMemoryTransactionRepository(effectLog);
     private final RecordingAuditTrail auditTrail = new RecordingAuditTrail(effectLog);
     private final RecordingPaymentResultPublisher publisher = new RecordingPaymentResultPublisher(effectLog);
@@ -104,26 +105,41 @@ class ProcessInventoryResultServiceTest {
     }
 
     @Test
-    void approvedAndIntentSucceededForAnotherAmount_isAFailure() {
+    void approvedAndIntentSucceededForAnotherAmount_isAFailure_andItsPaymentIsRefunded() {
+        // was approvedAndIntentSucceededForAnotherAmount_isAFailure: the captured 1.00 was kept
         gateway.givenIntent("pi_low", "succeeded", 100L, "eur");
 
         service.process(approved(2L, "pi_low", null));
 
         assertThat(gateway.verifiedIntents()).containsExactly("pi_low");
-        assertThat(transactions.findAll()).singleElement()
-                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.FAILED));
+        assertThat(gateway.refundRequests()).containsExactly(new FakePaymentGateway.RefundRequest("pi_low", "refund-order-2"));
+        assertThat(transactions.findAll()).singleElement().satisfies(t -> {
+            assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
+            assertThat(t.refundId()).isEqualTo("re_1_pi_low");
+        });
         assertThat(publisher.published()).singleElement()
                 .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
     }
 
     @Test
-    void approvedAndIntentSucceededInAnotherCurrency_isAFailure() {
+    void approvedAndIntentSucceededInAnotherCurrency_isAFailure_andItsPaymentIsRefunded() {
         gateway.givenIntent("pi_usd", "succeeded", 129_999L, "usd");
 
         service.process(approved(2L, "pi_usd", null));
 
+        assertThat(gateway.refunds()).hasSize(1);
         assertThat(publisher.published()).singleElement()
                 .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void approvedAndIntentNotSucceeded_hasNothingToRefund() {
+        gateway.givenIntent("pi_456", "requires_payment_method", 129_999L, "eur");
+
+        service.process(approved(2L, "pi_456", null));
+
+        assertThat(gateway.refundRequests()).isEmpty();
+        assertThat(transactions.findByOrderId(2L)).hasValueSatisfying(t -> assertThat(t.refundId()).isNull());
     }
 
     @Test
@@ -162,13 +178,16 @@ class ProcessInventoryResultServiceTest {
     }
 
     @Test
-    void intentThatAlreadyPaidAnotherOrder_isAFailureWithoutAskingTheGateway() {
+    void intentThatAlreadyPaidAnotherOrder_isAFailureWithoutAskingTheGateway_andIsNeverRefunded() {
         gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
         service.process(approved(1L, "pi_123", null));
 
         service.process(approved(2L, "pi_123", null));
 
         assertThat(gateway.verifiedIntents()).containsExactly("pi_123");
+        // that money pays for order 1
+        assertThat(gateway.refundRequests()).isEmpty();
+        assertThat(auditTrail.refunded()).isEmpty();
         assertThat(transactions.findByOrderId(2L)).hasValueSatisfying(t -> {
             assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
             assertThat(t.paymentIntentId()).isNull();
@@ -180,11 +199,47 @@ class ProcessInventoryResultServiceTest {
     }
 
     @Test
-    void intentThatFailedForAnotherOrder_canStillPayThisOne() {
-        // only a paying intent is recorded: a declined attempt does not burn the intent
+    void rejectedOrderWithAnIntentThatPaidAnotherOrder_isNeverRefunded() {
+        // the "intent reused" case: the money belongs to the order it paid for
         gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
-        service.process(new InventoryResult(1L, "REJECTED", "MacBook Pro", 0, new BigDecimal("1299.99"),
-                new BigDecimal("1299.99"), "user@test.com", "pi_123", null));
+        service.process(approved(1L, "pi_123", null));
+
+        service.process(rejected(2L, "pi_123"));
+
+        assertThat(gateway.verifiedIntents()).containsExactly("pi_123");
+        assertThat(gateway.refundRequests()).isEmpty();
+        assertThat(auditTrail.refunded()).isEmpty();
+        assertThat(transactions.findByOrderId(1L)).hasValueSatisfying(t -> {
+            assertThat(t.status()).isEqualTo(PaymentStatus.SUCCESS);
+            assertThat(t.paymentIntentId()).isEqualTo("pi_123");
+        });
+        assertThat(transactions.findByOrderId(2L)).hasValueSatisfying(t -> {
+            assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
+            assertThat(t.paymentIntentId()).isNull();
+            assertThat(t.refundId()).isNull();
+        });
+    }
+
+    @Test
+    void intentRefundedForARejectedOrder_cannotPayAnotherOrder() {
+        // was intentThatFailedForAnotherOrder_canStillPayThisOne: the rejected order kept the money, so it could pay
+        // again. Refunded, it stays with the rejected order: a refunded intent still reads "succeeded" at Stripe
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
+        service.process(rejected(1L, "pi_123"));
+
+        service.process(approved(2L, "pi_123", null));
+
+        assertThat(transactions.findByOrderId(2L)).hasValueSatisfying(
+                t -> assertThat(t.status()).isEqualTo(PaymentStatus.FAILED));
+        assertThat(gateway.refunds()).hasSize(1);
+    }
+
+    @Test
+    void intentDeclinedForAnotherOrder_canStillPayThisOne() {
+        // a declined attempt captured nothing: the intent is not recorded and can still pay once it succeeds
+        gateway.givenIntent("pi_123", "requires_payment_method", 129_999L, "eur");
+        service.process(approved(1L, "pi_123", null));
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
 
         service.process(approved(2L, "pi_123", null));
 
@@ -203,6 +258,8 @@ class ProcessInventoryResultServiceTest {
             assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
             assertThat(t.paymentIntentId()).isNull();
         });
+        // order 9 got the money: never refunded
+        assertThat(gateway.refundRequests()).isEmpty();
         assertThat(auditTrail.processed()).singleElement()
                 .satisfies(audit -> assertThat(audit.transaction().status()).isEqualTo(PaymentStatus.FAILED));
         assertThat(publisher.published()).singleElement()
@@ -236,17 +293,146 @@ class ProcessInventoryResultServiceTest {
     }
 
     @Test
-    void rejected_isAFailureWithoutAskingTheGateway() {
-        service.process(new InventoryResult(4L, "REJECTED", "MacBook Pro", 0, new BigDecimal("1299.99"),
-                new BigDecimal("1299.99"), "user@test.com", "pi_789", null));
+    void rejectedWithACapturedPayment_isRefundedOnce_withAKeyFromTheOrder() {
+        // was rejected_isAFailureWithoutAskingTheGateway: the customer's money was kept
+        gateway.givenIntent("pi_789", "succeeded", 129_999L, "eur");
+        InventoryResult result = rejected(4L, "pi_789");
 
-        assertThat(gateway.verifiedIntents()).isEmpty();
+        service.process(result);
+
+        assertThat(gateway.verifiedIntents()).containsExactly("pi_789");
+        assertThat(gateway.refundRequests()).containsExactly(new FakePaymentGateway.RefundRequest("pi_789", "refund-order-4"));
         assertThat(transactions.findAll()).singleElement().satisfies(t -> {
             assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
             assertThat(t.orderId()).isEqualTo(4L);
+            assertThat(t.paymentIntentId()).isEqualTo("pi_789");
+            assertThat(t.refundId()).isEqualTo("re_1_pi_789");
+        });
+        assertThat(auditTrail.processed()).singleElement()
+                .satisfies(audit -> assertThat(audit.transaction().status()).isEqualTo(PaymentStatus.FAILED));
+        assertThat(auditTrail.refunded()).singleElement().satisfies(audit -> {
+            assertThat(audit.transaction().refundId()).isEqualTo("re_1_pi_789");
+            assertThat(audit.userEmail()).isEqualTo("user@test.com");
+        });
+        // the saga's event is unchanged: still a plain FAILED
+        assertThat(publisher.published()).containsExactly(
+                new RecordingPaymentResultPublisher.Published(result, PaymentStatus.FAILED));
+    }
+
+    @Test
+    void rejectedWithoutIntent_isAFailureWithoutAskingTheGateway() {
+        service.process(rejected(4L, null));
+
+        assertThat(gateway.verifiedIntents()).isEmpty();
+        assertThat(gateway.refundRequests()).isEmpty();
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void rejectedWithADeclinedOrUnknownIntent_hasNothingToRefund() {
+        gateway.givenIntent("pi_declined", "requires_payment_method", 129_999L, "eur");
+
+        service.process(rejected(4L, "pi_declined"));
+        service.process(rejected(5L, "pi_unknown"));
+
+        assertThat(gateway.verifiedIntents()).containsExactly("pi_declined", "pi_unknown");
+        assertThat(gateway.refundRequests()).isEmpty();
+        assertThat(transactions.findAll()).extracting(PaymentTransaction::status)
+                .containsOnly(PaymentStatus.FAILED);
+    }
+
+    @Test
+    void refundedByHandAlready_isRecordedAsRefunded() {
+        gateway.givenIntent("pi_789", "succeeded", 129_999L, "eur");
+        gateway.refundedOutsideTheShop("pi_789");
+
+        service.process(rejected(4L, "pi_789"));
+
+        assertThat(transactions.findByOrderId(4L)).hasValueSatisfying(t -> {
+            assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
+            assertThat(t.refundId()).isEqualTo(PaymentRefund.ALREADY_REFUNDED);
+        });
+        assertThat(auditTrail.refunded()).hasSize(1);
+        assertThat(auditTrail.refundFailed()).isEmpty();
+    }
+
+    @Test
+    void refundRefused_isAFailure_auditedForAManualRefund_andKeepsTheIntent() {
+        gateway.givenIntent("pi_789", "succeeded", 129_999L, "eur");
+        gateway.refundRefused("pi_789", "charge_disputed");
+
+        service.process(rejected(4L, "pi_789"));
+
+        assertThat(transactions.findByOrderId(4L)).hasValueSatisfying(t -> {
+            assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
+            assertThat(t.refundId()).isNull();
+            // the money is still captured for this order: the intent cannot pay for another one
+            assertThat(t.paymentIntentId()).isEqualTo("pi_789");
+        });
+        assertThat(auditTrail.refunded()).isEmpty();
+        assertThat(auditTrail.refundFailed()).singleElement().satisfies(audit -> {
+            assertThat(audit.errorCode()).isEqualTo("charge_disputed");
+            assertThat(audit.transaction().orderId()).isEqualTo(4L);
         });
         assertThat(publisher.published()).singleElement()
                 .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void refundUnavailable_propagatesAndRecordsNothing_thenTheRetryRefundsOnceWithTheSameKey() {
+        gateway.givenIntent("pi_789", "succeeded", 129_999L, "eur");
+        gateway.refundsUnavailableFor(1);
+        InventoryResult result = rejected(4L, "pi_789");
+
+        assertThatThrownBy(() -> service.process(result)).isInstanceOf(PaymentGatewayUnavailableException.class);
+        assertThat(transactions.findAll()).isEmpty();
+        assertThat(publisher.published()).isEmpty();
+
+        service.process(result);
+
+        assertThat(gateway.refundRequests()).extracting(FakePaymentGateway.RefundRequest::idempotencyKey)
+                .containsExactly("refund-order-4", "refund-order-4");
+        assertThat(gateway.refunds()).hasSize(1);
+        assertThat(transactions.findByOrderId(4L)).hasValueSatisfying(t -> assertThat(t.refunded()).isTrue());
+    }
+
+    @Test
+    void redeliveryAfterARefund_republishesWithoutRefundingAgain() {
+        gateway.givenIntent("pi_789", "succeeded", 129_999L, "eur");
+        InventoryResult result = rejected(4L, "pi_789");
+        service.process(result);
+
+        service.process(result);
+
+        assertThat(gateway.refundRequests()).hasSize(1);
+        assertThat(auditTrail.refunded()).hasSize(1);
+        assertThat(publisher.published()).extracting(RecordingPaymentResultPublisher.Published::status)
+                .containsExactly(PaymentStatus.FAILED, PaymentStatus.FAILED);
+    }
+
+    @Test
+    void intentRecordedForAnotherOrderDuringTheRefund_keepsTheRefund_withoutTheIntent() {
+        gateway.givenIntent("pi_789", "succeeded", 129_999L, "eur");
+        transactions.insertConcurrentlyBeforeNextSave(PaymentTransaction.paid(9L, new BigDecimal("1299.99"), "pi_789"));
+
+        service.process(rejected(4L, "pi_789"));
+
+        assertThat(transactions.findByOrderId(4L)).hasValueSatisfying(t -> {
+            assertThat(t.status()).isEqualTo(PaymentStatus.FAILED);
+            assertThat(t.paymentIntentId()).isNull();
+            assertThat(t.refundId()).isEqualTo("re_1_pi_789");
+        });
+    }
+
+    @Test
+    void effects_ofARefund_happenInOrder_refundSaveAuditsThenPublish() {
+        gateway.givenIntent("pi_789", "succeeded", 129_999L, "eur");
+
+        service.process(rejected(4L, "pi_789"));
+
+        assertThat(effectLog.effects()).containsExactly("refund pi_789", "save FAILED", "audit FAILED",
+                "audit REFUNDED", "publish FAILED");
     }
 
     @Test
@@ -326,6 +512,11 @@ class ProcessInventoryResultServiceTest {
         assertThatThrownBy(() -> service.process(approved(1L, "pi_123", null)))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(effectLog.effects()).containsExactly("save SUCCESS", "audit SUCCESS");
+    }
+
+    private static InventoryResult rejected(Long orderId, String paymentIntentId) {
+        return new InventoryResult(orderId, "REJECTED", "MacBook Pro", 0, new BigDecimal("1299.99"),
+                new BigDecimal("1299.99"), "user@test.com", paymentIntentId, null);
     }
 
     private static InventoryResult approved(Long orderId, String paymentIntentId, List<InventoryResult.Item> items) {
