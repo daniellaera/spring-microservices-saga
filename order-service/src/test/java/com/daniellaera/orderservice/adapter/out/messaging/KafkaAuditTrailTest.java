@@ -62,6 +62,21 @@ class KafkaAuditTrailTest {
                 .doesNotThrowAnyException();
     }
 
+    @Test
+    void outboxEventFailed_publishesTheOrderTheEventAttemptsAndError() {
+        auditTrail.outboxEventFailed(77L, null, "ORDER_CREATED", 5, "unreadable payload: Unexpected character");
+
+        Map<?, ?> message = sentMessage();
+        assertThat(message.get("eventType")).isEqualTo("OUTBOX_EVENT_FAILED");
+        assertThat(message.get("entityType")).isEqualTo("ORDER");
+        assertThat(message.get("entityId")).isEqualTo("77");
+        assertThat(message.get("userEmail")).isEqualTo("system");
+        assertThat(message.get("serviceName")).isEqualTo("order-service");
+        assertThat(objectMapper.readValue((String) message.get("payload"), Map.class)).isEqualTo(Map.of(
+                "orderId", 77, "eventType", "ORDER_CREATED", "attempts", 5,
+                "error", "unreadable payload: Unexpected character"));
+    }
+
     private Map<?, ?> sentMessage() {
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
         verify(kafkaTemplate).send(eq("audit-topic"), message.capture());

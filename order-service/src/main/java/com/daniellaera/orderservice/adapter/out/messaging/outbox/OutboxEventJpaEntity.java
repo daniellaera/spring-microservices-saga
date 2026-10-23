@@ -35,4 +35,30 @@ public class OutboxEventJpaEntity {
     private Instant createdAt = Instant.now();
 
     private Instant publishedAt;
+
+    @Column(nullable = false)
+    private int attempts = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private OutboxStatus status = OutboxStatus.PENDING;
+
+    @Column(columnDefinition = "TEXT")
+    private String lastError;
+
+    void markPublished(Instant at) {
+        published = true;
+        publishedAt = at;
+        status = OutboxStatus.PUBLISHED;
+    }
+
+    /** Counts a failed delivery attempt; the row is FAILED once it reaches maxAttempts. Returns whether it is. */
+    boolean recordFailedAttempt(String error, int maxAttempts) {
+        attempts++;
+        lastError = error;
+        if (attempts >= maxAttempts) {
+            status = OutboxStatus.FAILED;
+        }
+        return status == OutboxStatus.FAILED;
+    }
 }
