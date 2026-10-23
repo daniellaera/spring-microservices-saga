@@ -1,10 +1,15 @@
 # Online Shop — Microservices Platform
 
-![Coverage](https://img.shields.io/badge/coverage-85%25-green)
-![Tests](https://img.shields.io/badge/tests-220%20passing-brightgreen)
-![Java](https://img.shields.io/badge/Java-21-blue)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
-![Angular](https://img.shields.io/badge/Angular-21-red)
+[![version](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdaniellaera%2Fspring-microservices-saga%2Fmain%2Fpom.xml&query=%2F*%5Blocal-name()%3D%27project%27%5D%2F*%5Blocal-name()%3D%27version%27%5D&label=version)](CHANGELOG.md)
+[![release](https://img.shields.io/github/v/tag/daniellaera/spring-microservices-saga?label=release)](https://github.com/daniellaera/spring-microservices-saga/tags)
+[![last commit](https://img.shields.io/github/last-commit/daniellaera/spring-microservices-saga)](https://github.com/daniellaera/spring-microservices-saga/commits/main)
+[![top language](https://img.shields.io/github/languages/top/daniellaera/spring-microservices-saga)](https://github.com/daniellaera/spring-microservices-saga)
+[![Java](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdaniellaera%2Fspring-microservices-saga%2Fmain%2Fpom.xml&query=%2F%2F*%5Blocal-name()%3D%27java.version%27%5D&label=Java&color=blue)](pom.xml)
+[![Spring Boot](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdaniellaera%2Fspring-microservices-saga%2Fmain%2Fpom.xml&query=%2F%2F*%5Blocal-name()%3D%27spring-boot.version%27%5D&label=Spring%20Boot&color=green)](pom.xml)
+[![Angular](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdaniellaera%2Fspring-microservices-saga%2Fmain%2Fshop-ui%2Fpackage.json&query=%24.dependencies%5B%27%40angular%2Fcore%27%5D&label=Angular&color=red)](shop-ui/package.json)
+
+<!-- Every badge is read live by shields.io from the public GitHub mirror (the Gitea instance is LAN-only).
+     Test count and coverage come from CI (pr.yml, coverage gate 90 %) and are not shown as fixed numbers. -->
 
 A production-grade microservices e-commerce platform built on Java 21 and Spring Boot 4, demonstrating enterprise patterns including event-driven saga choreography, transactional outbox, real-time SSE updates, JWT gateway authentication, and Stripe payment processing. Deployed on a self-hosted Proxmox homelab with Gitea Actions CI/CD and Infisical secrets management.
 
@@ -12,39 +17,142 @@ A production-grade microservices e-commerce platform built on Java 21 and Spring
 
 ## Architecture
 
-```
-┌─────────────┐     ┌──────────────────────────────────────┐
-│   shop-ui   │────▶│           gateway-service            │
-│  Angular 21 │◀────│  Spring Cloud Gateway · JWT · RBAC   │
-│ PrimeNG/SSE │     │  Circuit Breaker · Rate Limiter       │
-└─────────────┘     └──────┬───────────────────┬────────────┘
-                           │                   │
-          ┌────────────────┼──────────┐         ▼
-          ▼                ▼          ▼    ┌─────────────┐
-  ┌──────────────┐  ┌──────────┐  ┌──────────────┐      │  auth-service │
-  │order-service │  │inventory │  │   payment    │      │  JWT + BCrypt │
-  │  Outbox +    │  │  :8082   │  │   :8083      │      └──────────────┘
-  │  SSE :8081   │  │  Redis   │  │   Stripe     │
-  └──────┬───────┘  │  cache   │  │   SDK        │
-         │          └──────────┘  └──────┬───────┘
-         │                               │
-  ┌──────▼───────────────────────────────▼──────────────────┐
-  │                  Apache Kafka 4.2 (KRaft)                │
-  │       orders-topic → inventory-topic → payment-topic     │
-  └──────────────────────────┬──────────────────────────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │     notification-service     │
-              │     :8085 · Gmail SMTP       │
-              └─────────────────────────────┘
+```mermaid
+flowchart LR
+    ui["shop-ui<br/>Angular 21 · nginx"] -->|HTTPS| gw["gateway-service<br/>JWT · RBAC · circuit breakers · rate limit"]
+    ui -.->|"Stripe.js: confirm the card"| stripe[("Stripe API")]
+    gw --> auth[auth-service]
+    gw --> order[order-service]
+    gw --> inv[inventory-service]
+    gw --> pay[payment-service]
+    gw --> cart[cart-service]
+    gw --> audit[audit-trail-service]
+    order -.->|"SSE /orders/stream"| ui
+    pay -.->|"create · retrieve · refund"| stripe
 
-  ┌─────────────────────────────────────────────────────────┐
-  │                     INFRASTRUCTURE                       │
-  │  config-server :8888   Grafana LGTM :3000   Redis :6379 │
-  │  Spring Cloud Config   Tempo·Loki·Mimir     rate limit  │
-  │                                             + cache      │
-  └─────────────────────────────────────────────────────────┘
+    order -->|outbox relay| t_orders[["orders-topic"]]
+    t_orders -->|inventory-group| inv
+    inv --> t_inv[["inventory-topic"]]
+    t_inv -->|payment-group| pay
+    pay -->|"Stripe unavailable"| t_retry[["inventory-topic-retry-0..3"]]
+    t_retry -->|"payment-group-retry-N"| pay
+    pay -->|"after the last attempt"| t_dlt[["inventory-topic-dlt"]]
+    t_dlt -->|payment-group-dlt| pay
+    pay --> t_pay[["payment-topic"]]
+    t_pay -->|order-group| order
+    t_pay -->|inventory-compensation-group| inv
+    t_pay -->|notification-group| notif[notification-service]
+    auth --> t_otp[["otp-topic"]]
+    t_otp -->|otp-notification-group| notif
+    auth & order & inv & pay --> t_audit[["audit-topic"]]
+    t_audit -->|audit-group| audit
 ```
+
+Each stateful service owns its PostgreSQL database (authdb, orderdb, inventorydb, paymentdb, auditdb). Redis serves the
+gateway rate limiter, the carts and the product list cache. config-server serves every service's configuration;
+Grafana LGTM receives traces, metrics and logs over OTLP.
+
+### Saga flow, with compensation
+
+The saga is choreographed: no component runs it, each service reacts to the previous event
+([ADR 13](docs/adr/0013-choreographed-saga.md)). The customer pays in the browser before the order exists, so a
+failed order refunds a captured payment ([ADR 17](docs/adr/0017-payment-compensation-by-refund.md)).
+
+```mermaid
+sequenceDiagram
+    actor C as Customer
+    participant UI as shop-ui
+    participant S as Stripe
+    participant P as payment-service
+    participant O as order-service
+    participant I as inventory-service
+
+    C->>UI: Buy now
+    UI->>P: POST /payments/create-intent
+    P->>S: create PaymentIntent
+    UI->>S: confirm the card (Stripe.js)
+    UI->>O: POST /orders with the paymentIntentId
+    O->>O: order PENDING + outbox row, one transaction
+    O-->>I: orders-topic (at least once)
+    alt every item in stock
+        I->>I: lock the products in name order, reserve, deduct
+        I-->>P: inventory-topic APPROVED
+    else not enough stock, an unknown product, or a product still locked after 3 tries of 3 s
+        I-->>P: inventory-topic REJECTED
+    end
+    P->>S: retrieve the PaymentIntent
+    alt APPROVED, and the intent paid exactly this order
+        P-->>O: payment-topic SUCCESS
+        O->>O: CONFIRMED, pushed over SSE, email
+    else the order fails (REJECTED, other amount or currency, no intent)
+        opt the intent succeeded and paid no other order
+            P->>S: refund, Idempotency-Key refund-order-ID
+        end
+        P-->>O: payment-topic FAILED
+        P-->>I: payment-topic FAILED
+        I->>I: release the reserved stock, one transaction
+        O->>O: CANCELLED, pushed over SSE, email
+    end
+    Note over P,S: Stripe unavailable: the inventory result is retried after 2, 6, 18 and 54 s.<br/>Then inventory-topic-dlt and PAYMENT_DEAD_LETTERED: the order stays PENDING until a manual replay.
+```
+
+Every step is idempotent, because every event can be delivered twice: inventory skips an order it already
+reserved, payment-service records one transaction per order and republishes it, and an order changes status
+only from PENDING.
+
+### Hexagonal layout of a service
+
+order-service, inventory-service and payment-service use ports and adapters
+([ADR 15](docs/adr/0015-hexagonal-architecture.md)); `HexagonalArchitectureTest` (ArchUnit) enforces the
+rules. payment-service:
+
+```
+payment-service/src/main/java/com/daniellaera/paymentservice/
+├── domain/
+│   ├── model/           PaymentTransaction, IntentVerification, PaymentRefund, exceptions (no framework)
+│   └── port/
+│       ├── in/          ProcessInventoryResultUseCase, CreatePaymentIntentUseCase, VerifyPaymentQuery, …
+│       └── out/         PaymentGateway, TransactionRepository, PaymentResultPublisher, AuditTrail
+├── application/         ProcessInventoryResultService, CreatePaymentIntentService, …   (use cases)
+├── adapter/
+│   ├── in/web/          StripePaymentController, PaymentController, DTOs
+│   ├── in/messaging/    InventoryResultEventListener (@RetryableTopic, @DltHandler)
+│   ├── out/stripe/      StripePaymentGateway                (the only code that uses com.stripe)
+│   ├── out/persistence/ TransactionPersistenceAdapter, JPA entity and mapper
+│   └── out/messaging/   KafkaPaymentResultPublisher, KafkaAuditTrail
+└── config/              PaymentUseCaseConfig (a @Bean per use case), StripeConfig
+```
+
+```mermaid
+flowchart LR
+    subgraph IN["adapter/in"]
+        web["web<br/>REST controllers"]
+        msg["messaging<br/>Kafka listener"]
+    end
+    subgraph CORE["domain + application"]
+        pin(["port/in<br/>use cases"])
+        app["application<br/>services"]
+        dom["domain/model"]
+        pout(["port/out"])
+    end
+    subgraph OUT["adapter/out"]
+        stripe["stripe"]
+        jpa["persistence"]
+        kafka["messaging"]
+    end
+    web --> pin
+    msg --> pin
+    app -.->|implements| pin
+    app --> dom
+    app --> pout
+    stripe -.->|implements| pout
+    jpa -.->|implements| pout
+    kafka -.->|implements| pout
+```
+
+The rules: `domain` depends on nothing but `java`; `application` only on the domain (plus SLF4J and
+`@Transactional`); neither knows an adapter; inbound adapters call ports, never application classes; adapters
+don't depend on each other.
 
 ---
 
@@ -111,15 +219,15 @@ A production-grade microservices e-commerce platform built on Java 21 and Spring
 ## Key Architectural Patterns
 
 ### Saga Pattern (Choreography)
-Order placement triggers a distributed saga across three services via Kafka:
-1. `order-service` creates order (PENDING) → publishes to `orders-topic`
-2. `inventory-service` validates and reserves stock → publishes to `inventory-topic`
-3. `payment-service` verifies Stripe PaymentIntent → publishes to `payment-topic`
-4. `order-service` receives result → marks order CONFIRMED or FAILED
-5. On failure: automatic compensation — stock restored, order cancelled
+Order placement runs a distributed saga across three services via Kafka (see the diagram above):
+1. `order-service` creates the order (PENDING) and an outbox row in one transaction → `orders-topic`
+2. `inventory-service` reserves the stock of every item, or rejects the order → `inventory-topic`
+3. `payment-service` verifies the Stripe PaymentIntent (status, amount, currency, one order per intent) → `payment-topic`
+4. `order-service` marks the order CONFIRMED or CANCELLED
+5. On failure: reserved stock is released, and a captured payment is refunded
 
 ### Transactional Outbox
-Prevents dual-write between PostgreSQL and Kafka. The order and its `OutboxEvent` are written in a single database transaction. A scheduler polls the outbox table and publishes pending events to Kafka, guaranteeing at-least-once delivery even if the broker is temporarily unavailable.
+Prevents dual-write between PostgreSQL and Kafka. The order and its `OutboxEvent` are written in a single database transaction. A relay sends pending events to Kafka every 5 s, waits for Kafka's acknowledgement, and only then marks them published: delivery is at least once, even if the broker is temporarily unavailable. A row that can never be sent is FAILED after 5 attempts and audited as `OUTBOX_EVENT_FAILED` ([ADR 16](docs/adr/0016-transactional-outbox-at-least-once.md)).
 
 ### Real-time Updates (SSE)
 The browser holds one persistent Server-Sent Events connection to `order-service`. When an order changes state (PENDING → CONFIRMED / FAILED), the update is pushed instantly — no polling, no WebSocket handshake overhead.
@@ -234,10 +342,28 @@ Login uses email OTP. Locally, OTP emails are caught by Mailpit (http://localhos
 - The demo accounts above **do not exist**: `V3__remove_demo_users.sql` deletes them (and their refresh
   tokens) in every environment where the old V1 seed created them.
 - Login is limited: 5 wrong OTP codes invalidate the code (429, log in again), and at most 5 codes are issued
-  per email in 15 minutes (429). Both are audited as `USER_LOGIN_FAILED`.- The login page does not show demo credentials in production builds.
+  per email in 15 minutes (429). Both are audited as `USER_LOGIN_FAILED`.
+- The login page does not show demo credentials in production builds.
 - Anyone can register and use the shop as a **USER** (browse, cart, orders, Stripe test payments). The OTP is sent to the email you register with, so use an address you can read.
 - **ADMIN** features (product management and restock, audit trail, all customers' orders) are restricted to a single maintainer-owned account. There is no way to obtain the ADMIN role through the UI.
 - Payments run in Stripe **test mode**: use test cards such as 4242 4242 4242 4242 (success) or 4000 0000 0000 0002 (declined). No real money is charged.
+
+---
+
+## Running the tests
+
+| Suite | What it covers | Command |
+|---|---|---|
+| Unit and integration tests | Use cases without Spring; adapters and REST against real PostgreSQL, Kafka and Redis with Testcontainers; WireMock for Stripe; ArchUnit layering rules; event contract fixtures | `mvn verify` (Docker must be running) |
+| Coverage gate | Aggregate JaCoCo instruction coverage of all modules, minimum 90 % | `./scripts/check-coverage.sh` after `mvn verify` |
+| Saga end-to-end (Cucumber) | order-, inventory- and payment-service from their jars, on real Kafka, PostgreSQL and Redis, with Stripe stubbed by WireMock: confirmation, compensation, refunds, redelivery, idempotency | `mvn -pl order-service,inventory-service,payment-service -am install -DskipTests`<br>`mvn -Pe2e -pl saga-e2e verify` |
+| shop-ui unit tests | Angular components | `cd shop-ui && npx ng test --watch=false` |
+| shop-ui Playwright | The production build behind the real `nginx.conf`, with a stub gateway; Stripe.js and the API stubbed per spec | `cd shop-ui && npx ng build --configuration production`<br>`docker compose -f e2e/stack/compose.yml up -d && npm run e2e` |
+| Playwright `@public` | Specs with no login, no payment and no writes, safe against production | `cd shop-ui && E2E_BASE_URL=https://shop-staging.daniellaera.com E2E_BUILD_SHA=<deployed sha> npm run e2e:public` |
+
+CI runs them on every pull request: `pr.yml` (backend tests, coverage gate, and for shop-ui changes `ng test`
+plus every Playwright spec) and `e2e.yml` (the Cucumber suite, when the saga services change). After a deploy,
+`main.yml` runs `scripts/post-deploy-smoke.sh` on the redeployed services.
 
 ---
 
@@ -291,7 +417,7 @@ POST /products            — create product (ADMIN only)
 POST /orders              — place order
 GET  /orders              — list orders for authenticated user
 GET  /orders/{id}         — get order by ID
-GET  /orders/sse          — SSE stream for real-time order updates
+GET  /orders/stream       — SSE stream for real-time order updates
 
 GET  /transactions        — list payment transactions
 GET  /transactions/{id}   — get transaction by ID
@@ -311,18 +437,29 @@ http://localhost:8083/swagger-ui.html  — Payment Service
 ```
 online-shop/
 ├── auth-service/
+├── audit-trail-service/
+├── cart-service/
 ├── config-server/
+├── coverage-report/          ← aggregate JaCoCo report, input of the coverage gate
 ├── gateway-service/
 ├── inventory-service/
 ├── notification-service/
 ├── order-service/
 ├── payment-service/
-├── shop-ui/
+├── saga-e2e/                 ← Cucumber end-to-end saga suite (profile e2e)
+├── shop-ui/                  ← Angular app, nginx config, Playwright specs (e2e/)
 ├── docs/
-│   ├── ARCHITECTURE.md       ← design, flows, ADRs
+│   ├── ARCHITECTURE.md       ← design and flows
+│   ├── adr/                  ← architecture decision records
+│   ├── maintenance/          ← runbooks
+│   ├── ROLLBACK.md
 │   └── ROADMAP.md
 ├── scripts/
+│   ├── check-coverage.sh     ← coverage gate (90 %)
+│   ├── post-deploy-smoke.sh  ← health checks after a deploy
 │   └── create-admin.sh       ← provision first ADMIN post-deployment
+├── BACKLOG.md
+├── CHANGELOG.md
 ├── docker-compose.yml        ← full stack (prod-like)
 ├── docker-compose.local.yml  ← infrastructure only (dev)
 ├── start-services.sh
@@ -339,9 +476,11 @@ daniellaera/order-service:latest
 daniellaera/inventory-service:latest
 daniellaera/payment-service:latest
 daniellaera/notification-service:latest
+daniellaera/cart-service:latest
+daniellaera/audit-trail-service:latest
 daniellaera/shop-ui:latest
 ```
 
 ---
 
-See [Architecture](./docs/ARCHITECTURE.md) for detailed flow diagrams and architectural decision records.
+See [Architecture](./docs/ARCHITECTURE.md) for detailed flows, and [docs/adr](./docs/adr/README.md) for the architecture decision records.
