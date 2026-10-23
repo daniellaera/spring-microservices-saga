@@ -10,12 +10,15 @@ import com.daniellaera.inventoryservice.domain.port.out.ProductRepository;
 import com.daniellaera.inventoryservice.domain.port.out.StockReservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 /**
- * Not transactional (current behaviour): every save commits on its own and the ledger entry is written last,
- * so a crash mid-way leaves a partial restore that a redelivery restores again (see the backlog).
+ * One transaction per compensation: every release and the ledger entry commit together or not at all, so a
+ * crash mid-way leaves stock untouched and the redelivered payment result restores it exactly once (the ledger
+ * entry is unique per order). STOCK_RESTORED audits go out only after the commit. Exceptions still propagate to
+ * the listener container.
  */
 public class CompensateStockService implements CompensateStockUseCase {
 
@@ -36,6 +39,7 @@ public class CompensateStockService implements CompensateStockUseCase {
     }
 
     @Override
+    @Transactional
     public void compensate(PaymentOutcome outcome) {
         log.info("=== Received payment result for orderId: {} status: {}", outcome.orderId(), outcome.status());
 
