@@ -17,8 +17,10 @@ import { DialogModule } from 'primeng/dialog';
 import { DrawerModule } from 'primeng/drawer';
 import { BadgeModule } from 'primeng/badge';
 import { ConfirmationService, MessageService } from 'primeng/api';
+import { HttpErrorResponse } from '@angular/common/http';
+import { StripeElements, StripePaymentElement } from '@stripe/stripe-js';
 import { AuthService } from '../../core/services/auth.service';
-import { OrderService, OrderDto, PagedResponse } from '../../core/services/order.service';
+import { OrderService, OrderDto, OrderItemInput, PagedResponse } from '../../core/services/order.service';
 import { ProductService, ProductDto } from '../../core/services/product.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { PaymentService, PaymentIntentResponse } from '../../core/services/payment.service';
@@ -41,7 +43,6 @@ import { handleHttpError } from '../../core/utils/error-handler.util';
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private static readonly SSE_RETRY_DELAY_MS = 3000;
-  private static readonly STRIPE_MOUNT_DELAY_MS = 300;
   private static readonly POLL_INTERVAL_MS = 2000;
   private static readonly POLL_TIMEOUT_MS = 30000;
   private static readonly ORDER_STATUS_CONFIRMED = 'CONFIRMED';
@@ -79,7 +80,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private abortController: AbortController | null = null;
   private sseRetryTimeout: ReturnType<typeof setTimeout> | null = null;
-  private stripeMountTimeout: ReturnType<typeof setTimeout> | null = null;
   private pendingSSEUpdates = new Map<number, string>();
   private sseConfirmedOrders = new Set<number>();
 
@@ -87,10 +87,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showPaymentDialog = false;
   paymentLoading = false;
   currentPaymentIntent: PaymentIntentResponse | null = null;
-  cartCheckoutIntent: PaymentIntentResponse | null = null;
+  // what the open dialog pays for: the order is created from these, so it matches the intent's amount
+  checkoutItems: OrderItemInput[] = [];
+  checkoutTotal = 0;
   isCartCheckout = false;
-  private stripeElements: any = null;
-  private cardElement: any = null;
+  cardReady = false;
+  paymentError: string | null = null;
+  checkoutError: string | null = null;
+  private stripeElements: StripeElements | null = null;
+  private cardElement: StripePaymentElement | null = null;
+  // One PaymentIntent per purchase: a retry of the same purchase (after Cancel or an error) reuses its
+  // intent; a different purchase gets a new one, and a paid intent is never reused
+  private openIntent: { purchaseKey: string; intent: PaymentIntentResponse } | null = null;
 
   // place order form
   selectedProduct = signal<ProductDto | null>(null);
@@ -176,35 +184,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   checkoutCart(): void {
     const cart = this.cartService.cart();
     if (!cart || cart.items.length === 0) return;
-
-    this.isCartCheckout = true;
-    this.orderLoading = true;
-    const amountInCents = Math.round(
-      cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 100
-    );
-
-    this.paymentService.createPaymentIntent(
-      amountInCents,
-      'eur',
-      cart.items.map(i => i.productName).join(', ')
-    ).pipe(take(1)).subscribe({
-      next: async (intent) => {
-        this.currentPaymentIntent = intent;
-        this.cartCheckoutIntent = intent;
-        this.showPaymentDialog = true;
-        this.cartService.cartVisible.set(false);
-        this.orderLoading = false;
-        // STRIPE_MOUNT_DELAY_MS: p-dialog needs one animation
-        // frame to render #stripe-payment-element in DOM
-        // before Stripe Elements can mount to it
-        if (this.stripeMountTimeout) clearTimeout(this.stripeMountTimeout);
-        this.stripeMountTimeout = setTimeout(() => this.mountStripeCard(intent), DashboardComponent.STRIPE_MOUNT_DELAY_MS);
-      },
-      error: (err) => {
-        handleHttpError(err, this.messageService, 'Payment setup failed');
-        this.orderLoading = false;
-      }
-    });
+    this.startCheckout(
+      cart.items.map(i => ({ productName: i.productName, quantity: i.quantity, price: i.price })), true);
   }
 
   loadOrders(page: number = 0): void {
@@ -242,148 +223,175 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Step 1: user clicks "Place order" → create PaymentIntent and open dialog
-  async openPaymentDialog(): Promise<void> {
+  // Step 1: user clicks "Buy now" → get the purchase's PaymentIntent and open the dialog
+  openPaymentDialog(): void {
     const product = this.selectedProduct();
     if (!product || !this.canOrder()) return;
+    this.startCheckout([{ productName: product.name, quantity: this.quantity(), price: product.price }], false);
+  }
 
-    this.isCartCheckout = false;
+  private startCheckout(items: OrderItemInput[], isCartCheckout: boolean): void {
+    if (this.orderLoading) return;
+    this.checkoutError = null;
+    const purchaseKey = JSON.stringify(items);
+    if (this.openIntent?.purchaseKey === purchaseKey) {
+      this.openDialog(this.openIntent.intent, items, isCartCheckout);
+      return;
+    }
+
     this.orderLoading = true;
-    const amountInCents = Math.round(product.price * this.quantity() * 100);
+    const amountInCents = Math.round(items.reduce((sum, i) => sum + i.price * i.quantity, 0) * 100);
+    this.paymentService.createPaymentIntent(amountInCents, 'eur', items.map(i => i.productName).join(', '))
+      .pipe(take(1)).subscribe({
+        next: intent => {
+          this.orderLoading = false;
+          this.openIntent = { purchaseKey, intent };
+          this.openDialog(intent, items, isCartCheckout);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.orderLoading = false;
+          this.checkoutError = DashboardComponent.paymentSetupError(err);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Payment setup failed',
+            detail: this.checkoutError,
+            life: 6000
+          });
+        }
+      });
+  }
 
-    this.paymentService.createPaymentIntent(amountInCents, 'eur', product.name).pipe(take(1)).subscribe({
-      next: async (intent) => {
-        this.currentPaymentIntent = intent;
-        this.showPaymentDialog = true;
-        this.orderLoading = false;
-        // STRIPE_MOUNT_DELAY_MS: p-dialog needs one animation
-        // frame to render #stripe-payment-element in DOM
-        // before Stripe Elements can mount to it
-        if (this.stripeMountTimeout) clearTimeout(this.stripeMountTimeout);
-        this.stripeMountTimeout = setTimeout(() => this.mountStripeCard(intent), DashboardComponent.STRIPE_MOUNT_DELAY_MS);
-      },
-      error: (err) => {
-        handleHttpError(err, this.messageService, 'Payment setup failed');
-        this.orderLoading = false;
-      }
-    });
+  private static paymentSetupError(err: HttpErrorResponse): string {
+    if (err.status === 0) {
+      return 'The shop could not be reached. Check your connection and try again.';
+    }
+    // 404: what the gateway answered on a timeout before /fallback/payments existed
+    if (err.status === 404 || err.status >= 500) {
+      return 'The payment service did not answer. Please try again.';
+    }
+    return err.error?.message || err.error?.error || 'Please try again.';
+  }
+
+  // The card form mounts once the dialog is shown (onPaymentDialogShown), not after a guessed delay
+  private openDialog(intent: PaymentIntentResponse, items: OrderItemInput[], isCartCheckout: boolean): void {
+    this.resetPaymentDialog();
+    this.currentPaymentIntent = intent;
+    this.checkoutItems = items;
+    this.checkoutTotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    this.isCartCheckout = isCartCheckout;
+    if (isCartCheckout) {
+      this.cartService.cartVisible.set(false);
+    }
+    this.showPaymentDialog = true;
+  }
+
+  // p-dialog (onShow): #stripe-payment-element is in the DOM from here on
+  onPaymentDialogShown(): void {
+    if (this.currentPaymentIntent) {
+      this.mountStripeCard(this.currentPaymentIntent);
+    }
   }
 
   async mountStripeCard(intent: PaymentIntentResponse): Promise<void> {
-    const stripe = await this.paymentService.getStripe(intent.publishableKey);
-    if (!stripe) return;
+    this.destroyCard();
+    this.paymentError = null;
+    try {
+      const stripe = await this.paymentService.getStripe(intent.publishableKey);
+      if (!stripe) {
+        throw new Error('Stripe.js is not available');
+      }
+      // the dialog may have been closed, or opened for another intent, while Stripe.js was loading
+      if (this.currentPaymentIntent !== intent || !this.showPaymentDialog) return;
 
-    this.stripeElements = stripe.elements({ clientSecret: intent.clientSecret });
-    this.cardElement = this.stripeElements.create('payment');
-    this.cardElement.mount('#stripe-payment-element');
+      this.stripeElements = stripe.elements({ clientSecret: intent.clientSecret });
+      const card = this.stripeElements.create('payment');
+      card.on('ready', () => this.zone.run(() => this.cardReady = true));
+      card.on('loaderror', event => this.zone.run(() => this.showCardError(event.error?.message)));
+      card.mount('#stripe-payment-element');
+      this.cardElement = card;
+    } catch (err) {
+      this.showCardError((err as Error)?.message);
+    }
+  }
+
+  retryStripeCard(): void {
+    if (this.currentPaymentIntent) {
+      this.mountStripeCard(this.currentPaymentIntent);
+    }
+  }
+
+  private showCardError(detail?: string): void {
+    this.destroyCard();
+    this.paymentError = `The payment form could not be loaded${detail ? ': ' + detail : '.'}`;
+    this.messageService.add({
+      severity: 'error',
+      summary: 'Payment form unavailable',
+      detail: this.paymentError,
+      life: 6000
+    });
   }
 
   // Step 2: user enters card and clicks Pay → confirm with Stripe, then create order
   async confirmStripePayment(): Promise<void> {
-    if (!this.stripeElements || !this.currentPaymentIntent) return;
-    this.paymentLoading = true;
-
-    const stripe = await this.paymentService.getStripe(this.currentPaymentIntent.publishableKey);
-    if (!stripe) return;
-
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements: this.stripeElements,
-      confirmParams: { return_url: window.location.href },
-      redirect: 'if_required'
-    });
-
-    if (error) {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Payment failed',
-        detail: error.message || 'Card was declined',
-        life: 5000
-      });
-      this.paymentLoading = false;
+    const intent = this.currentPaymentIntent;
+    if (this.paymentLoading) return;
+    if (!intent || !this.stripeElements || !this.cardReady) {
+      this.showPaymentError('The payment form is not ready yet. Wait for it to load, or retry.');
       return;
     }
+    this.paymentLoading = true;
+    this.paymentError = null;
 
-    if (paymentIntent?.status === 'succeeded') {
-      if (this.isCartCheckout) {
-        this.placeCartOrdersAfterPayment(paymentIntent.id);
-      } else {
-        this.placeOrderAfterPayment(paymentIntent.id);
+    try {
+      const stripe = await this.paymentService.getStripe(intent.publishableKey);
+      if (!stripe) {
+        throw new Error('Stripe.js is not available');
       }
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements: this.stripeElements,
+        confirmParams: { return_url: window.location.href },
+        redirect: 'if_required'
+      });
+
+      if (error) {
+        this.showPaymentError(error.message || 'Card was declined');
+        return;
+      }
+      if (paymentIntent?.status !== 'succeeded') {
+        this.showPaymentError(`The payment was not completed (status: ${paymentIntent?.status ?? 'unknown'}).`);
+        return;
+      }
+      // paid: this intent must never pay for another purchase
+      this.openIntent = null;
+      this.placeOrderAfterPayment(paymentIntent.id);
+    } catch (err) {
+      this.showPaymentError((err as Error)?.message || 'Something went wrong. Please try again.');
     }
   }
 
-  // Step 3: payment confirmed → create the order with paymentIntentId
-  placeOrderAfterPayment(paymentIntentId: string): void {
-    const product = this.selectedProduct();
-    if (!product) return;
-
-    this.orderService.createOrder(
-      [{ productName: product.name, quantity: this.quantity(), price: product.price }],
-      paymentIntentId
-    ).pipe(take(1)).subscribe({
-      next: (newOrder: OrderDto) => {
-        this.showPaymentDialog = false;
-        this.paymentLoading = false;
-        this.orders = [newOrder, ...this.orders];
-        this.totalElements++;
-        this.applyPendingSSEUpdate(newOrder.id);
-        this.pollUntilConfirmed(newOrder.id, newOrder.productName);
-        this.quantity.set(1);
-        this.loadProducts();
-        this.cartService.clearCart().pipe(take(1)).subscribe({
-          error: () => {
-            this.messageService.add({
-              severity: 'error',
-              summary: 'Failed',
-              detail: 'Order placed, but cart could not be cleared',
-              life: 3000
-            });
-          }
-        });
-        this.cartService.cartVisible.set(false);
-        this.messageService.add({
-          severity: 'info',
-          summary: '⏳ Order submitted',
-          detail: 'Payment confirmed — processing your order...',
-          life: 3000
-        });
-        this.cardElement?.destroy();
-        this.cardElement = null;
-        this.stripeElements = null;
-        this.currentPaymentIntent = null;
-      },
-      error: (err) => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Order creation failed',
-          detail: err?.error?.message || 'Payment succeeded but order failed',
-          life: 5000
-        });
-        this.paymentLoading = false;
-      }
-    });
+  private showPaymentError(detail: string): void {
+    this.paymentLoading = false;
+    this.paymentError = detail;
+    this.messageService.add({ severity: 'error', summary: 'Payment failed', detail, life: 5000 });
   }
 
-  // Step 3b: cart checkout — create ONE order containing all cart items
-  placeCartOrdersAfterPayment(paymentIntentId: string): void {
-    const cart = this.cartService.cart();
-    if (!cart || cart.items.length === 0) return;
-
-    const items = cart.items.map(i => ({
-      productName: i.productName,
-      quantity: i.quantity,
-      price: i.price
-    }));
+  // Step 3: payment confirmed → create the order of the dialog's items with paymentIntentId
+  placeOrderAfterPayment(paymentIntentId: string): void {
+    const items = this.checkoutItems;
+    const submitted = this.isCartCheckout
+      ? `${items.length} items — processing...`
+      : 'Payment confirmed — processing your order...';
 
     this.orderService.createOrder(items, paymentIntentId).pipe(take(1)).subscribe({
       next: (newOrder: OrderDto) => {
-        this.showPaymentDialog = false;
-        this.paymentLoading = false;
+        this.resetPaymentDialog();
         this.isCartCheckout = false;
+        this.quantity.set(1);
         this.orders = [newOrder, ...this.orders];
         this.totalElements++;
         this.applyPendingSSEUpdate(newOrder.id);
         this.pollUntilConfirmed(newOrder.id, newOrder.productName);
+        this.loadProducts();
         this.cartService.clearCart().pipe(take(1)).subscribe({
           error: () => {
             this.messageService.add({
@@ -395,40 +403,48 @@ export class DashboardComponent implements OnInit, OnDestroy {
           }
         });
         this.cartService.cartVisible.set(false);
-        this.quantity.set(1);
-        this.loadProducts();
-        this.cardElement?.destroy();
-        this.cardElement = null;
-        this.stripeElements = null;
-        this.currentPaymentIntent = null;
-        this.cartCheckoutIntent = null;
         this.messageService.add({
           severity: 'info',
           summary: '⏳ Order submitted',
-          detail: `${cart.items.length} items — processing...`,
+          detail: submitted,
           life: 3000
         });
       },
       error: (err) => {
+        // the payment went through: close the dialog, so that it can't be paid twice
+        this.resetPaymentDialog();
+        this.isCartCheckout = false;
         this.messageService.add({
           severity: 'error',
           summary: 'Order creation failed',
-          detail: err?.error?.message || 'Payment succeeded but order failed',
-          life: 5000
+          detail: `${err?.error?.message || 'Payment succeeded but order failed'} (payment ${paymentIntentId})`,
+          sticky: true
         });
-        this.paymentLoading = false;
       }
     });
   }
 
+  // Cancel keeps the purchase's intent: "Buy now" for the same purchase reopens it
   cancelPayment(): void {
+    this.resetPaymentDialog();
+    this.isCartCheckout = false;
+  }
+
+  private resetPaymentDialog(): void {
     this.showPaymentDialog = false;
+    this.paymentLoading = false;
+    this.paymentError = null;
+    this.currentPaymentIntent = null;
+    this.checkoutItems = [];
+    this.checkoutTotal = 0;
+    this.destroyCard();
+  }
+
+  private destroyCard(): void {
     this.cardElement?.destroy();
     this.cardElement = null;
     this.stripeElements = null;
-    this.currentPaymentIntent = null;
-    this.cartCheckoutIntent = null;
-    this.isCartCheckout = false;
+    this.cardReady = false;
   }
 
   connectSSE(): void {
@@ -565,7 +581,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.abortController?.abort();
     if (this.sseRetryTimeout) clearTimeout(this.sseRetryTimeout);
-    if (this.stripeMountTimeout) clearTimeout(this.stripeMountTimeout);
+    this.destroyCard();
     this.pendingSSEUpdates.clear();
     this.sseConfirmedOrders.clear();
     this.destroy$.next();
