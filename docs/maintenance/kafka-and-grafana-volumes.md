@@ -1,6 +1,6 @@
 # Maintenance: move Kafka and Grafana data onto volumes
 
-Status: planned, not executed. Host: infra-node1, compose project `online-shop` in `/srv/online-shop`.
+Status: executed on 2026-10-23 (16:03–16:11 UTC, backups in `/srv/online-shop/maintenance/20261023`). Host: infra-node1, compose project `online-shop` in `/srv/online-shop`.
 
 ## Why
 
