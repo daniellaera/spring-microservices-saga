@@ -5,12 +5,14 @@ import com.daniellaera.inventoryservice.application.fakes.InMemoryProductReposit
 import com.daniellaera.inventoryservice.application.fakes.InMemoryStockReservationRepository;
 import com.daniellaera.inventoryservice.application.fakes.RecordingAuditTrail;
 import com.daniellaera.inventoryservice.application.fakes.RecordingProductListCache;
+import com.daniellaera.inventoryservice.domain.model.ProductLockTimeoutException;
 import com.daniellaera.inventoryservice.domain.model.StockReservation;
 import com.daniellaera.inventoryservice.domain.port.in.PaymentOutcome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Ports the handlePaymentResult scenarios of the former InventoryConsumerTest. */
 class CompensateStockServiceTest {
@@ -47,6 +49,21 @@ class CompensateStockServiceTest {
 
         assertThat(products.saved()).isEmpty();
         assertThat(ledger.entries()).isEmpty();
+    }
+
+    @Test
+    void lockTimeout_propagatesToTheListenerWithNothingRecorded() {
+        // the Kafka container retries the payment result; the ledger entry is not written, so it compensates later
+        reservations.given(1L, "MacBook Pro", 2);
+        products.lockedOut("MacBook Pro", 1);
+
+        assertThatThrownBy(() -> service.compensate(new PaymentOutcome(1L, "FAILED", "user@test.com")))
+                .isInstanceOf(ProductLockTimeoutException.class)
+                .hasMessage("Product MacBook Pro is locked by another stock change");
+
+        assertThat(products.saved()).isEmpty();
+        assertThat(ledger.entries()).isEmpty();
+        assertThat(auditTrail.audits()).isEmpty();
     }
 
     @Test

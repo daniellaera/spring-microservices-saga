@@ -2,6 +2,7 @@ package com.daniellaera.inventoryservice.adapter.in.web;
 
 import com.daniellaera.inventoryservice.adapter.in.web.dto.ErrorResponse;
 import com.daniellaera.inventoryservice.domain.model.ProductAlreadyExistsException;
+import com.daniellaera.inventoryservice.domain.model.ProductLockTimeoutException;
 import com.daniellaera.inventoryservice.domain.model.ProductNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleNotFound(ProductNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(404, ex.getMessage()));
+    }
+
+    // a restock waiting on an order's lock: nothing changed, the admin can simply try again
+    @ExceptionHandler(ProductLockTimeoutException.class)
+    public ResponseEntity<ErrorResponse> handleLockTimeout(ProductLockTimeoutException ex) {
+        log.warn("Restock gave up: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header("Retry-After", "1")
+                .body(new ErrorResponse(503, ex.getMessage() + ", please try again"));
     }
 
     @ExceptionHandler(Exception.class)

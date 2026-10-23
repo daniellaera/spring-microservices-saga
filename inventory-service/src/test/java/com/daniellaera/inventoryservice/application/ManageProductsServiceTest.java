@@ -4,6 +4,7 @@ import com.daniellaera.inventoryservice.application.fakes.InMemoryProductReposit
 import com.daniellaera.inventoryservice.application.fakes.RecordingAuditTrail;
 import com.daniellaera.inventoryservice.domain.model.Product;
 import com.daniellaera.inventoryservice.domain.model.ProductAlreadyExistsException;
+import com.daniellaera.inventoryservice.domain.model.ProductLockTimeoutException;
 import com.daniellaera.inventoryservice.domain.model.ProductNotFoundException;
 import org.junit.jupiter.api.Test;
 
@@ -65,6 +66,18 @@ class ManageProductsServiceTest {
             assertThat(audit.eventType()).isEqualTo("PRODUCT_RESTOCKED");
             assertThat(audit.product().quantity()).isEqualTo(25);
         });
+    }
+
+    @Test
+    void restock_lockTimeout_propagatesAndChangesNothing() {
+        Product existing = products.given("MacBook Pro", 10, "1299.99");
+        products.lockedOut("#" + existing.id(), 1);
+
+        assertThatThrownBy(() -> service.restock(existing.id(), 15))
+                .isInstanceOf(ProductLockTimeoutException.class);
+
+        assertThat(products.quantityOf("MacBook Pro")).isEqualTo(10);
+        assertThat(auditTrail.audits()).isEmpty();
     }
 
     @Test
