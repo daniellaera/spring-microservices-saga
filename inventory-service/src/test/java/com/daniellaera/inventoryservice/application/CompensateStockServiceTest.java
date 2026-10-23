@@ -4,6 +4,7 @@ import com.daniellaera.inventoryservice.application.fakes.InMemoryCompensationLe
 import com.daniellaera.inventoryservice.application.fakes.InMemoryProductRepository;
 import com.daniellaera.inventoryservice.application.fakes.InMemoryStockReservationRepository;
 import com.daniellaera.inventoryservice.application.fakes.RecordingAuditTrail;
+import com.daniellaera.inventoryservice.application.fakes.RecordingProductListCache;
 import com.daniellaera.inventoryservice.domain.model.StockReservation;
 import com.daniellaera.inventoryservice.domain.port.in.PaymentOutcome;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,7 +19,9 @@ class CompensateStockServiceTest {
     private final InMemoryStockReservationRepository reservations = new InMemoryStockReservationRepository();
     private final InMemoryCompensationLedger ledger = new InMemoryCompensationLedger();
     private final RecordingAuditTrail auditTrail = new RecordingAuditTrail();
-    private final CompensateStockService service = new CompensateStockService(products, reservations, ledger, auditTrail);
+    private final RecordingProductListCache productListCache = new RecordingProductListCache();
+    private final CompensateStockService service = new CompensateStockService(products, reservations, ledger, auditTrail,
+            productListCache);
 
     @BeforeEach
     void setUp() {
@@ -84,6 +87,30 @@ class CompensateStockServiceTest {
         service.compensate(new PaymentOutcome(6L, "FAILED", "user@test.com"));
 
         assertThat(products.locked()).containsExactly("AirPods", "MacBook Pro");
+    }
+
+    @Test
+    void failed_invalidatesTheProductList() {
+        reservations.given(1L, "MacBook Pro", 2);
+
+        service.compensate(new PaymentOutcome(1L, "FAILED", "user@test.com"));
+
+        assertThat(productListCache.invalidations()).isEqualTo(1);
+    }
+
+    @Test
+    void nothingReleased_leavesTheProductList() {
+        reservations.given(1L, "MacBook Pro", 2);
+        reservations.given(2L, "MacBook Pro", 2);
+        ledger.record(2L, "MacBook Pro", 2);
+        reservations.given(3L, "Discontinued", 1);
+
+        service.compensate(new PaymentOutcome(1L, "SUCCESS", "user@test.com"));
+        service.compensate(new PaymentOutcome(2L, "FAILED", "user@test.com"));
+        service.compensate(new PaymentOutcome(3L, "FAILED", "user@test.com"));
+        service.compensate(new PaymentOutcome(4L, "FAILED", "user@test.com"));
+
+        assertThat(productListCache.invalidations()).isZero();
     }
 
     @Test

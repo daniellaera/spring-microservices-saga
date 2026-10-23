@@ -7,6 +7,7 @@ import com.daniellaera.inventoryservice.domain.model.StockReservation;
 import com.daniellaera.inventoryservice.domain.model.UnknownProductException;
 import com.daniellaera.inventoryservice.domain.port.in.ReserveStockCommand;
 import com.daniellaera.inventoryservice.domain.port.out.AuditTrail;
+import com.daniellaera.inventoryservice.domain.port.out.ProductListCache;
 import com.daniellaera.inventoryservice.domain.port.out.ProductRepository;
 import com.daniellaera.inventoryservice.domain.port.out.StockReservationRepository;
 import org.slf4j.Logger;
@@ -31,12 +32,14 @@ public class StockReserver {
     private final ProductRepository productRepository;
     private final StockReservationRepository stockReservationRepository;
     private final AuditTrail auditTrail;
+    private final ProductListCache productListCache;
 
     public StockReserver(ProductRepository productRepository, StockReservationRepository stockReservationRepository,
-                         AuditTrail auditTrail) {
+                         AuditTrail auditTrail, ProductListCache productListCache) {
         this.productRepository = productRepository;
         this.stockReservationRepository = stockReservationRepository;
         this.auditTrail = auditTrail;
+        this.productListCache = productListCache;
     }
 
     @Transactional
@@ -72,6 +75,8 @@ public class StockReserver {
             // published only once the transaction has committed
             auditTrail.stockDeducted(product, line, command.userEmail());
         }
+        // invalidated only once the transaction has committed
+        productListCache.invalidate();
         log.info("=== Inventory: stock reserved for orderId {}", command.orderId());
         return ReservationDecision.APPROVED;
     }

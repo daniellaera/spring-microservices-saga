@@ -8,6 +8,7 @@ import com.daniellaera.inventoryservice.application.StockReserver;
 import com.daniellaera.inventoryservice.domain.port.out.AuditTrail;
 import com.daniellaera.inventoryservice.domain.port.out.CompensationLedger;
 import com.daniellaera.inventoryservice.domain.port.out.InventoryResultPublisher;
+import com.daniellaera.inventoryservice.domain.port.out.ProductListCache;
 import com.daniellaera.inventoryservice.domain.port.out.ProductRepository;
 import com.daniellaera.inventoryservice.domain.port.out.StockReservationRepository;
 import org.springframework.context.annotation.Bean;
@@ -19,8 +20,8 @@ public class InventoryUseCaseConfig {
     @Bean
     public StockReserver stockReserver(ProductRepository productRepository,
                                        StockReservationRepository stockReservationRepository,
-                                       AuditTrail auditTrail) {
-        return new StockReserver(productRepository, stockReservationRepository, auditTrail);
+                                       AuditTrail auditTrail, ProductListCache productListCache) {
+        return new StockReserver(productRepository, stockReservationRepository, auditTrail, productListCache);
     }
 
     @Bean
@@ -34,9 +35,10 @@ public class InventoryUseCaseConfig {
     public CompensateStockService compensateStockService(ProductRepository productRepository,
                                                          StockReservationRepository stockReservationRepository,
                                                          CompensationLedger compensationLedger,
-                                                         AuditTrail auditTrail) {
+                                                         AuditTrail auditTrail,
+                                                         ProductListCache productListCache) {
         return new CompensateStockService(productRepository, stockReservationRepository, compensationLedger,
-                auditTrail);
+                auditTrail, productListCache);
     }
 
     @Bean

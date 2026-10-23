@@ -6,6 +6,7 @@ import com.daniellaera.inventoryservice.domain.port.in.CompensateStockUseCase;
 import com.daniellaera.inventoryservice.domain.port.in.PaymentOutcome;
 import com.daniellaera.inventoryservice.domain.port.out.AuditTrail;
 import com.daniellaera.inventoryservice.domain.port.out.CompensationLedger;
+import com.daniellaera.inventoryservice.domain.port.out.ProductListCache;
 import com.daniellaera.inventoryservice.domain.port.out.ProductRepository;
 import com.daniellaera.inventoryservice.domain.port.out.StockReservationRepository;
 import org.slf4j.Logger;
@@ -31,14 +32,17 @@ public class CompensateStockService implements CompensateStockUseCase {
     private final StockReservationRepository stockReservationRepository;
     private final CompensationLedger compensationLedger;
     private final AuditTrail auditTrail;
+    private final ProductListCache productListCache;
 
     public CompensateStockService(ProductRepository productRepository,
                                   StockReservationRepository stockReservationRepository,
-                                  CompensationLedger compensationLedger, AuditTrail auditTrail) {
+                                  CompensationLedger compensationLedger, AuditTrail auditTrail,
+                                  ProductListCache productListCache) {
         this.productRepository = productRepository;
         this.stockReservationRepository = stockReservationRepository;
         this.compensationLedger = compensationLedger;
         this.auditTrail = auditTrail;
+        this.productListCache = productListCache;
     }
 
     @Override
@@ -87,5 +91,9 @@ public class CompensateStockService implements CompensateStockUseCase {
         }
 
         compensationLedger.record(outcome.orderId(), reservations.get(0).productName(), releasedQuantity);
+        if (releasedQuantity > 0) {
+            // invalidated only once the transaction has committed
+            productListCache.invalidate();
+        }
     }
 }

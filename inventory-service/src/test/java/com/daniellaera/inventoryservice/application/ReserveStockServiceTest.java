@@ -4,6 +4,7 @@ import com.daniellaera.inventoryservice.application.fakes.InMemoryProductReposit
 import com.daniellaera.inventoryservice.application.fakes.InMemoryStockReservationRepository;
 import com.daniellaera.inventoryservice.application.fakes.RecordingAuditTrail;
 import com.daniellaera.inventoryservice.application.fakes.RecordingInventoryResultPublisher;
+import com.daniellaera.inventoryservice.application.fakes.RecordingProductListCache;
 import com.daniellaera.inventoryservice.domain.model.OrderLine;
 import com.daniellaera.inventoryservice.domain.model.ReservationDecision;
 import com.daniellaera.inventoryservice.domain.model.StockReservation;
@@ -29,8 +30,9 @@ class ReserveStockServiceTest {
     private final InMemoryStockReservationRepository reservations = new InMemoryStockReservationRepository();
     private final RecordingAuditTrail auditTrail = new RecordingAuditTrail();
     private final RecordingInventoryResultPublisher publisher = new RecordingInventoryResultPublisher();
+    private final RecordingProductListCache productListCache = new RecordingProductListCache();
     private final ReserveStockService service = new ReserveStockService(reservations,
-            new StockReserver(products, reservations, auditTrail), publisher);
+            new StockReserver(products, reservations, auditTrail, productListCache), publisher);
 
     @BeforeEach
     void setUp() {
@@ -71,6 +73,23 @@ class ReserveStockServiceTest {
         assertThat(auditTrail.audits()).isEmpty();
         assertThat(publisher.published()).singleElement()
                 .satisfies(published -> assertThat(published.decision()).isEqualTo(ReservationDecision.REJECTED));
+    }
+
+    @Test
+    void approved_invalidatesTheProductList() {
+        service.reserve(command(1L, "pi_123", line("MacBook Pro", 2), line("AirPods", 1)));
+
+        assertThat(productListCache.invalidations()).isEqualTo(1);
+    }
+
+    @Test
+    void rejectedUnknownOrRedelivered_leavesTheProductList() {
+        service.reserve(command(2L, null, line("MacBook Pro", 20)));
+        service.reserve(command(3L, null, line("Unknown Product", 1)));
+        reservations.given(4L, "MacBook Pro", 1);
+        service.reserve(command(4L, null, line("MacBook Pro", 1)));
+
+        assertThat(productListCache.invalidations()).isZero();
     }
 
     @Test
