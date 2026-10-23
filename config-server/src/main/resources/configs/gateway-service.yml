@@ -30,3 +30,17 @@ resilience4j:
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
+  # Time allowed per call before the breaker falls back (resilience4j's default is 1 s).
+  # payment-cb also covers POST /payments/create-intent, which waits for Stripe in the same request.
+  timelimiter:
+    instances:
+      order-cb:
+        timeout-duration: 1s
+      inventory-cb:
+        timeout-duration: 1s
+      payment-cb:
+        timeout-duration: 10s
+      cart-cb:
+        timeout-duration: 1s
+      audit-cb:
+        timeout-duration: 1s
