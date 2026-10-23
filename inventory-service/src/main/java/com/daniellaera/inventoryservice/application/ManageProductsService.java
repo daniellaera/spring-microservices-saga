@@ -6,10 +6,14 @@ import com.daniellaera.inventoryservice.domain.model.ProductNotFoundException;
 import com.daniellaera.inventoryservice.domain.port.in.ManageProductsUseCase;
 import com.daniellaera.inventoryservice.domain.port.out.AuditTrail;
 import com.daniellaera.inventoryservice.domain.port.out.ProductRepository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
-/** Not transactional (current behaviour): each repository call runs in its own transaction. */
+/**
+ * createProduct is not transactional: each repository call runs in its own transaction. restock is, so the
+ * product stays locked from read to write and a concurrent order or compensation cannot overwrite it.
+ */
 public class ManageProductsService implements ManageProductsUseCase {
 
     private final ProductRepository productRepository;
@@ -31,8 +35,9 @@ public class ManageProductsService implements ManageProductsUseCase {
     }
 
     @Override
+    @Transactional
     public Product restock(long id, int quantity) {
-        Product product = productRepository.findById(id)
+        Product product = productRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> ProductNotFoundException.forRestock(id));
         product.restock(quantity);
         Product saved = productRepository.save(product);

@@ -74,3 +74,16 @@ Feature: Order saga across order, inventory and payment
     Then one SUCCESS payment transaction exists for the order
     And PAYMENT_SUCCEEDED is audited exactly once for the order
     And ORDER_CONFIRMED is audited exactly once for the order
+
+  Scenario: An order for an unknown product is cancelled
+    Given the shop does not sell "Hoverboard"
+    When the customer orders 1 "Hoverboard" paid with an accepted card
+    Then the order is CANCELLED
+    And one FAILED payment transaction exists for the order
+
+  Scenario: The product list shows the stock left by an order
+    Given a product "Lamp" with 10 in stock
+    And the product list shows "Lamp" with 10 in stock
+    When the customer orders 2 "Lamp" paid with an accepted card
+    Then the order is CONFIRMED
+    And the product list shows "Lamp" with 8 in stock

@@ -6,16 +6,23 @@ import com.daniellaera.inventoryservice.domain.port.in.CompensateStockUseCase;
 import com.daniellaera.inventoryservice.domain.port.in.PaymentOutcome;
 import com.daniellaera.inventoryservice.domain.port.out.AuditTrail;
 import com.daniellaera.inventoryservice.domain.port.out.CompensationLedger;
+import com.daniellaera.inventoryservice.domain.port.out.ProductListCache;
 import com.daniellaera.inventoryservice.domain.port.out.ProductRepository;
 import com.daniellaera.inventoryservice.domain.port.out.StockReservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
- * Not transactional (current behaviour): every save commits on its own and the ledger entry is written last,
- * so a crash mid-way leaves a partial restore that a redelivery restores again (see the backlog).
+ * One transaction per compensation: every release and the ledger entry commit together or not at all, so a
+ * crash mid-way leaves stock untouched and the redelivered payment result restores it exactly once (the ledger
+ * entry is unique per order). STOCK_RESTORED audits go out only after the commit. Exceptions still propagate to
+ * the listener container.
  */
 public class CompensateStockService implements CompensateStockUseCase {
 
@@ -25,17 +32,21 @@ public class CompensateStockService implements CompensateStockUseCase {
     private final StockReservationRepository stockReservationRepository;
     private final CompensationLedger compensationLedger;
     private final AuditTrail auditTrail;
+    private final ProductListCache productListCache;
 
     public CompensateStockService(ProductRepository productRepository,
                                   StockReservationRepository stockReservationRepository,
-                                  CompensationLedger compensationLedger, AuditTrail auditTrail) {
+                                  CompensationLedger compensationLedger, AuditTrail auditTrail,
+                                  ProductListCache productListCache) {
         this.productRepository = productRepository;
         this.stockReservationRepository = stockReservationRepository;
         this.compensationLedger = compensationLedger;
         this.auditTrail = auditTrail;
+        this.productListCache = productListCache;
     }
 
     @Override
+    @Transactional
     public void compensate(PaymentOutcome outcome) {
         log.info("=== Received payment result for orderId: {} status: {}", outcome.orderId(), outcome.status());
 
@@ -60,9 +71,14 @@ public class CompensateStockService implements CompensateStockUseCase {
         log.info("=== Payment FAILED — compensating {} reserved item(s) for orderId {}",
                 reservations.size(), outcome.orderId());
 
+        // lock in name order, like a reservation, so the two never wait on each other's locks
+        Map<String, Optional<Product>> productsByName = new HashMap<>();
+        for (String name : StockReserver.inNameOrder(reservations.stream().map(StockReservation::productName))) {
+            productsByName.put(name, productRepository.findByNameForUpdate(name));
+        }
         int releasedQuantity = 0;
         for (StockReservation reservation : reservations) {
-            Product product = productRepository.findByName(reservation.productName()).orElse(null);
+            Product product = productsByName.get(reservation.productName()).orElse(null);
             if (product == null) {
                 log.error("=== Compensation FAILED — product {} not found", reservation.productName());
                 continue;
@@ -75,5 +91,9 @@ public class CompensateStockService implements CompensateStockUseCase {
         }
 
         compensationLedger.record(outcome.orderId(), reservations.get(0).productName(), releasedQuantity);
+        if (releasedQuantity > 0) {
+            // invalidated only once the transaction has committed
+            productListCache.invalidate();
+        }
     }
 }

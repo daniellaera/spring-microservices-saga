@@ -21,7 +21,7 @@ public class OrderEventListener {
     private final ReserveStockUseCase reserveStockUseCase;
     private final ObjectMapper objectMapper;
 
-    // Every failure is logged and swallowed, including an unknown product (the order then stays PENDING)
+    // Every failure is logged and swallowed (an unknown product is not one: the use case rejects the order)
     @KafkaListener(topics = "orders-topic", groupId = "inventory-group")
     public void consumeOrder(String message) {
         try {

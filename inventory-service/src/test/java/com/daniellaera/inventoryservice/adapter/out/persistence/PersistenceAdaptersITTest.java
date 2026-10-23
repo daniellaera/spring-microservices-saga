@@ -132,6 +132,16 @@ class PersistenceAdaptersITTest {
                 });
     }
 
+    @Test
+    void ledger_secondEntryForTheSameOrder_violatesTheUniqueConstraint() {
+        // compensation_log_order_id_key (V4): a racing duplicate compensation rolls back instead of restoring twice
+        ledger.record(9006L, "MacBook Pro", 3);
+        flushAndClear();
+        ledger.record(9006L, "MacBook Pro", 3);
+
+        assertThatThrownBy(entityManager::flush).isInstanceOf(ConstraintViolationException.class);
+    }
+
     private void flushAndClear() {
         entityManager.flush();
         entityManager.clear();

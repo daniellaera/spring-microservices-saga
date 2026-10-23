@@ -7,15 +7,18 @@ import com.daniellaera.inventoryservice.domain.model.StockReservation;
 import com.daniellaera.inventoryservice.domain.model.UnknownProductException;
 import com.daniellaera.inventoryservice.domain.port.in.ReserveStockCommand;
 import com.daniellaera.inventoryservice.domain.port.out.AuditTrail;
+import com.daniellaera.inventoryservice.domain.port.out.ProductListCache;
 import com.daniellaera.inventoryservice.domain.port.out.ProductRepository;
 import com.daniellaera.inventoryservice.domain.port.out.StockReservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * The transactional part of a reservation: product resolution, stock check, reservation inserts and
@@ -29,12 +32,14 @@ public class StockReserver {
     private final ProductRepository productRepository;
     private final StockReservationRepository stockReservationRepository;
     private final AuditTrail auditTrail;
+    private final ProductListCache productListCache;
 
     public StockReserver(ProductRepository productRepository, StockReservationRepository stockReservationRepository,
-                         AuditTrail auditTrail) {
+                         AuditTrail auditTrail, ProductListCache productListCache) {
         this.productRepository = productRepository;
         this.stockReservationRepository = stockReservationRepository;
         this.auditTrail = auditTrail;
+        this.productListCache = productListCache;
     }
 
     @Transactional
@@ -42,14 +47,13 @@ public class StockReserver {
         List<OrderLine> lines = command.lines();
         log.info("=== Inventory: received order {} with {} item(s)", command.orderId(), lines.size());
 
-        // resolve products up front: an unknown product aborts the whole order (rollback, nothing published).
-        // One instance per name, as the persistence context gave the same entity for a repeated product.
+        // resolve and lock products up front, in name order (see ProductRepository.findByNameForUpdate): an
+        // unknown product throws before any write and rolls back. One instance per name, as the persistence
+        // context gives the same entity for a repeated product.
         Map<String, Product> productsByName = new LinkedHashMap<>();
-        for (OrderLine line : lines) {
-            if (!productsByName.containsKey(line.productName())) {
-                productsByName.put(line.productName(), productRepository.findByName(line.productName())
-                        .orElseThrow(() -> new UnknownProductException(line.productName())));
-            }
+        for (String name : inNameOrder(lines.stream().map(OrderLine::productName))) {
+            productsByName.put(name, productRepository.findByNameForUpdate(name)
+                    .orElseThrow(() -> new UnknownProductException(name)));
         }
 
         boolean sufficientStock = lines.stream()
@@ -71,7 +75,13 @@ public class StockReserver {
             // published only once the transaction has committed
             auditTrail.stockDeducted(product, line, command.userEmail());
         }
+        // invalidated only once the transaction has committed
+        productListCache.invalidate();
         log.info("=== Inventory: stock reserved for orderId {}", command.orderId());
         return ReservationDecision.APPROVED;
+    }
+
+    static List<String> inNameOrder(Stream<String> productNames) {
+        return productNames.distinct().sorted(Comparator.nullsFirst(Comparator.naturalOrder())).toList();
     }
 }

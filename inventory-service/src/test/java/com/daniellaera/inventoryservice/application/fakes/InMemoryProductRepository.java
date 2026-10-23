@@ -13,12 +13,14 @@ import java.util.Optional;
 
 /**
  * Behaves like the persistence adapter: assigns ids and createdAt to new products, only updates the quantity of
- * existing ones and hands out copies, never the stored instances (so a missing save is visible).
+ * existing ones and hands out copies, never the stored instances (so a missing save is visible). The ForUpdate
+ * finders take no lock, but record what was locked and in which order.
  */
 public class InMemoryProductRepository implements ProductRepository {
 
     private final Map<Long, Product> products = new LinkedHashMap<>();
     private final List<Product> saved = new ArrayList<>();
+    private final List<String> locked = new ArrayList<>();
     private long nextId = 1;
     private LocalDateTime clock = LocalDateTime.of(2025, 1, 1, 9, 0);
 
@@ -61,6 +63,18 @@ public class InMemoryProductRepository implements ProductRepository {
     }
 
     @Override
+    public Optional<Product> findByIdForUpdate(long id) {
+        locked.add("#" + id);
+        return findById(id);
+    }
+
+    @Override
+    public Optional<Product> findByNameForUpdate(String name) {
+        locked.add(name);
+        return findByName(name);
+    }
+
+    @Override
     public boolean existsByName(String name) {
         return products.values().stream().anyMatch(p -> p.name().equals(name));
     }
@@ -76,6 +90,11 @@ public class InMemoryProductRepository implements ProductRepository {
 
     public int quantityOf(String name) {
         return findByName(name).orElseThrow().quantity();
+    }
+
+    /** Every lock taken, in order: a product name, or "#id" when locked by id. */
+    public List<String> locked() {
+        return List.copyOf(locked);
     }
 
     /** Every product as stored by each save call, in call order. */

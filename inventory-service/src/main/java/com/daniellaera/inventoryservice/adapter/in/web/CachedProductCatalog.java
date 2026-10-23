@@ -12,8 +12,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * The REST side of the product use cases, with the product list cache. Only create and restock evict it:
- * stock changes made by orders and compensation leave it stale until the TTL expires (current behaviour).
+ * The REST side of the product use cases, with the product list cache. Create and restock evict it here; stock
+ * changed by orders and compensation evicts it through ProductListCacheInvalidator.
  */
 @Component
 @RequiredArgsConstructor
