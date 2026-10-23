@@ -109,10 +109,11 @@ class InventoryResultEventListenerTest {
         RetryableTopic retry = InventoryResultEventListener.class.getMethod("handleInventoryResult", String.class)
                 .getAnnotation(RetryableTopic.class);
 
-        assertThat(retry.attempts()).isEqualTo("${payment.retry.attempts:3}");
-        assertThat(retry.backOff().delayString()).isEqualTo("${payment.retry.delay:1000}");
-        assertThat(retry.backOff().multiplierString()).isEqualTo("${payment.retry.multiplier:2.0}");
-        assertThat(retry.backOff().maxDelayString()).isEqualTo("${payment.retry.max-delay:10000}");
+        // retried after 2, 6, 18 and 54 s
+        assertThat(retry.attempts()).isEqualTo("${payment.retry.attempts:5}");
+        assertThat(retry.backOff().delayString()).isEqualTo("${payment.retry.delay:2000}");
+        assertThat(retry.backOff().multiplierString()).isEqualTo("${payment.retry.multiplier:3.0}");
+        assertThat(retry.backOff().maxDelayString()).isEqualTo("${payment.retry.max-delay:60000}");
         // keeps the existing topic names inventory-topic-retry-0, -1, ...
         assertThat(retry.topicSuffixingStrategy()).isEqualTo(TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE);
     }

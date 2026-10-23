@@ -31,11 +31,13 @@ public class InventoryResultEventListener {
     // retries), then dead-lettered to handleDlt. Declared here rather than with spring.kafka.retry.topic.*, which
     // ignores this class's @DltHandler and uses Spring Kafka's default DLT handler, which needs a MANUAL ack mode
     // and so failed on every dead-lettered record. Index suffixes keep the topic names inventory-topic-retry-N.
+    // Budget: 5 attempts, retried after 2, 6, 18 and 54 s (~80 s), so that a short Stripe outage does not leave the
+    // order PENDING in the dead-letter topic.
     @RetryableTopic(
-            attempts = "${payment.retry.attempts:3}",
-            backOff = @BackOff(delayString = "${payment.retry.delay:1000}",
-                    multiplierString = "${payment.retry.multiplier:2.0}",
-                    maxDelayString = "${payment.retry.max-delay:10000}"),
+            attempts = "${payment.retry.attempts:5}",
+            backOff = @BackOff(delayString = "${payment.retry.delay:2000}",
+                    multiplierString = "${payment.retry.multiplier:3.0}",
+                    maxDelayString = "${payment.retry.max-delay:60000}"),
             topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE)
     @KafkaListener(topics = "inventory-topic", groupId = "payment-group")
     public void handleInventoryResult(String message) throws Exception {
