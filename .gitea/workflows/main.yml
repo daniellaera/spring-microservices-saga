@@ -82,10 +82,11 @@ jobs:
     if: needs.detect-changes.outputs.shop-ui == 'true'
     steps:
       - uses: actions/checkout@v4
-      - name: Install and build
+      - name: Install, unit tests and build
         working-directory: shop-ui
         run: |
           npm ci
+          npx ng test --watch=false
           npx ng build --configuration=production
 
   build-and-push:
