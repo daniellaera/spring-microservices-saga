@@ -170,7 +170,7 @@ class EventContractTest {
     // What the listener hands to the use case for the inventory-topic fixture, so the adapter path is pinned
     private InventoryResult inventoryResult(String fixtureName) throws Exception {
         List<InventoryResult> results = new ArrayList<>();
-        new InventoryResultEventListener(results::add, objectMapper).handleInventoryResult(fixture(fixtureName));
+        new InventoryResultEventListener(results::add, (orderId, userEmail, error) -> { }, objectMapper).handleInventoryResult(fixture(fixtureName));
         assertThat(results).hasSize(1);
         return results.get(0);
     }

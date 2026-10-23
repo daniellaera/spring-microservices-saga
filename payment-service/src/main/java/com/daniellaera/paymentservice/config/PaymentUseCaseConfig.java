@@ -2,6 +2,7 @@ package com.daniellaera.paymentservice.config;
 
 import com.daniellaera.paymentservice.application.CreatePaymentIntentService;
 import com.daniellaera.paymentservice.application.ProcessInventoryResultService;
+import com.daniellaera.paymentservice.application.ReportDeadLetteredResultService;
 import com.daniellaera.paymentservice.application.TransactionQueryService;
 import com.daniellaera.paymentservice.application.VerifyPaymentService;
 import com.daniellaera.paymentservice.domain.port.out.AuditTrail;
@@ -23,6 +24,11 @@ public class PaymentUseCaseConfig {
                                                                        @Value("${payment.currency:eur}") String shopCurrency) {
         return new ProcessInventoryResultService(paymentGateway, transactionRepository, auditTrail,
                 paymentResultPublisher, shopCurrency);
+    }
+
+    @Bean
+    public ReportDeadLetteredResultService reportDeadLetteredResultService(AuditTrail auditTrail) {
+        return new ReportDeadLetteredResultService(auditTrail);
     }
 
     @Bean

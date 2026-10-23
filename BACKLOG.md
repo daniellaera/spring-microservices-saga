@@ -20,3 +20,9 @@
 - **Outbox dead-letter handling** (order-service): a row whose payload can't be parsed is logged and
   skipped on every 5 s tick, forever. Add an attempts counter or a FAILED status column, plus an alert,
   instead of retrying it endlessly.
+- **Dormant DLT handlers in inventory-service and order-service:** their listeners declare
+  `@DltHandler handleDlt(String, Exception)`, but they have no retry topics, so the handlers never run. If retries
+  are ever enabled there, declare them with `@RetryableTopic` on the listener, as payment-service does.
+  `spring.kafka.retry.topic.*` ignores the class's `@DltHandler` and uses Spring Kafka's default one, which fails
+  on every record under `ack-mode: record` and loops forever. Also, an `Exception` parameter can't be resolved
+  there: read the `kafka_exception-message` header from the `ConsumerRecord` instead.

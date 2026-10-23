@@ -38,7 +38,7 @@ class KafkaAuditTrailTest {
     void everyAuditMethod_isAsync() {
         assertThat(Arrays.stream(KafkaAuditTrail.class.getDeclaredMethods())
                 .filter(m -> m.getName().startsWith("payment")))
-                .hasSize(2)
+                .hasSize(3)
                 .allSatisfy(m -> assertThat(m.isAnnotationPresent(Async.class)).isTrue());
     }
 
@@ -52,6 +52,27 @@ class KafkaAuditTrailTest {
         assertThat(message.get("entityType")).isEqualTo("PAYMENT");
         assertThat(message.get("entityId")).isEqualTo("9");
         assertThat(message.get("serviceName")).isEqualTo("payment-service");
+    }
+
+    @Test
+    void deadLetteredResult_isAuditedForTheOrderWithTheError() {
+        auditTrail.paymentDeadLettered(9L, "user@test.com", "Stripe unavailable: 503");
+
+        Map<?, ?> message = sentMessage();
+        assertThat(message.get("eventType")).isEqualTo("PAYMENT_DEAD_LETTERED");
+        assertThat(message.get("entityType")).isEqualTo("PAYMENT");
+        assertThat(message.get("entityId")).isEqualTo("9");
+        assertThat(message.get("userEmail")).isEqualTo("user@test.com");
+        assertThat(message.get("payload")).isEqualTo("{\"orderId\":9,\"error\":\"Stripe unavailable: 503\"}");
+    }
+
+    @Test
+    void unreadableDeadLetteredResult_isAuditedWithoutOrder() {
+        auditTrail.paymentDeadLettered(null, null, "Unrecognized token");
+
+        Map<?, ?> message = sentMessage();
+        assertThat(message.get("entityId")).isEqualTo("");
+        assertThat(message.get("userEmail")).isEqualTo("system");
     }
 
     @Test
