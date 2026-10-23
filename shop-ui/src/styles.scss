@@ -12,6 +12,15 @@ body {
 
 .no-underline { text-decoration: none; }
 
+/* PrimeFlex 4 has no table-cell display utilities: "hidden md:table-cell" kept columns hidden */
+@media screen and (min-width: 768px) {
+  .md\:table-cell { display: table-cell !important; }
+}
+
+@media screen and (min-width: 992px) {
+  .lg\:table-cell { display: table-cell !important; }
+}
+
 .my-app-dark {
   color-scheme: dark;
 }
