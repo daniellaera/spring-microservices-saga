@@ -18,6 +18,9 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_NUM_PARTITIONS: 1
       CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka-data:/var/lib/kafka/data
     networks:
       - app-network
     healthcheck:
@@ -49,12 +52,15 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/otel-lgtm:latest
+    # pinned to the image running since 2026-05; :latest would upgrade Grafana on the data we move
+    image: grafana/otel-lgtm@sha256:10f48eb2f8670134df542177bb19536c55421b089e43f9dfc2a27d4c078204d8
     container_name: grafana
     ports:
       - "3000:3000"
       - "4317:4317"
       - "4318:4318"
+    volumes:
+      - grafana-data:/data
     networks:
       - app-network
     restart: unless-stopped
@@ -386,3 +392,5 @@ services:
 volumes:
   postgres-data:
   uptime-kuma-data:
+  kafka-data:
+  grafana-data:
