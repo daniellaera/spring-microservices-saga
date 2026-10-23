@@ -1,6 +1,7 @@
 package com.daniellaera.inventoryservice.adapter.in.web;
 
 import com.daniellaera.inventoryservice.domain.model.Product;
+import com.daniellaera.inventoryservice.domain.model.ProductLockTimeoutException;
 import com.daniellaera.inventoryservice.domain.model.ProductNotFoundException;
 import com.daniellaera.inventoryservice.domain.port.in.ManageProductsUseCase;
 import com.daniellaera.inventoryservice.domain.port.in.ProductQuery;
@@ -23,6 +24,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -115,5 +117,18 @@ class ProductControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Product not found: 999"));
+    }
+
+    @Test
+    void restock_shouldReturn503_whenTheProductStaysLocked() throws Exception {
+        when(manageProductsUseCase.restock(1L, 10)).thenThrow(new ProductLockTimeoutException("#1", null));
+
+        mockMvc.perform(put("/products/1/restock")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quantity\":10}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Retry-After", "1"))
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.message").value("Product #1 is locked by another stock change, please try again"));
     }
 }

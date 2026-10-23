@@ -35,13 +35,24 @@ public class KafkaAuditTrail implements AuditTrail {
         publish(order.status() == OrderStatus.CONFIRMED ? "ORDER_CONFIRMED" : "ORDER_CANCELLED", order, () -> result);
     }
 
+    @Async
+    @Override
+    public void outboxEventFailed(long orderId, String userEmail, String eventType, int attempts, String error) {
+        publish("OUTBOX_EVENT_FAILED", orderId, userEmail,
+                () -> new OutboxFailedAuditPayload(orderId, eventType, attempts, error));
+    }
+
     private void publish(String eventType, Order order, Supplier<Object> payload) {
+        publish(eventType, order.id(), order.userEmail(), payload);
+    }
+
+    private void publish(String eventType, Long orderId, String userEmail, Supplier<Object> payload) {
         try {
             Map<String, Object> auditMessage = Map.of(
                     "eventType", eventType,
-                    "userEmail", order.userEmail() != null ? order.userEmail() : "system",
+                    "userEmail", userEmail != null ? userEmail : "system",
                     "entityType", "ORDER",
-                    "entityId", String.valueOf(order.id()),
+                    "entityId", String.valueOf(orderId),
                     "payload", objectMapper.writeValueAsString(payload.get()),
                     "serviceName", "order-service",
                     "timestamp", LocalDateTime.now().toString()
