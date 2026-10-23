@@ -19,3 +19,52 @@ jobs:
             --no-transfer-progress
       - name: Enforce coverage gate
         run: ./scripts/check-coverage.sh
+
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
+    defaults:
+      run:
+        working-directory: shop-ui
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect shop-ui changes
+        id: changes
+        working-directory: .
+        run: |
+          BASE="${{ github.base_ref }}"
+          if [ -z "$BASE" ]; then
+            echo "shop-ui=true" >> "$GITHUB_OUTPUT"      # workflow_dispatch: always
+          elif git diff --name-only "origin/$BASE...HEAD" | grep -qE '^(shop-ui/|\.gitea/workflows/pr\.yml$)'; then
+            echo "shop-ui=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "shop-ui=false" >> "$GITHUB_OUTPUT"
+            echo "No shop-ui change: skipping the frontend tests"
+          fi
+      - name: Install
+        if: steps.changes.outputs.shop-ui == 'true'
+        run: npm ci --no-audit --no-fund
+      - name: Unit tests (ng test)
+        if: steps.changes.outputs.shop-ui == 'true'
+        run: npx ng test --watch=false
+      - name: Production build
+        if: steps.changes.outputs.shop-ui == 'true'
+        run: |
+          SHA=$(git rev-parse --short=7 HEAD)
+          echo "E2E_BUILD_SHA=$SHA" >> "$GITHUB_ENV"
+          npx ng build --configuration=production --define "SHOP_UI_BUILD_SHA=\"$SHA\""
+      - name: Serve it behind the real nginx.conf, with the stub gateway
+        if: steps.changes.outputs.shop-ui == 'true'
+        run: |
+          # the browser matching the pinned @playwright/test, and its system libraries
+          npx playwright install --with-deps chromium
+          apt-get install -y --no-install-recommends nginx
+          bash e2e/stack/ci-serve.sh
+      - name: Playwright specs
+        if: steps.changes.outputs.shop-ui == 'true'
+        env:
+          E2E_BASE_URL: http://localhost
+        run: npx playwright test

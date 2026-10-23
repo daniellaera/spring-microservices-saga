@@ -3,6 +3,9 @@
 #   npx ng build --configuration production
 #   docker compose -f e2e/stack/compose.yml up -d
 #   npm run e2e
+# CI (pr.yml) runs the same two servers inside the job container instead: ci-serve.sh.
+# The @public specs need neither login nor payment, and are safe against production:
+#   E2E_BASE_URL=https://shop-staging.daniellaera.com E2E_BUILD_SHA=<deployed sha> npm run e2e:public
 name: shop-ui-e2e
 
 services:

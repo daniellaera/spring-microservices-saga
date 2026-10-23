@@ -7,7 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:public": "playwright test --grep @public"
   },
   "private": true,
   "packageManager": "npm@11.6.2",
