@@ -1,5 +1,6 @@
 package com.daniellaera.gatewayservice.controller;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +22,8 @@ class FallbackControllerTest {
     @CsvSource({
             "/fallback/orders, Order service is currently unavailable. Please try again later.",
             "/fallback/products, Inventory service is currently unavailable. Please try again later.",
-            "/fallback/transactions, Payment service is currently unavailable. Please try again later."
+            "/fallback/transactions, Payment service is currently unavailable. Please try again later.",
+            "/fallback/payments, Payment service is currently unavailable. Please try again later."
     })
     void fallback_shouldReturnServiceUnavailable(String uri, String expectedMessage) {
         webTestClient
@@ -31,5 +33,17 @@ class FallbackControllerTest {
                 .expectBody()
                 .jsonPath("$.status").isEqualTo("503")
                 .jsonPath("$.message").isEqualTo(expectedMessage);
+    }
+
+    @Test
+    void paymentsFallback_answersThePostThatTimedOut() {
+        // the circuit breaker forwards the original request, e.g. POST /payments/create-intent
+        webTestClient
+                .post().uri("/fallback/payments")
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("503")
+                .jsonPath("$.message").isEqualTo("Payment service is currently unavailable. Please try again later.");
     }
 }
