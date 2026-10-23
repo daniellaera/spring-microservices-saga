@@ -39,6 +39,15 @@ public class FallbackController {
                 ));
     }
 
+    @RequestMapping(value = "/payments", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<Map<String, String>> paymentsFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of(
+                        "status", "503",
+                        "message", "Payment service is currently unavailable. Please try again later."
+                ));
+    }
+
     @RequestMapping(value = "/cart", method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE})
     public ResponseEntity<Map<String, String>> cartFallback() {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
