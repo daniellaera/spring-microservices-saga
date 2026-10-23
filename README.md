@@ -219,7 +219,9 @@ Silent renewal in Angular interceptor — user never sees logout.
 ## Accounts and access
 
 ### Local development
-The Flyway seed creates two demo accounts for local use only:
+With the `local` profile (`start-services.sh`), auth-service seeds two demo accounts from
+`auth-service/src/main/resources/db/dev/R__demo_users.sql`, a Flyway location that only `application-local.yml`
+enables:
 
 | Email | Password | Role |
 |---|---|---|
@@ -229,8 +231,10 @@ The Flyway seed creates two demo accounts for local use only:
 Login uses email OTP. Locally, OTP emails are caught by Mailpit (http://localhost:8025), so these accounts work out of the box.
 
 ### Public deployment (https://shop-staging.daniellaera.com)
-- The demo accounts above are **disabled** and cannot log in.
-- The login page does not show demo credentials in production builds.
+- The demo accounts above **do not exist**: `V3__remove_demo_users.sql` deletes them (and their refresh
+  tokens) in every environment where the old V1 seed created them.
+- Login is limited: 5 wrong OTP codes invalidate the code (429, log in again), and at most 5 codes are issued
+  per email in 15 minutes (429). Both are audited as `USER_LOGIN_FAILED`.- The login page does not show demo credentials in production builds.
 - Anyone can register and use the shop as a **USER** (browse, cart, orders, Stripe test payments). The OTP is sent to the email you register with, so use an address you can read.
 - **ADMIN** features (product management and restock, audit trail, all customers' orders) are restricted to a single maintainer-owned account. There is no way to obtain the ADMIN role through the UI.
 - Payments run in Stripe **test mode**: use test cards such as 4242 4242 4242 4242 (success) or 4000 0000 0000 0002 (declined). No real money is charged.

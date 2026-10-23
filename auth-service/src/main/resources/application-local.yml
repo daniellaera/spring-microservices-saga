@@ -1,0 +1,5 @@
+# Local development (start-services.sh runs auth-service with the local profile)
+spring:
+  flyway:
+    # db/dev seeds the demo accounts (daniel@example.com, admin@example.com) after the versioned migrations
+    locations: classpath:db/migration,classpath:db/dev

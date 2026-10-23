@@ -185,6 +185,95 @@ public class AuthControllerITTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    private void register(String email) throws Exception {
+        mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "email": "%s", "password": "password123" }
+                                """.formatted(email)))
+                .andExpect(status().isOk());
+    }
+
+    private org.springframework.test.web.servlet.ResultActions login(String email) throws Exception {
+        return mockMvc.perform(post("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "email": "%s", "password": "password123" }
+                        """.formatted(email)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions verify(String email, String otp) throws Exception {
+        return mockMvc.perform(post("/auth/verify-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "email": "%s", "otp": "%s" }
+                        """.formatted(email, otp)));
+    }
+
+    @Test
+    void verifyOtp_fiveWrongCodes_invalidateTheOtp() throws Exception {
+        register("guessing@test.com");
+        login("guessing@test.com").andExpect(status().isOk());
+        String otp = otpRepository.find("guessing@test.com").orElseThrow();
+
+        for (int i = 1; i <= 4; i++) {
+            verify("guessing@test.com", "000000")
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.message").value("Invalid OTP code"));
+        }
+        verify("guessing@test.com", "000000")
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.message").value("Too many invalid codes — please login again"));
+
+        // the right code no longer works: the OTP is gone
+        verify("guessing@test.com", otp)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("OTP expired or not found — please login again"));
+        assertThat(otpRepository.find("guessing@test.com")).isEmpty();
+    }
+
+    @Test
+    void verifyOtp_wrongCodesOfAnEarlierOtp_doNotCountAgainstANewOne() throws Exception {
+        register("retrying@test.com");
+        login("retrying@test.com").andExpect(status().isOk());
+        for (int i = 1; i <= 4; i++) {
+            verify("retrying@test.com", "000000").andExpect(status().isUnauthorized());
+        }
+
+        login("retrying@test.com").andExpect(status().isOk());
+        verify("retrying@test.com", "000000").andExpect(status().isUnauthorized());
+        verify("retrying@test.com", otpRepository.find("retrying@test.com").orElseThrow())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty());
+    }
+
+    @Test
+    void login_aSixthCodeWithin15Minutes_isRefused() throws Exception {
+        register("hammering@test.com");
+        for (int i = 1; i <= 5; i++) {
+            login("hammering@test.com").andExpect(status().isOk());
+        }
+
+        login("hammering@test.com")
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.message").value("Too many login attempts — please try again in 15 minutes"));
+    }
+
+    @Test
+    void login_aWrongPassword_doesNotUseUpTheCodes() throws Exception {
+        register("victim@test.com");
+        for (int i = 1; i <= 6; i++) {
+            mockMvc.perform(post("/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    { "email": "victim@test.com", "password": "not-the-password" }
+                                    """))
+                    .andExpect(status().is4xxClientError());
+        }
+
+        login("victim@test.com").andExpect(status().isOk());
+    }
+
     @Test
     void register_shouldIgnoreExtraFields() throws Exception {
         // Jackson does not fail on unknown properties in this config,
