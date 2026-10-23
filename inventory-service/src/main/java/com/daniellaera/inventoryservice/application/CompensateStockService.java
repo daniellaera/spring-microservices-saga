@@ -12,7 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * One transaction per compensation: every release and the ledger entry commit together or not at all, so a
@@ -64,9 +67,14 @@ public class CompensateStockService implements CompensateStockUseCase {
         log.info("=== Payment FAILED — compensating {} reserved item(s) for orderId {}",
                 reservations.size(), outcome.orderId());
 
+        // lock in name order, like a reservation, so the two never wait on each other's locks
+        Map<String, Optional<Product>> productsByName = new HashMap<>();
+        for (String name : StockReserver.inNameOrder(reservations.stream().map(StockReservation::productName))) {
+            productsByName.put(name, productRepository.findByNameForUpdate(name));
+        }
         int releasedQuantity = 0;
         for (StockReservation reservation : reservations) {
-            Product product = productRepository.findByName(reservation.productName()).orElse(null);
+            Product product = productsByName.get(reservation.productName()).orElse(null);
             if (product == null) {
                 log.error("=== Compensation FAILED — product {} not found", reservation.productName());
                 continue;

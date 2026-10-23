@@ -77,6 +77,16 @@ class CompensateStockServiceTest {
     }
 
     @Test
+    void failedMultiItem_locksEveryProductInNameOrderBeforeReleasing() {
+        reservations.given(6L, "MacBook Pro", 2);
+        reservations.given(6L, "AirPods", 3);
+
+        service.compensate(new PaymentOutcome(6L, "FAILED", "user@test.com"));
+
+        assertThat(products.locked()).containsExactly("AirPods", "MacBook Pro");
+    }
+
+    @Test
     void alreadyCompensated_skipsIdempotently() {
         reservations.given(1L, "MacBook Pro", 2);
         ledger.record(1L, "MacBook Pro", 2);

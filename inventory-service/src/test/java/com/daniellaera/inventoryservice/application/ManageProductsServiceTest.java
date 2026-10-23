@@ -60,6 +60,7 @@ class ManageProductsServiceTest {
         assertThat(restocked.quantity()).isEqualTo(25);
         assertThat(restocked.name()).isEqualTo("MacBook Pro");
         assertThat(products.quantityOf("MacBook Pro")).isEqualTo(25);
+        assertThat(products.locked()).containsExactly("#" + existing.id());
         assertThat(auditTrail.audits()).singleElement().satisfies(audit -> {
             assertThat(audit.eventType()).isEqualTo("PRODUCT_RESTOCKED");
             assertThat(audit.product().quantity()).isEqualTo(25);

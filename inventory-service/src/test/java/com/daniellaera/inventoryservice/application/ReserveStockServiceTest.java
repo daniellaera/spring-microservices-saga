@@ -117,6 +117,14 @@ class ReserveStockServiceTest {
     }
 
     @Test
+    void multiItem_locksEveryProductOnceInNameOrderBeforeTheStockCheck() {
+        service.reserve(command(11L, null, line("MacBook Pro", 2), line("AirPods", 99), line("MacBook Pro", 1)));
+
+        // rejected for AirPods, but only after both products were locked
+        assertThat(products.locked()).containsExactly("AirPods", "MacBook Pro");
+    }
+
+    @Test
     void multiItemOneOutOfStock_rejectsWithoutDeductingAnyItem() {
         assertThat(service.reserve(command(5L, null, line("MacBook Pro", 2), line("AirPods", 99))))
                 .contains(ReservationDecision.REJECTED);

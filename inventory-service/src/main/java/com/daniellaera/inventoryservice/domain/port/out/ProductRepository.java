@@ -13,6 +13,18 @@ public interface ProductRepository {
 
     Optional<Product> findByName(String name);
 
+    /**
+     * Like findById, but the product stays locked until the caller's transaction ends, so concurrent stock
+     * changes wait for each other instead of overwriting each other. Call it inside a transaction.
+     */
+    Optional<Product> findByIdForUpdate(long id);
+
+    /**
+     * Like findByName, with the same lock as findByIdForUpdate. A transaction that changes several products
+     * locks them in name order, so two of them never wait on each other's locks.
+     */
+    Optional<Product> findByNameForUpdate(String name);
+
     boolean existsByName(String name);
 
     List<Product> findAll();

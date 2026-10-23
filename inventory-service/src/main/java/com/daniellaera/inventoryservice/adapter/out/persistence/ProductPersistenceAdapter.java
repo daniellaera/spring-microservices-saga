@@ -10,8 +10,8 @@ import java.util.Optional;
 
 /**
  * Opens no transaction of its own: inside a caller's transaction it works on the managed entities, otherwise
- * every call runs in Spring Data's own per-call transaction, as the service did before. No @Version and no
- * lock, so concurrent updates still race (last write wins).
+ * every call runs in Spring Data's own per-call transaction. The ForUpdate finders lock the row
+ * (PESSIMISTIC_WRITE) for the rest of the caller's transaction.
  */
 @Component
 @RequiredArgsConstructor
@@ -39,6 +39,16 @@ public class ProductPersistenceAdapter implements ProductRepository {
     @Override
     public Optional<Product> findByName(String name) {
         return productJpaRepository.findByName(name).map(ProductJpaMapper::toDomain);
+    }
+
+    @Override
+    public Optional<Product> findByIdForUpdate(long id) {
+        return productJpaRepository.findForUpdateById(id).map(ProductJpaMapper::toDomain);
+    }
+
+    @Override
+    public Optional<Product> findByNameForUpdate(String name) {
+        return productJpaRepository.findForUpdateByName(name).map(ProductJpaMapper::toDomain);
     }
 
     @Override
