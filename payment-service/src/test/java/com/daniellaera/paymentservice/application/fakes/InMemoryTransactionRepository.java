@@ -60,7 +60,7 @@ public class InMemoryTransactionRepository implements TransactionRepository {
     private PaymentTransaction insert(PaymentTransaction transaction) {
         clock = clock.plusMinutes(1);
         PaymentTransaction stored = new PaymentTransaction(nextId++, transaction.orderId(), transaction.totalAmount(),
-                transaction.status(), transaction.paymentIntentId(), clock);
+                transaction.status(), transaction.paymentIntentId(), transaction.refundId(), clock);
         transactions.add(stored);
         return stored;
     }

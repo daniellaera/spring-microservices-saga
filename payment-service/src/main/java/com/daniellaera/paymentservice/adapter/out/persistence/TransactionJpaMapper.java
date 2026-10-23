@@ -9,7 +9,7 @@ public final class TransactionJpaMapper {
 
     public static PaymentTransaction toDomain(TransactionJpaEntity entity) {
         return new PaymentTransaction(entity.getId(), entity.getOrderId(), entity.getTotalAmount(), entity.getStatus(),
-                entity.getPaymentIntentId(), entity.getCreatedAt());
+                entity.getPaymentIntentId(), entity.getRefundId(), entity.getCreatedAt());
     }
 
     /** Maps a transaction that has never been persisted; id and createdAt are assigned on insert. */
@@ -19,6 +19,7 @@ public final class TransactionJpaMapper {
         entity.setTotalAmount(transaction.totalAmount());
         entity.setStatus(transaction.status());
         entity.setPaymentIntentId(transaction.paymentIntentId());
+        entity.setRefundId(transaction.refundId());
         return entity;
     }
 }

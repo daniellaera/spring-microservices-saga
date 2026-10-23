@@ -22,9 +22,10 @@ class TransactionJpaMapperTest {
         entity.setTotalAmount(new BigDecimal("1399.79"));
         entity.setStatus(PaymentStatus.SUCCESS);
         entity.setPaymentIntentId("pi_42");
+        entity.setRefundId("re_42");
 
         assertThat(TransactionJpaMapper.toDomain(entity)).isEqualTo(
-                new PaymentTransaction(7L, 42L, new BigDecimal("1399.79"), PaymentStatus.SUCCESS, "pi_42", createdAt));
+                new PaymentTransaction(7L, 42L, new BigDecimal("1399.79"), PaymentStatus.SUCCESS, "pi_42", "re_42", createdAt));
     }
 
     @Test
@@ -37,6 +38,12 @@ class TransactionJpaMapperTest {
         assertThat(entity.getOrderId()).isEqualTo(42L);
         assertThat(entity.getTotalAmount()).isEqualByComparingTo("1399.79");
         assertThat(entity.getStatus()).isEqualTo(PaymentStatus.FAILED);
+    }
+
+    @Test
+    void toNewEntity_copiesTheRefund() {
+        assertThat(TransactionJpaMapper.toNewEntity(new PaymentTransaction(null, 42L, BigDecimal.TEN, PaymentStatus.FAILED,
+                "pi_42", "re_42", null)).getRefundId()).isEqualTo("re_42");
     }
 
     @Test

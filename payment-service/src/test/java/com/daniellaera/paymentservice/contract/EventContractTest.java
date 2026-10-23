@@ -106,7 +106,7 @@ class EventContractTest {
         resultPublisher().publish(result, PaymentStatus.SUCCESS);
         auditTrail().paymentProcessed(
                 // the paying intent is stored but is not part of the audit payload (fixture unchanged)
-                new PaymentTransaction(7L, 42L, new BigDecimal("1399.79"), PaymentStatus.SUCCESS, "pi_3QxYz123",
+                new PaymentTransaction(7L, 42L, new BigDecimal("1399.79"), PaymentStatus.SUCCESS, "pi_3QxYz123", null,
                         CREATED_AT),
                 result.userEmail());
 
@@ -120,7 +120,7 @@ class EventContractTest {
 
         resultPublisher().publish(result, PaymentStatus.FAILED);
         auditTrail().paymentProcessed(
-                new PaymentTransaction(7L, 7L, new BigDecimal("179.00"), PaymentStatus.FAILED, null, CREATED_AT),
+                new PaymentTransaction(7L, 7L, new BigDecimal("179.00"), PaymentStatus.FAILED, null, null, CREATED_AT),
                 result.userEmail());
 
         assertPaymentEvent("payment-event-failed.json");

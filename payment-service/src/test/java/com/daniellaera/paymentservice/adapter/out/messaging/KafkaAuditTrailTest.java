@@ -44,7 +44,7 @@ class KafkaAuditTrailTest {
 
     @Test
     void failedTransaction_isAuditedAsPaymentFailedForTheOrder() {
-        auditTrail.paymentProcessed(new PaymentTransaction(1L, 9L, BigDecimal.TEN, PaymentStatus.FAILED, null, null),
+        auditTrail.paymentProcessed(new PaymentTransaction(1L, 9L, BigDecimal.TEN, PaymentStatus.FAILED, null, null, null),
                 "user@test.com");
 
         Map<?, ?> message = sentMessage();

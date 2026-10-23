@@ -46,6 +46,19 @@ class TransactionPersistenceAdapterITTest {
     }
 
     @Test
+    void refund_roundTrips() {
+        PaymentTransaction saved = adapter.save(new PaymentTransaction(null, 9006L, new BigDecimal("49.90"),
+                PaymentStatus.FAILED, "pi_it_9006", "re_it_9006", null));
+        flushAndClear();
+
+        PaymentTransaction loaded = adapter.findById(saved.id()).orElseThrow();
+
+        assertThat(loaded.refundId()).isEqualTo("re_it_9006");
+        assertThat(loaded.paymentIntentId()).isEqualTo("pi_it_9006");
+        assertThat(loaded.status()).isEqualTo(PaymentStatus.FAILED);
+    }
+
+    @Test
     void save_failedPaymentWithoutAmount() {
         PaymentTransaction saved = adapter.save(PaymentTransaction.record(9002L, null, false));
         flushAndClear();
