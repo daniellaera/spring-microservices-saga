@@ -1,13 +1,19 @@
 package com.daniellaera.sagae2e.support;
 
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.verification.LoggedRequest;
+
+import java.util.List;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 
-/** WireMock plays Stripe (payment intent lookups) and the config server (an empty environment). */
+/** WireMock plays Stripe (payment intent lookups and refunds) and the config server (an empty environment). */
 public final class WireMockStubs {
 
     private final WireMock wireMock;
@@ -25,7 +31,18 @@ public final class WireMockStubs {
                 .withBody("""
                         {"name":"e2e","profiles":["default"],"label":null,"version":null,"state":null,
                          "propertySources":[]}""")));
+        // POST /v1/refunds: every refund succeeds; which intents were refunded is read back from the request journal
+        wireMock.register(post(urlEqualTo("/v1/refunds")).willReturn(aResponse()
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                        {"id":"re_e2e","object":"refund","status":"succeeded"}""")));
         return new WireMockStubs(wireMock);
+    }
+
+    /** The refunds payment-service asked Stripe for, for this intent. */
+    public List<LoggedRequest> refundRequestsFor(String intentId) {
+        return wireMock.find(postRequestedFor(urlEqualTo("/v1/refunds"))
+                .withRequestBody(containing("payment_intent=" + intentId)));
     }
 
     /**

@@ -1,7 +1,9 @@
 package com.daniellaera.sagae2e.steps;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -20,6 +22,8 @@ public class ScenarioContext {
     private final Map<String, Product> products = new HashMap<>();
     private int intents;
     private String preparedIntentId;
+    private String lastIntentId;
+    private final List<Long> orderIds = new ArrayList<>();
     private Long orderId;
 
     public String uniqueName(String product) {
@@ -64,6 +68,26 @@ public class ScenarioContext {
 
     public void orderPlaced(long id) {
         orderId = id;
+        orderIds.add(id);
+    }
+
+    /** The intent the latest order was paid with. */
+    public void orderPaidWith(String intentId) {
+        lastIntentId = intentId;
+    }
+
+    public String lastIntentId() {
+        if (lastIntentId == null) {
+            throw new IllegalStateException("No order was paid with an intent in this scenario");
+        }
+        return lastIntentId;
+    }
+
+    public long firstOrderId() {
+        if (orderIds.isEmpty()) {
+            throw new IllegalStateException("No order was placed in this scenario");
+        }
+        return orderIds.get(0);
     }
 
     public long orderId() {
