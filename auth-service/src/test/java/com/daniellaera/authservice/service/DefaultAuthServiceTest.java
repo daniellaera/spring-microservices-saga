@@ -11,6 +11,7 @@ import com.daniellaera.authservice.dto.RegisterRequest;
 import com.daniellaera.authservice.enums.Role;
 import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.model.User;
+import com.daniellaera.authservice.otp.OtpLimitExceededException;
 import com.daniellaera.authservice.otp.OtpService;
 import com.daniellaera.authservice.repository.UserRepository;
 import com.daniellaera.authservice.util.JwtUtil;
@@ -20,9 +21,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -87,6 +91,47 @@ class DefaultAuthServiceTest {
         verify(authenticationManager, times(1)).authenticate(any());
         verify(otpService, times(1)).initiateOtp("admin@test.com");
         verify(auditPublisher).publish(eq("USER_LOGIN_INITIATED"), any(), any(), any(), any());
+    }
+
+    @Test
+    void login_whenTooManyCodesWereIssued_auditsTheFailureAndRethrows() {
+        User user = User.builder().email("admin@test.com").role(Role.ADMIN).build();
+        when(userRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
+        OtpLimitExceededException limit = new OtpLimitExceededException(
+                OtpLimitExceededException.TOO_MANY_CODES_ISSUED, "Too many login attempts");
+        doThrow(limit).when(otpService).initiateOtp("admin@test.com");
+
+        assertThatThrownBy(() -> authService.login(new LoginRequest("admin@test.com", "password")))
+                .isSameAs(limit);
+
+        verify(auditPublisher).publish("USER_LOGIN_FAILED", "admin@test.com", "USER", "admin@test.com",
+                Map.of("reason", "OTP_TOO_MANY_CODES_ISSUED"));
+        verify(auditPublisher, never()).publish(eq("USER_LOGIN_INITIATED"), any(), any(), any(), any());
+    }
+
+    @Test
+    void verifyOtpAndLogin_afterTooManyWrongCodes_auditsTheFailureAndRethrows() {
+        OtpLimitExceededException limit = new OtpLimitExceededException(
+                OtpLimitExceededException.TOO_MANY_WRONG_CODES, "Too many invalid codes");
+        doThrow(limit).when(otpService).verifyOtp("admin@test.com", "000000");
+
+        assertThatThrownBy(() -> authService.verifyOtpAndLogin(new OtpRequest("admin@test.com", "000000")))
+                .isSameAs(limit);
+
+        verify(auditPublisher).publish("USER_LOGIN_FAILED", "admin@test.com", "USER", "admin@test.com",
+                Map.of("reason", "OTP_TOO_MANY_WRONG_CODES"));
+        verifyNoInteractions(refreshTokenService, jwtUtil);
+    }
+
+    @Test
+    void verifyOtpAndLogin_aWrongCode_isNotAudited() {
+        doThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP code"))
+                .when(otpService).verifyOtp("admin@test.com", "000000");
+
+        assertThatThrownBy(() -> authService.verifyOtpAndLogin(new OtpRequest("admin@test.com", "000000")))
+                .isInstanceOf(ResponseStatusException.class);
+
+        verifyNoInteractions(auditPublisher);
     }
 
     @Test

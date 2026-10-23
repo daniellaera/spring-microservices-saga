@@ -36,6 +36,26 @@ class RedisOtpExpirationITTest {
         assertThat(otpRepository.find(email)).isEmpty();
     }
 
+    @Autowired
+    private OtpAttempts otpAttempts;
+
+    @Test
+    void attemptCounters_countWithinTheirWindow_andExpireWithIt() throws InterruptedException {
+        String email = "counting@test.com";
+
+        assertThat(otpAttempts.recordFailure(email, Duration.ofSeconds(1))).isEqualTo(1);
+        assertThat(otpAttempts.recordFailure(email, Duration.ofSeconds(1))).isEqualTo(2);
+        assertThat(otpAttempts.recordIssued(email, Duration.ofSeconds(1))).isEqualTo(1);
+        assertThat(otpAttempts.recordIssued(email, Duration.ofSeconds(1))).isEqualTo(2);
+
+        Thread.sleep(1500);
+
+        assertThat(otpAttempts.recordFailure(email, Duration.ofSeconds(1))).isEqualTo(1);
+        assertThat(otpAttempts.recordIssued(email, Duration.ofSeconds(1))).isEqualTo(1);
+        otpAttempts.resetFailures(email);
+        assertThat(otpAttempts.recordFailure(email, Duration.ofSeconds(1))).isEqualTo(1);
+    }
+
     @Test
     void validate_shouldThrow401_afterOtpExpiresInRedis() throws InterruptedException {
         String email = "expiring-otp-validate@test.com";
