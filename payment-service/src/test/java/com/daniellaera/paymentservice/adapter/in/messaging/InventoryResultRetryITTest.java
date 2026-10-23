@@ -3,6 +3,7 @@ package com.daniellaera.paymentservice.adapter.in.messaging;
 import com.daniellaera.paymentservice.TestcontainersConfiguration;
 import com.daniellaera.paymentservice.adapter.out.persistence.TransactionJpaRepository;
 import com.daniellaera.paymentservice.domain.model.IntentVerification;
+import com.daniellaera.paymentservice.domain.model.PaymentGatewayUnavailableException;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.domain.port.out.PaymentGateway;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -36,7 +37,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * What the listener container does with an inventory result whose processing keeps failing: the retry topics
+ * What the listener container does with an inventory result whose processing keeps failing (here: Stripe is
+ * unavailable): the retry topics
  * (@RetryableTopic on the listener), then inventory-topic-dlt, whose handler logs it once and audits
  * PAYMENT_DEAD_LETTERED. Nothing is recorded or published for the order, which stays PENDING. The backoff is
  * shortened here (fixed 3 s); the production values are pinned by InventoryResultEventListenerTest.
@@ -69,7 +71,7 @@ class InventoryResultRetryITTest {
 
     @Test
     void failingEveryAttempt_endsInTheDeadLetterTopic_handledOnce_andNothingIsRecorded(CapturedOutput output) {
-        when(paymentGateway.verifyIntent("pi_801")).thenThrow(new IllegalStateException("Stripe unavailable: 503"));
+        when(paymentGateway.verifyIntent("pi_801")).thenThrow(new PaymentGatewayUnavailableException("Stripe unavailable: 503", null));
 
         kafkaTemplate.send("inventory-topic", approved(801L, "pi_801"));
 
@@ -89,7 +91,7 @@ class InventoryResultRetryITTest {
 
     @Test
     void aRetryingResult_doesNotHoldBackTheNextOne() {
-        when(paymentGateway.verifyIntent("pi_805")).thenThrow(new IllegalStateException("Stripe unavailable: 503"));
+        when(paymentGateway.verifyIntent("pi_805")).thenThrow(new PaymentGatewayUnavailableException("Stripe unavailable: 503", null));
         when(paymentGateway.verifyIntent("pi_806"))
                 .thenReturn(Optional.of(new IntentVerification("succeeded", 1000L, "eur")));
 
@@ -106,7 +108,7 @@ class InventoryResultRetryITTest {
     @Test
     void stripeBackBeforeTheLastAttempt_theRetryPays() {
         when(paymentGateway.verifyIntent("pi_802"))
-                .thenThrow(new IllegalStateException("Stripe unavailable: 503"))
+                .thenThrow(new PaymentGatewayUnavailableException("Stripe unavailable: 503", null))
                 .thenReturn(Optional.of(new IntentVerification("succeeded", 1000L, "eur")));
 
         kafkaTemplate.send("inventory-topic", approved(802L, "pi_802"));

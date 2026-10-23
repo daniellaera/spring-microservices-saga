@@ -2,8 +2,11 @@ package com.daniellaera.paymentservice.adapter.out.stripe;
 
 import com.daniellaera.paymentservice.domain.model.IntentVerification;
 import com.daniellaera.paymentservice.domain.model.PaymentGatewayException;
+import com.daniellaera.paymentservice.domain.model.PaymentGatewayUnavailableException;
 import com.daniellaera.paymentservice.domain.port.in.CreatedPaymentIntent;
 import com.daniellaera.paymentservice.domain.port.out.PaymentGateway;
+import com.stripe.exception.ApiConnectionException;
+import com.stripe.exception.RateLimitException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
@@ -50,8 +53,19 @@ public class StripePaymentGateway implements PaymentGateway {
                     intent.getAmount(), intent.getCurrency());
             return Optional.of(new IntentVerification(intent.getStatus(), intent.getAmount(), intent.getCurrency()));
         } catch (StripeException e) {
+            if (isTemporary(e)) {
+                log.warn("=== Stripe: could not retrieve PaymentIntent {} for now: {}", intentId, e.getMessage());
+                throw new PaymentGatewayUnavailableException("Stripe unavailable: " + e.getMessage(), e);
+            }
             log.error("=== Stripe: failed to confirm payment: {}", e.getMessage());
             return Optional.empty();
         }
+    }
+
+    // Worth retrying: no answer at all, rate limited, or a server error. Any other 4xx is a refusal.
+    static boolean isTemporary(StripeException e) {
+        Integer status = e.getStatusCode();
+        return e instanceof ApiConnectionException || e instanceof RateLimitException
+                || status == null || status == 429 || status >= 500;
     }
 }

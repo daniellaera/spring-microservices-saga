@@ -27,7 +27,9 @@ import java.util.Optional;
  * An approved order succeeds only when its payment intent succeeded for exactly the order's total, in the shop
  * currency, and only if that intent has not already paid for another order (it then fails without asking the
  * provider; a concurrent order paid with the same intent loses on the unique constraint and fails too). Without an
- * intent (missing or blank), or on a provider error, it fails.
+ * intent (missing or blank), or when the provider refuses the request, it fails. When the provider cannot answer
+ * for now, nothing is recorded: PaymentGatewayUnavailableException propagates so that the listener's container
+ * retries the inventory result instead of failing the order for good.
  */
 public class ProcessInventoryResultService implements ProcessInventoryResultUseCase {
 

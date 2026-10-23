@@ -34,4 +34,12 @@ class VerifyPaymentServiceTest {
     void providerError_isNotASuccess() {
         assertThat(service.isSucceeded("pi_missing")).isFalse();
     }
+
+    @Test
+    void providerUnavailable_isNotASuccessEither() {
+        gateway.givenIntent("pi_123", "succeeded");
+        gateway.unavailableFor(1);
+
+        assertThat(service.isSucceeded("pi_123")).isFalse();
+    }
 }

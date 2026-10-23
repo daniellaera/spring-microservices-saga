@@ -5,6 +5,7 @@ import com.daniellaera.paymentservice.application.fakes.FakePaymentGateway;
 import com.daniellaera.paymentservice.application.fakes.InMemoryTransactionRepository;
 import com.daniellaera.paymentservice.application.fakes.RecordingAuditTrail;
 import com.daniellaera.paymentservice.application.fakes.RecordingPaymentResultPublisher;
+import com.daniellaera.paymentservice.domain.model.PaymentGatewayUnavailableException;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.domain.model.PaymentTransaction;
 import com.daniellaera.paymentservice.domain.port.in.InventoryResult;
@@ -82,6 +83,24 @@ class ProcessInventoryResultServiceTest {
         assertThat(gateway.verifiedIntents()).containsExactly("pi_unknown");
         assertThat(publisher.published()).singleElement()
                 .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.FAILED));
+    }
+
+    @Test
+    void providerUnavailable_propagatesAndRecordsNothing_soTheRetryCanStillPay() {
+        gateway.givenIntent("pi_123", "succeeded", 129_999L, "eur");
+        gateway.unavailableFor(1);
+        InventoryResult result = approved(1L, "pi_123", null);
+
+        assertThatThrownBy(() -> service.process(result)).isInstanceOf(PaymentGatewayUnavailableException.class);
+        assertThat(effectLog.effects()).isEmpty();
+
+        // the container redelivers the inventory result once Stripe answers again
+        service.process(result);
+
+        assertThat(transactions.findAll()).singleElement()
+                .satisfies(t -> assertThat(t.status()).isEqualTo(PaymentStatus.SUCCESS));
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.status()).isEqualTo(PaymentStatus.SUCCESS));
     }
 
     @Test
