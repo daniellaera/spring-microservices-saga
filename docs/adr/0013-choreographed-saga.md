@@ -59,12 +59,13 @@ restored stock that had never been reserved.
     transaction with the compensation log entry;
   - concurrent changes to one product (a reservation, a compensation and a restock run on different threads)
     lost updates: 10 orders of 1 against a stock of 5 were all approved in a test. Products are now locked
-    (`SELECT … FOR UPDATE`) in name order;
+    (`SELECT … FOR UPDATE`) in name order, and a lock waits at most 3 s: a reservation is retried up to 3 times,
+    then the order is rejected (and refunded) instead of waiting forever;
   - an order for an unknown product stayed PENDING forever; it is now REJECTED;
   - a failed order whose payment had been captured was never refunded ([ADR 17](0017-payment-compensation-by-refund.md)).
 - **A step that never answers leaves the order PENDING.** There is no saga timeout. The places where a result
-  can stop are now visible: an outbox row that can't be sent, and an inventory result dead-lettered by
-  payment-service (`PAYMENT_DEAD_LETTERED`, replayed by hand with
+  can stop are now visible in the audit trail: an outbox row that can't be sent (`OUTBOX_EVENT_FAILED`), and an
+  inventory result dead-lettered by payment-service (`PAYMENT_DEAD_LETTERED`, replayed by hand with
   `docs/maintenance/replay-dead-lettered-inventory-results.md`).
 - **Adding a step means changing the services around it**, not one orchestrator. With three steps that is still
   cheaper than running and operating an orchestrator. A fourth step or a timeout policy would be the moment to

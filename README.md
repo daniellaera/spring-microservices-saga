@@ -77,7 +77,7 @@ sequenceDiagram
     alt every item in stock
         I->>I: lock the products in name order, reserve, deduct
         I-->>P: inventory-topic APPROVED
-    else not enough stock, or an unknown product
+    else not enough stock, an unknown product, or a product still locked after 3 tries of 3 s
         I-->>P: inventory-topic REJECTED
     end
     P->>S: retrieve the PaymentIntent
@@ -227,7 +227,7 @@ Order placement runs a distributed saga across three services via Kafka (see the
 5. On failure: reserved stock is released, and a captured payment is refunded
 
 ### Transactional Outbox
-Prevents dual-write between PostgreSQL and Kafka. The order and its `OutboxEvent` are written in a single database transaction. A relay sends pending events to Kafka every 5 s, waits for Kafka's acknowledgement, and only then marks them published: delivery is at least once, even if the broker is temporarily unavailable ([ADR 16](docs/adr/0016-transactional-outbox-at-least-once.md)).
+Prevents dual-write between PostgreSQL and Kafka. The order and its `OutboxEvent` are written in a single database transaction. A relay sends pending events to Kafka every 5 s, waits for Kafka's acknowledgement, and only then marks them published: delivery is at least once, even if the broker is temporarily unavailable. A row that can never be sent is FAILED after 5 attempts and audited as `OUTBOX_EVENT_FAILED` ([ADR 16](docs/adr/0016-transactional-outbox-at-least-once.md)).
 
 ### Real-time Updates (SSE)
 The browser holds one persistent Server-Sent Events connection to `order-service`. When an order changes state (PENDING → CONFIRMED / FAILED), the update is pushed instantly — no polling, no WebSocket handshake overhead.
@@ -342,7 +342,8 @@ Login uses email OTP. Locally, OTP emails are caught by Mailpit (http://localhos
 - The demo accounts above **do not exist**: `V3__remove_demo_users.sql` deletes them (and their refresh
   tokens) in every environment where the old V1 seed created them.
 - Login is limited: 5 wrong OTP codes invalidate the code (429, log in again), and at most 5 codes are issued
-  per email in 15 minutes (429). Both are audited as `USER_LOGIN_FAILED`.- The login page does not show demo credentials in production builds.
+  per email in 15 minutes (429). Both are audited as `USER_LOGIN_FAILED`.
+- The login page does not show demo credentials in production builds.
 - Anyone can register and use the shop as a **USER** (browse, cart, orders, Stripe test payments). The OTP is sent to the email you register with, so use an address you can read.
 - **ADMIN** features (product management and restock, audit trail, all customers' orders) are restricted to a single maintainer-owned account. There is no way to obtain the ADMIN role through the UI.
 - Payments run in Stripe **test mode**: use test cards such as 4242 4242 4242 4242 (success) or 4000 0000 0000 0002 (declined). No real money is charged.

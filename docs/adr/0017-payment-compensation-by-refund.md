@@ -65,6 +65,14 @@ the real handler.
   (`PAYMENT_REFUNDED`, `refund_id`).
 - `PAYMENT_REFUND_FAILED` and `PAYMENT_DEAD_LETTERED` need a person. They are visible on the admin `/audit`
   page; there is no alerting yet.
+- **The three new audit types were at first never stored.** `audit-trail-service` keeps a message only if its
+  type is an `AuditEventType`, and logs and drops any other. PR #17 tested publishing the events, not
+  storing them, and didn't add the types. PR #24 added them before any was emitted in production (no refund,
+  no drop in the logs). `AuditEventTypeTest` now fails the build when a producer sends a type the enum doesn't
+  know.
+- A product locked for too long (a stuck transaction) no longer leaves the order PENDING with its payment
+  captured: inventory retries the reservation up to 3 times with a 3 s lock timeout, then rejects the order,
+  and this refund path gives the money back.
 - A Stripe outage longer than about 80 s leaves orders PENDING until a manual replay. That was preferred to
   failing orders whose payment may be fine.
 - Past orders are not refunded retroactively (order 59 is a BACKLOG item).

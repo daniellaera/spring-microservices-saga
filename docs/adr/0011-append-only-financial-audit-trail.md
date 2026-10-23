@@ -35,8 +35,11 @@ Event sources:
 - Fire-and-forget means an audit event can be lost while Kafka is unreachable. The services use fail-fast
   producers (`max.block.ms` 1 s), so the business flow never waits for the audit.
 - The audit trail is the only place that shows a whole saga across services, so it doubles as the operators'
-  view. 1.1.0 adds PAYMENT_REFUNDED, PAYMENT_REFUND_FAILED and PAYMENT_DEAD_LETTERED for the cases that need
-  a person.
+  view. 1.1.0 adds PAYMENT_REFUNDED, PAYMENT_REFUND_FAILED, PAYMENT_DEAD_LETTERED and OUTBOX_EVENT_FAILED for
+  the cases that need a person, and USER_LOGIN_FAILED for the OTP limits.
+- `audit-trail-service` stores only the types in its `AuditEventType` enum and drops any other with a log
+  line. The three payment types of PR #17 were missing from it until PR #24; `AuditEventTypeTest` now fails
+  the build when a producer sends a type the enum doesn't know.
 - Stock events use the product id as `entityId`, not the order id, so they can't be found by order id.
 - On 2026-10-23 the admin `/audit` page looked like it had lost events. It hadn't: the events were in
   `auditdb`, and the page had four frontend bugs (fixed in 1.1.0).

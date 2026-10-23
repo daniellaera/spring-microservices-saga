@@ -10,7 +10,7 @@ All notable changes to this project are documented here. The format follows
 
 Hardening of the order saga: payments, stock and order events are now idempotent and safe to redeliver, a
 failed order refunds its payment, and the CI runs (and gates) every test suite. Pull request numbers refer to
-the Gitea repository `spring-saga-store`.
+the Gitea repository `spring-saga-store` (#1–#24; #18 was closed unmerged, superseded by #21).
 
 ### Added
 
@@ -31,6 +31,13 @@ the Gitea repository `spring-saga-store`.
 - **shop-ui tests in CI** (#14, #21): Playwright 1.64.0 specs (audit page, checkout, order form, public pages)
   and `ng test` run on every pull request that touches shop-ui. The `@public` specs need no login or payment
   and are safe against production.
+- **Outbox dead-letter** (#24): each outbox row has `attempts`, `status` (PENDING, PUBLISHED, FAILED) and
+  `last_error` (order-service Flyway V7). A row that can never be sent (unreadable payload, or a record Kafka
+  refuses as such) is FAILED after `outbox.relay.max-attempts` (5) and audited as `OUTBOX_EVENT_FAILED`.
+  Transient failures never count.
+- **Audit event types** `PAYMENT_REFUNDED`, `PAYMENT_REFUND_FAILED`, `PAYMENT_DEAD_LETTERED` and
+  `OUTBOX_EVENT_FAILED` in audit-trail-service, with their badges on the admin `/audit` page (#24).
+  `AuditEventTypeTest` fails the build when a producer sends a type the enum doesn't know.
 - **Checkout**: "Only N left" when the quantity exceeds the stock (#21).
 - **Gateway**: a `/fallback/payments` handler answering 503 (#19).
 - **Documentation**: architecture decision records in `docs/adr` (ADRs 1–12 migrated, 13–17 new), README
@@ -52,6 +59,12 @@ the Gitea repository `spring-saga-store`.
 - **Transient Stripe errors** (no answer, 429, 5xx) are retried instead of failing the order (#17).
 - **Gateway circuit-breaker time limits** are explicit (#19): `payment-cb` 10 s, the other breakers 1 s.
 - **`PRODUCT_RESTOCKED`** is audited after the restock commits, not before (#15).
+- **Product locks give up after 3 s** (#24): inventory-service sets `lock_timeout` 3000 ms (`SET LOCAL`)
+  before each `FOR UPDATE` finder, because Hibernate 7.2.1 applies the JPA lock-timeout hint too late. A
+  reservation is retried up to `inventory.reservation.lock-attempts` (3) times, then the order is REJECTED
+  (and its payment refunded); a compensation propagates and is redelivered; a restock answers 503 with
+  `Retry-After: 1`.
+- **Error responses of auth-service** carry a `message` field, which the login page shows (#23).
 - **Kafka and Grafana keep their data on named volumes** (`kafka-data`, `grafana-data`), and the Grafana image
   is pinned by digest (#20). Executed in the 2026-10-23 maintenance window
   (`docs/maintenance/kafka-and-grafana-volumes.md`).
@@ -83,6 +96,12 @@ the Gitea repository `spring-saga-store`.
   - an order for an unknown product stayed PENDING forever; it is now REJECTED;
   - the cached product list showed the stock from before an order or a compensation.
 - **Lost order events** (#16): a failed send to Kafka was swallowed and the outbox row marked published.
+- **The payment compensation audit events were dropped** (#24): PR #17 published `PAYMENT_REFUNDED`,
+  `PAYMENT_REFUND_FAILED` and `PAYMENT_DEAD_LETTERED`, but audit-trail-service stores only the types of its
+  `AuditEventType` enum and dropped the others. None had been emitted in production yet.
+- **A stuck product lock blocked every order of that product forever** (#24): `SELECT … FOR UPDATE` waited
+  without a limit.
+- **An outbox row that can never be sent** was skipped on every tick, forever, with only an ERROR log (#24).
 - **The dead-letter handler never ran** (#17): Spring Boot's retry-topic configuration wired Spring Kafka's
   default handler, which failed on every record under `ack-mode: record` and looped (about 20,000 stack traces
   a minute).
@@ -102,6 +121,13 @@ the Gitea repository `spring-saga-store`.
 
 ### Security
 
+- **Demo accounts removed** (#23): `V3__remove_demo_users.sql` deletes `admin@example.com` and
+  `daniel@example.com`, and their refresh tokens, in every environment. The demo seed is now a repeatable
+  migration in `db/dev` (`R__demo_users.sql`) that only the `local` profile enables, so local development still
+  has both accounts.
+- **OTP verification is limited** (#23): the 5th wrong code invalidates the OTP (429), and at most 5 OTPs are
+  issued per email in 15 minutes (429), counted after the password check. Both are audited as
+  `USER_LOGIN_FAILED`. Before, a wrong code left the OTP valid for its full 5 minutes, with no limit.
 - **`.dockerignore`** (#8): local configuration (`*-local.yml`, which can hold credentials) and `.env` files
   no longer reach the build context or the images.
 
