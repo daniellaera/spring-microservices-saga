@@ -14,9 +14,8 @@
         [rowsPerPageOptions]="[20, 50, 100]"
         [showCurrentPageReport]="true"
         currentPageReportTemplate="{first} to {last} of {totalRecords}"
-        [globalFilterFields]="['userEmail','eventType','entityType','serviceName']"
+        [globalFilterFields]="['userEmail','eventType','entityType','entityId','serviceName']"
         dataKey="id"
-        [expandedRowKeys]="expandedRows"
         styleClass="p-datatable-sm"
         responsiveLayout="scroll">
 
@@ -52,10 +51,10 @@
           <tr>
             <td>
               <p-button
+                [pRowToggler]="event"
                 [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
                 [text]="true"
-                [rounded]="true"
-                (onClick)="toggleRow(event)" />
+                [rounded]="true" />
             </td>
             <td>{{ event.createdAt | date:'yyyy-MM-dd HH:mm:ss' }}</td>
             <td>
@@ -67,7 +66,7 @@
           </tr>
         </ng-template>
 
-        <ng-template pTemplate="rowexpansion" let-event>
+        <ng-template pTemplate="expandedrow" let-event>
           <tr>
             <td colspan="6">
               <pre class="m-0 p-3 surface-100 border-round text-sm"

@@ -1,0 +1,317 @@
+{
+  "content": [
+    {
+      "id": 100,
+      "eventType": "USER_LOGIN",
+      "userEmail": "admin@example.com",
+      "entityType": "USER",
+      "entityId": "admin@example.com",
+      "payload": "\"admin@example.com\"",
+      "serviceName": "auth-service",
+      "createdAt": "2026-10-23T07:59:00.000000"
+    },
+    {
+      "id": 99,
+      "eventType": "ORDER_CONFIRMED",
+      "userEmail": "customera@example.com",
+      "entityType": "ORDER",
+      "entityId": "65",
+      "payload": "{\"orderId\":65,\"productName\":\"iPhone 17\",\"quantity\":1,\"price\":999.99,\"totalAmount\":999.99,\"status\":\"SUCCESS\"}",
+      "serviceName": "order-service",
+      "createdAt": "2026-10-23T07:50:00.000000"
+    },
+    {
+      "id": 98,
+      "eventType": "PAYMENT_SUCCEEDED",
+      "userEmail": "customera@example.com",
+      "entityType": "PAYMENT",
+      "entityId": "65",
+      "payload": "{\"orderId\":65,\"status\":\"SUCCESS\",\"totalAmount\":999.99}",
+      "serviceName": "payment-service",
+      "createdAt": "2026-10-23T07:49:00.000000"
+    },
+    {
+      "id": 97,
+      "eventType": "STOCK_DEDUCTED",
+      "userEmail": "customera@example.com",
+      "entityType": "PRODUCT",
+      "entityId": "1",
+      "payload": "{\"productName\":\"iPhone 17\",\"quantity\":1}",
+      "serviceName": "inventory-service",
+      "createdAt": "2026-10-23T07:48:00.000000"
+    },
+    {
+      "id": 96,
+      "eventType": "ORDER_CREATED",
+      "userEmail": "customera@example.com",
+      "entityType": "ORDER",
+      "entityId": "65",
+      "payload": "{\"orderId\":65,\"productName\":\"iPhone 17\",\"quantity\":1,\"price\":999.99,\"totalAmount\":999.99}",
+      "serviceName": "order-service",
+      "createdAt": "2026-10-23T07:47:00.000000"
+    },
+    {
+      "id": 95,
+      "eventType": "PAYMENT_INITIATED",
+      "userEmail": "customera@example.com",
+      "entityType": "PAYMENT",
+      "entityId": "pi_test_e",
+      "payload": "{\"amount\":99999,\"currency\":\"eur\"}",
+      "serviceName": "payment-service",
+      "createdAt": "2026-10-23T07:46:00.000000"
+    },
+    {
+      "id": 94,
+      "eventType": "USER_LOGIN",
+      "userEmail": "customera@example.com",
+      "entityType": "USER",
+      "entityId": "customera@example.com",
+      "payload": "\"customera@example.com\"",
+      "serviceName": "auth-service",
+      "createdAt": "2026-10-23T07:45:00.000000"
+    },
+    {
+      "id": 93,
+      "eventType": "ORDER_CONFIRMED",
+      "userEmail": "customerb@example.com",
+      "entityType": "ORDER",
+      "entityId": "64",
+      "payload": "{\"orderId\":64,\"productName\":\"MacBook Pro\",\"quantity\":1,\"price\":1299.99,\"totalAmount\":1299.99,\"status\":\"SUCCESS\"}",
+      "serviceName": "order-service",
+      "createdAt": "2026-10-23T07:42:00.000000"
+    },
+    {
+      "id": 92,
+      "eventType": "PAYMENT_SUCCEEDED",
+      "userEmail": "customerb@example.com",
+      "entityType": "PAYMENT",
+      "entityId": "64",
+      "payload": "{\"orderId\":64,\"status\":\"SUCCESS\",\"totalAmount\":1299.99}",
+      "serviceName": "payment-service",
+      "createdAt": "2026-10-23T07:41:00.000000"
+    },
+    {
+      "id": 91,
+      "eventType": "STOCK_DEDUCTED",
+      "userEmail": "customerb@example.com",
+      "entityType": "PRODUCT",
+      "entityId": "2",
+      "payload": "{\"productName\":\"MacBook Pro\",\"quantity\":1}",
+      "serviceName": "inventory-service",
+      "createdAt": "2026-10-23T07:40:00.000000"
+    },
+    {
+      "id": 90,
+      "eventType": "ORDER_CREATED",
+      "userEmail": "customerb@example.com",
+      "entityType": "ORDER",
+      "entityId": "64",
+      "payload": "{\"orderId\":64,\"productName\":\"MacBook Pro\",\"quantity\":1,\"price\":1299.99,\"totalAmount\":1299.99}",
+      "serviceName": "order-service",
+      "createdAt": "2026-10-23T07:39:00.000000"
+    },
+    {
+      "id": 89,
+      "eventType": "PAYMENT_INITIATED",
+      "userEmail": "customerb@example.com",
+      "entityType": "PAYMENT",
+      "entityId": "pi_test_d",
+      "payload": "{\"amount\":129999,\"currency\":\"eur\"}",
+      "serviceName": "payment-service",
+      "createdAt": "2026-10-23T07:38:00.000000"
+    },
+    {
+      "id": 88,
+      "eventType": "USER_LOGIN",
+      "userEmail": "customerb@example.com",
+      "entityType": "USER",
+      "entityId": "customerb@example.com",
+      "payload": "\"customerb@example.com\"",
+      "serviceName": "auth-service",
+      "createdAt": "2026-10-23T07:37:00.000000"
+    },
+    {
+      "id": 87,
+      "eventType": "ORDER_CONFIRMED",
+      "userEmail": "customerc@example.com",
+      "entityType": "ORDER",
+      "entityId": "63",
+      "payload": "{\"orderId\":63,\"productName\":\"iPad Pro\",\"quantity\":1,\"price\":799.99,\"totalAmount\":799.99,\"status\":\"SUCCESS\"}",
+      "serviceName": "order-service",
+      "createdAt": "2026-10-23T07:34:00.000000"
+    },
+    {
+      "id": 86,
+      "eventType": "PAYMENT_SUCCEEDED",
+      "userEmail": "customerc@example.com",
+      "entityType": "PAYMENT",
+      "entityId": "63",
+      "payload": "{\"orderId\":63,\"status\":\"SUCCESS\",\"totalAmount\":799.99}",
+      "serviceName": "payment-service",
+      "createdAt": "2026-10-23T07:33:00.000000"
+    },
+    {
+      "id": 85,
+      "eventType": "STOCK_DEDUCTED",
+      "userEmail": "customerc@example.com",
+      "entityType": "PRODUCT",
+      "entityId": "3",
+      "payload": "{\"productName\":\"iPad Pro\",\"quantity\":1}",
+      "serviceName": "inventory-service",
+      "createdAt": "2026-10-23T07:32:00.000000"
+    },
+    {
+      "id": 84,
+      "eventType": "ORDER_CREATED",
+      "userEmail": "customerc@example.com",
+      "entityType": "ORDER",
+      "entityId": "63",
+      "payload": "{\"orderId\":63,\"productName\":\"iPad Pro\",\"quantity\":1,\"price\":799.99,\"totalAmount\":799.99}",
+      "serviceName": "order-service",
+      "createdAt": "2026-10-23T07:31:00.000000"
+    },
+    {
+      "id": 83,
+      "eventType": "PAYMENT_INITIATED",
+      "userEmail": "customerc@example.com",
+      "entityType": "PAYMENT",
+      "entityId": "pi_test_c",
+      "payload": "{\"amount\":79999,\"currency\":\"eur\"}",
+      "serviceName": "payment-service",
+      "createdAt": "2026-10-23T07:30:00.000000"
+    },
+    {
+      "id": 82,
+      "eventType": "USER_LOGIN",
+      "userEmail": "customerc@example.com",
+      "entityType": "USER",
+      "entityId": "customerc@example.com",
+      "payload": "\"customerc@example.com\"",
+      "serviceName": "auth-service",
+      "createdAt": "2026-10-23T07:29:00.000000"
+    },
+    {
+      "id": 81,
+      "eventType": "ORDER_CONFIRMED",
+      "userEmail": "customerd@example.com",
+      "entityType": "ORDER",
+      "entityId": "62",
+      "payload": "{\"orderId\":62,\"productName\":\"iPhone 17\",\"quantity\":1,\"price\":999.99,\"totalAmount\":999.99,\"status\":\"SUCCESS\"}",
+      "serviceName": "order-service",
+      "createdAt": "2026-10-23T07:26:00.000000"
+    },
+    {
+      "id": 80,
+      "eventType": "PAYMENT_SUCCEEDED",
+      "userEmail": "customerd@example.com",
+      "entityType": "PAYMENT",
+      "entityId": "62",
+      "payload": "{\"orderId\":62,\"status\":\"SUCCESS\",\"totalAmount\":999.99}",
+      "serviceName": "payment-service",
+      "createdAt": "2026-10-23T07:25:00.000000"
+    },
+    {
+      "id": 79,
+      "eventType": "STOCK_DEDUCTED",
+      "userEmail": "customerd@example.com",
+      "entityType": "PRODUCT",
+      "entityId": "1",
+      "payload": "{\"productName\":\"iPhone 17\",\"quantity\":1}",
+      "serviceName": "inventory-service",
+      "createdAt": "2026-10-23T07:24:00.000000"
+    },
+    {
+      "id": 78,
+      "eventType": "ORDER_CREATED",
+      "userEmail": "customerd@example.com",
+      "entityType": "ORDER",
+      "entityId": "62",
+      "payload": "{\"orderId\":62,\"productName\":\"iPhone 17\",\"quantity\":1,\"price\":999.99,\"totalAmount\":999.99}",
+      "serviceName": "order-service",
+      "createdAt": "2026-10-23T07:23:00.000000"
+    },
+    {
+      "id": 77,
+      "eventType": "PAYMENT_INITIATED",
+      "userEmail": "customerd@example.com",
+      "entityType": "PAYMENT",
+      "entityId": "pi_test_b",
+      "payload": "{\"amount\":99999,\"currency\":\"eur\"}",
+      "serviceName": "payment-service",
+      "createdAt": "2026-10-23T07:22:00.000000"
+    },
+    {
+      "id": 76,
+      "eventType": "USER_LOGIN",
+      "userEmail": "customerd@example.com",
+      "entityType": "USER",
+      "entityId": "customerd@example.com",
+      "payload": "\"customerd@example.com\"",
+      "serviceName": "auth-service",
+      "createdAt": "2026-10-23T07:21:00.000000"
+    },
+    {
+      "id": 75,
+      "eventType": "ORDER_CONFIRMED",
+      "userEmail": "customere@example.com",
+      "entityType": "ORDER",
+      "entityId": "61",
+      "payload": "{\"orderId\":61,\"productName\":\"MacBook Pro\",\"quantity\":1,\"price\":1299.99,\"totalAmount\":1299.99,\"status\":\"SUCCESS\"}",
+      "serviceName": "order-service",
+      "createdAt": "2026-10-23T07:18:00.000000"
+    },
+    {
+      "id": 74,
+      "eventType": "PAYMENT_SUCCEEDED",
+      "userEmail": "customere@example.com",
+      "entityType": "PAYMENT",
+      "entityId": "61",
+      "payload": "{\"orderId\":61,\"status\":\"SUCCESS\",\"totalAmount\":1299.99}",
+      "serviceName": "payment-service",
+      "createdAt": "2026-10-23T07:17:00.000000"
+    },
+    {
+      "id": 73,
+      "eventType": "STOCK_DEDUCTED",
+      "userEmail": "customere@example.com",
+      "entityType": "PRODUCT",
+      "entityId": "2",
+      "payload": "{\"productName\":\"MacBook Pro\",\"quantity\":1}",
+      "serviceName": "inventory-service",
+      "createdAt": "2026-10-23T07:16:00.000000"
+    },
+    {
+      "id": 72,
+      "eventType": "ORDER_CREATED",
+      "userEmail": "customere@example.com",
+      "entityType": "ORDER",
+      "entityId": "61",
+      "payload": "{\"orderId\":61,\"productName\":\"MacBook Pro\",\"quantity\":1,\"price\":1299.99,\"totalAmount\":1299.99}",
+      "serviceName": "order-service",
+      "createdAt": "2026-10-23T07:15:00.000000"
+    },
+    {
+      "id": 71,
+      "eventType": "PAYMENT_INITIATED",
+      "userEmail": "customere@example.com",
+      "entityType": "PAYMENT",
+      "entityId": "pi_test_a",
+      "payload": "{\"amount\":129999,\"currency\":\"eur\"}",
+      "serviceName": "payment-service",
+      "createdAt": "2026-10-23T07:14:00.000000"
+    },
+    {
+      "id": 70,
+      "eventType": "USER_LOGIN",
+      "userEmail": "customere@example.com",
+      "entityType": "USER",
+      "entityId": "customere@example.com",
+      "payload": "\"customere@example.com\"",
+      "serviceName": "auth-service",
+      "createdAt": "2026-10-23T07:13:00.000000"
+    }
+  ],
+  "totalElements": 31,
+  "totalPages": 1,
+  "number": 0
+}
