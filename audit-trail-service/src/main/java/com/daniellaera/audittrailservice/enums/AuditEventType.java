@@ -1,5 +1,9 @@
 package com.daniellaera.audittrailservice.enums;
 
+/**
+ * Every event type the services send to audit-topic. A message with any other type is logged and dropped by
+ * AuditService, so a producer's new type must be added here too: AuditEventTypeTest lists them all.
+ */
 public enum AuditEventType {
     // Auth events
     USER_LOGIN,
@@ -19,12 +23,18 @@ public enum AuditEventType {
     PAYMENT_INITIATED,
     PAYMENT_SUCCEEDED,
     PAYMENT_FAILED,
+    PAYMENT_REFUNDED,
+    PAYMENT_REFUND_FAILED,
+    PAYMENT_DEAD_LETTERED,
 
     // Inventory events
     PRODUCT_CREATED,
     PRODUCT_RESTOCKED,
     STOCK_DEDUCTED,
     STOCK_RESTORED,
+
+    // Outbox events (order-service)
+    OUTBOX_EVENT_FAILED,
 
     // Cart events
     CART_ITEM_ADDED,
