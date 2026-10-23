@@ -101,6 +101,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!product) return '0.00';
     return (product.price * qty).toFixed(2);
   });
+  // the field doesn't clamp to the stock: an order over it is blocked, so the amount is always what is shown
+  exceedsStock = computed(() => {
+    const product = this.selectedProduct();
+    return !!product && this.quantity() > product.quantity;
+  });
+  canOrder = computed(() => !!this.selectedProduct() && this.quantity() >= 1 && !this.exceedsStock());
 
   ngOnInit(): void {
     if (this.authService.isTokenExpired()) {
@@ -121,6 +127,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   addToCart(product: ProductDto): void {
+    if (!this.canOrder()) return;
     this.cartService.addItem(product.name, this.quantity(), product.price).pipe(
       takeUntil(this.destroy$)
     ).subscribe({
@@ -227,9 +234,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.productService.getAll().pipe(takeUntil(this.destroy$)).subscribe({
       next: products => {
         this.products = products.filter(p => p.quantity > 0);
-        if (products.length > 0) {
-          this.selectedProduct.set(products[0]);
-        }
+        // keep the selected product, with its fresh stock, while it is in stock; else the first one in stock
+        const selected = this.selectedProduct();
+        this.selectedProduct.set(this.products.find(p => p.name === selected?.name) ?? this.products[0] ?? null);
       },
       error: (err) => handleHttpError(err, this.messageService, 'Could not load products')
     });
@@ -238,7 +245,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Step 1: user clicks "Place order" → create PaymentIntent and open dialog
   async openPaymentDialog(): Promise<void> {
     const product = this.selectedProduct();
-    if (!product) return;
+    if (!product || !this.canOrder()) return;
 
     this.isCartCheckout = false;
     this.orderLoading = true;

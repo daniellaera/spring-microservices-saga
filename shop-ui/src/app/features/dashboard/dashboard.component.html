@@ -185,14 +185,21 @@
             </div>
 
             <div class="flex flex-column gap-2">
-              <label class="font-medium text-sm">Quantity</label>
+              <label class="font-medium text-sm" for="order-quantity">Quantity</label>
+              <!-- no [max]: PrimeNG clamps to it only on blur, silently changing the amount being paid -->
               <p-inputNumber
                 [ngModel]="quantity()"
                 (ngModelChange)="quantity.set(+$event)"
                 [min]="1"
-                [max]="selectedProduct()?.quantity ?? 99"
+                inputId="order-quantity"
+                [invalid]="exceedsStock()"
                 styleClass="w-full"
                 inputStyleClass="w-full" />
+              @if (exceedsStock()) {
+                <small class="text-red-500" role="alert" data-testid="stock-limit">
+                  Only {{ selectedProduct()!.quantity }} left
+                </small>
+              }
             </div>
 
             <div class="surface-50 border-round p-3 text-sm">
@@ -208,7 +215,7 @@
                 icon="pi pi-shopping-cart"
                 severity="secondary"
                 styleClass="flex-1"
-                [disabled]="!selectedProduct()"
+                [disabled]="!canOrder()"
                 (onClick)="addToCart(selectedProduct()!)" />
 
               <p-button
@@ -216,7 +223,7 @@
                 icon="pi pi-bolt"
                 styleClass="flex-1"
                 [loading]="orderLoading"
-                [disabled]="!selectedProduct()"
+                [disabled]="!canOrder()"
                 (onClick)="openPaymentDialog()" />
             </div>
 
