@@ -131,7 +131,10 @@ du -sh "$M/kafka-logs"                       # ≈ 97 MB
 
 ### K4. Apply the new compose file and fill the volume
 
-Merge the PR now. Take the file from `main` exactly as the deploy job does, so the next deploy changes nothing:
+Merge the PR now. Its deploy names no changed service, so it restarts nothing and its smoke job has nothing
+to check. It must not prune containers: the gateway, the apps and Kafka are stopped at this point, and a
+`docker container prune` would delete them (the same PR drops it from `main.yml`). Take the file from
+`main` exactly as the deploy job does, so the next deploy changes nothing:
 
 ```bash
 curl -sSf http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/docker-compose.yml -o docker-compose.yml

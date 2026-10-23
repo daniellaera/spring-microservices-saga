@@ -374,7 +374,8 @@ jobs:
             fi
 
             echo "=== Cleaning up ==="
-            docker container prune -f
+            # Images only: a stopped container (one stopped by hand for maintenance) must survive a deploy,
+            # and it keeps its image in use. `up -d` already removes the containers it replaces.
             docker image prune -a -f
 
             echo "=== Disk usage after cleanup ==="
