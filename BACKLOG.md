@@ -8,6 +8,21 @@
   Kafka alone runs with `-Xmx1G -Xms1G`. Add swap or memory, or cap the JVM heaps, before adding services.
 - **Run the shop-ui Playwright specs in CI** (`shop-ui/e2e`, stack in `e2e/stack/compose.yml`): wire it
   in with the checkout-modal PR. Today they run locally only.
+- **shop-ui checkout PR** (checkout modal, `features/dashboard`), from the order 67 and first "Buy now"
+  findings of 2026-10-23:
+  - **Silent quantity clamp on blur**: PrimeNG `p-inputNumber` applies `[max]` (the stock) only on blur, so
+    a typed 8 with 7 in stock shows 8 and its total until "Buy now" clamps it to 7 as the dialog opens.
+    While quantity > stock, disable "Buy now" and "Add to cart" and show "Only N left".
+  - **Pre-select from the filtered product list**: `loadProducts()` filters out products with no stock but
+    pre-selects `products[0]` from the unfiltered list, so an out-of-stock product can be pre-selected.
+  - **Catch and show errors in `mountStripeCard` and "Pay now"**: a failed Stripe.js load or mount is an
+    unhandled rejection in a `setTimeout` (blank card area, nothing shown); "Pay now" returns silently when
+    the element is not mounted and leaves its spinner on when Stripe is null. Show the error, allow a retry,
+    and mount when the dialog is shown instead of after a fixed 300 ms.
+  - **One PaymentIntent per purchase**: a retried "Buy now" creates another intent (two intents for order 66).
+    Reuse the open intent for the same purchase, or cancel the abandoned one.
+  - **Playwright specs for all of these**, including "typed 8 with 7 in stock, payment amount equals what is
+    shown".
 - **`ng test` fails on main**: `src/app/app.spec.ts` (Angular CLI scaffold) has no provider for
   `ConfirmationService`. CI only runs `ng build`, so nothing notices. Fix or delete the spec, then run
   `ng test` in CI.
