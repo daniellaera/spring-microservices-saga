@@ -3,7 +3,9 @@ WORKDIR /app
 COPY shop-ui/package*.json ./
 RUN npm ci
 COPY shop-ui/ .
-RUN npx ng build --configuration=production
+# Short commit SHA shown in the version badge (main.yml passes it; "dev" otherwise)
+ARG BUILD_SHA=dev
+RUN npx ng build --configuration=production --define "SHOP_UI_BUILD_SHA=\"${BUILD_SHA}\""
 
 FROM nginx:alpine
 COPY --from=build /app/dist/shop-ui/browser /usr/share/nginx/html

@@ -248,14 +248,6 @@ jobs:
       - name: Free up space
         run: docker builder prune -f && docker image prune -f
 
-      - name: Inject build version into shop-ui
-        if: needs.detect-changes.outputs.shop-ui == 'true'
-        run: |
-          SHORT_SHA="${{ steps.tag.outputs.sha }}"
-          sed -i "s/BUILD_NUMBER_PLACEHOLDER/${SHORT_SHA}/" \
-            shop-ui/src/environments/environment.prod.ts
-          echo "Build version: ${SHORT_SHA}"
-
       - name: Build and push shop-ui
         if: needs.detect-changes.outputs.shop-ui == 'true'
         uses: docker/build-push-action@v5
@@ -263,6 +255,9 @@ jobs:
           context: .
           file: shop-ui/Dockerfile
           platforms: linux/amd64
+          # the navbar and dashboard badge show it
+          build-args: |
+            BUILD_SHA=${{ steps.tag.outputs.sha }}
           push: true
           tags: |
             daniellaera/shop-ui:latest
