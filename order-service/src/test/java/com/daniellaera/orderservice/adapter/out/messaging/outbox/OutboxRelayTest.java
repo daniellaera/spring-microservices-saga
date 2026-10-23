@@ -2,7 +2,9 @@ package com.daniellaera.orderservice.adapter.out.messaging.outbox;
 
 import com.daniellaera.orderservice.adapter.out.messaging.KafkaOrderEventSender;
 import com.daniellaera.orderservice.adapter.out.messaging.OrderEvent;
+import com.daniellaera.orderservice.adapter.out.messaging.OrderEventNotSentException;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -50,12 +52,55 @@ class OutboxRelayTest {
     }
 
     @Test
+    void sendFailure_leavesTheRowUnpublishedAndStopsTheBatch() {
+        OutboxEventJpaEntity first = row(payload(44L));
+        OutboxEventJpaEntity failing = row(payload(45L));
+        OutboxEventJpaEntity later = row(payload(46L));
+        when(outboxRepository.findByPublishedFalseOrderByCreatedAtAsc()).thenReturn(List.of(first, failing, later));
+        doNothing().doThrow(new OrderEventNotSentException(45L, new RuntimeException("broker down")))
+                .when(sender).send(any());
+
+        relay.publishOutboxEvents();
+
+        assertThat(first.isPublished()).isTrue();
+        assertThat(failing.isPublished()).isFalse();
+        assertThat(failing.getPublishedAt()).isNull();
+        // a later event must not overtake the one that failed
+        assertThat(later.isPublished()).isFalse();
+        verify(sender, times(2)).send(any());
+        verify(outboxRepository, never()).save(failing);
+        verify(outboxRepository, never()).save(later);
+    }
+
+    @Test
+    void failedRow_isRetriedOnTheNextTickBeforeLaterRows() {
+        List<OutboxEventJpaEntity> outbox = List.of(row(payload(47L)), row(payload(48L)));
+        when(outboxRepository.findByPublishedFalseOrderByCreatedAtAsc())
+                .thenAnswer(invocation -> outbox.stream().filter(row -> !row.isPublished()).toList());
+        doThrow(new OrderEventNotSentException(47L, new RuntimeException("broker down")))
+                .doNothing()
+                .when(sender).send(any());
+
+        relay.publishOutboxEvents();
+        relay.publishOutboxEvents();
+
+        assertThat(outbox).allMatch(OutboxEventJpaEntity::isPublished);
+        InOrder inOrder = inOrder(sender);
+        inOrder.verify(sender, times(2)).send(argThat(event -> event.orderId() == 47L));
+        inOrder.verify(sender).send(argThat(event -> event.orderId() == 48L));
+    }
+
+    @Test
     void nothingPending_sendsNothing() {
         when(outboxRepository.findByPublishedFalseOrderByCreatedAtAsc()).thenReturn(List.of());
 
         relay.publishOutboxEvents();
 
         verifyNoInteractions(sender);
+    }
+
+    private static String payload(long orderId) {
+        return "{\"orderId\":" + orderId + ",\"items\":[]}";
     }
 
     private static OutboxEventJpaEntity row(String payload) {
