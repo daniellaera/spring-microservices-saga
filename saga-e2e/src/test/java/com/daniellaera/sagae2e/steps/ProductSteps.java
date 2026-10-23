@@ -38,6 +38,12 @@ public class ProductSteps {
                 created.path("name").asString(), price));
     }
 
+    @Given("the shop does not sell {string}")
+    public void theShopDoesNotSell(String product) {
+        // never created, and the scenario's unique name guarantees no other scenario created it either
+        context.addProduct(product, new ScenarioContext.Product(0, context.uniqueName(product), PRICE));
+    }
+
     @Then("{string} has {int} in stock")
     public void hasInStock(String product, int quantity) {
         long id = context.product(product).id();
@@ -49,6 +55,15 @@ public class ProductSteps {
         long id = context.product(product).id();
         await().during(STEADY).atMost(STEADY.plusSeconds(30))
                 .untilAsserted(() -> assertThat(stockOf(id)).isEqualTo(quantity));
+    }
+
+    @Then("the product list shows {string} with {int} in stock")
+    public void theProductListShows(String product, int quantity) {
+        String name = context.product(product).name();
+        await().untilAsserted(() -> assertThat(shop.products())
+                .filteredOn(listed -> listed.path("name").asString().equals(name))
+                .singleElement()
+                .satisfies(listed -> assertThat(listed.path("quantity").asInt()).isEqualTo(quantity)));
     }
 
     private int stockOf(long productId) {

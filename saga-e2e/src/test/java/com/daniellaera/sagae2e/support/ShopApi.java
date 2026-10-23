@@ -46,6 +46,12 @@ public final class ShopApi {
         return send(HttpRequest.newBuilder(URI.create(environment.inventoryServiceUrl() + "/products/" + id)).GET());
     }
 
+    // The cached list, as the shop shows it
+    public List<JsonNode> products() {
+        JsonNode all = send(HttpRequest.newBuilder(URI.create(environment.inventoryServiceUrl() + "/products")).GET());
+        return StreamSupport.stream(all.spliterator(), false).toList();
+    }
+
     /** paymentIntentId may be null: the field is then left out of the request. */
     public JsonNode placeOrder(String customerEmail, List<OrderLine> lines, String paymentIntentId) {
         Map<String, Object> request = new LinkedHashMap<>();
