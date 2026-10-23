@@ -16,9 +16,25 @@ const SUCCESS_EVENTS = new Set([
   'CART_ITEM_ADDED', 'CART_CHECKOUT'
 ]);
 
+// someone has to act on these: a refund to make by hand, a result to replay, an order event never sent
 const FAILED_EVENTS = new Set([
-  'USER_LOGIN_FAILED', 'ORDER_CANCELLED', 'PAYMENT_FAILED'
+  'USER_LOGIN_FAILED', 'ORDER_CANCELLED', 'PAYMENT_FAILED',
+  'PAYMENT_REFUND_FAILED', 'PAYMENT_DEAD_LETTERED', 'OUTBOX_EVENT_FAILED'
 ]);
+
+// handled, but worth a look: an order failed after its payment was captured, and the money went back
+const WARN_EVENTS = new Set([
+  'PAYMENT_REFUNDED'
+]);
+
+export type AuditSeverity = 'success' | 'warn' | 'danger' | 'info';
+
+export function auditSeverity(eventType: string): AuditSeverity {
+  if (SUCCESS_EVENTS.has(eventType)) return 'success';
+  if (FAILED_EVENTS.has(eventType)) return 'danger';
+  if (WARN_EVENTS.has(eventType)) return 'warn';
+  return 'info';
+}
 
 @Component({
   selector: 'app-audit',
@@ -62,10 +78,8 @@ export class AuditComponent implements OnInit, OnDestroy {
       });
   }
 
-  severityFor(eventType: string): 'success' | 'danger' | 'info' {
-    if (SUCCESS_EVENTS.has(eventType)) return 'success';
-    if (FAILED_EVENTS.has(eventType)) return 'danger';
-    return 'info';
+  severityFor(eventType: string): AuditSeverity {
+    return auditSeverity(eventType);
   }
 
   formatPayload(payload: string): string {

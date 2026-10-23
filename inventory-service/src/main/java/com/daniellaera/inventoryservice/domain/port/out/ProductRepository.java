@@ -15,7 +15,8 @@ public interface ProductRepository {
 
     /**
      * Like findById, but the product stays locked until the caller's transaction ends, so concurrent stock
-     * changes wait for each other instead of overwriting each other. Call it inside a transaction.
+     * changes wait for each other instead of overwriting each other. Call it inside a transaction. Waits a few
+     * seconds at most for a lock another transaction holds, then throws ProductLockTimeoutException.
      */
     Optional<Product> findByIdForUpdate(long id);
 

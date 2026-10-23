@@ -1,6 +1,7 @@
 package com.daniellaera.inventoryservice.application.fakes;
 
 import com.daniellaera.inventoryservice.domain.model.Product;
+import com.daniellaera.inventoryservice.domain.model.ProductLockTimeoutException;
 import com.daniellaera.inventoryservice.domain.port.out.ProductRepository;
 
 import java.math.BigDecimal;
@@ -14,13 +15,14 @@ import java.util.Optional;
 /**
  * Behaves like the persistence adapter: assigns ids and createdAt to new products, only updates the quantity of
  * existing ones and hands out copies, never the stored instances (so a missing save is visible). The ForUpdate
- * finders take no lock, but record what was locked and in which order.
+ * finders take no lock, but record what was locked and in which order; {@link #lockedOut} makes them time out.
  */
 public class InMemoryProductRepository implements ProductRepository {
 
     private final Map<Long, Product> products = new LinkedHashMap<>();
     private final List<Product> saved = new ArrayList<>();
     private final List<String> locked = new ArrayList<>();
+    private final Map<String, Integer> lockTimeoutsLeft = new LinkedHashMap<>();
     private long nextId = 1;
     private LocalDateTime clock = LocalDateTime.of(2025, 1, 1, 9, 0);
 
@@ -64,14 +66,29 @@ public class InMemoryProductRepository implements ProductRepository {
 
     @Override
     public Optional<Product> findByIdForUpdate(long id) {
+        timeOutIfLockedOut("#" + id);
         locked.add("#" + id);
         return findById(id);
     }
 
     @Override
     public Optional<Product> findByNameForUpdate(String name) {
+        timeOutIfLockedOut(name);
         locked.add(name);
         return findByName(name);
+    }
+
+    /** The next {@code times} ForUpdate calls for this product (a name, or "#id") throw ProductLockTimeoutException. */
+    public void lockedOut(String product, int times) {
+        lockTimeoutsLeft.put(product, times);
+    }
+
+    private void timeOutIfLockedOut(String product) {
+        int left = lockTimeoutsLeft.getOrDefault(product, 0);
+        if (left > 0) {
+            lockTimeoutsLeft.put(product, left - 1);
+            throw new ProductLockTimeoutException(product, null);
+        }
     }
 
     @Override

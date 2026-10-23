@@ -7,4 +7,7 @@ public interface AuditTrail {
     void orderPlaced(Order order);
 
     void paymentResultApplied(Order order, PaymentResult result);
+
+    /** An order's event could not be delivered to the saga after the maximum number of attempts. */
+    void outboxEventFailed(long orderId, String userEmail, String eventType, int attempts, String error);
 }

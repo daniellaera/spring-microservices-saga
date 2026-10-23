@@ -32,7 +32,7 @@ class ReserveStockServiceTest {
     private final RecordingInventoryResultPublisher publisher = new RecordingInventoryResultPublisher();
     private final RecordingProductListCache productListCache = new RecordingProductListCache();
     private final ReserveStockService service = new ReserveStockService(reservations,
-            new StockReserver(products, reservations, auditTrail, productListCache), publisher);
+            new StockReserver(products, reservations, auditTrail, productListCache), publisher, 3);
 
     @BeforeEach
     void setUp() {
@@ -157,6 +157,54 @@ class ReserveStockServiceTest {
         assertThat(products.quantityOf("AirPods")).isEqualTo(5);
         assertThat(products.saved()).isEmpty();
         assertThat(reservations.all()).isEmpty();
+    }
+
+    @Test
+    void lockTimeoutThenLock_isTriedAgainAndApproved() {
+        products.lockedOut("MacBook Pro", 2);
+
+        assertThat(service.reserve(command(21L, "pi_21", line("MacBook Pro", 2)))).contains(ReservationDecision.APPROVED);
+
+        assertThat(products.quantityOf("MacBook Pro")).isEqualTo(8);
+        assertThat(reservations.findByOrderId(21L)).hasSize(1);
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.decision()).isEqualTo(ReservationDecision.APPROVED));
+    }
+
+    @Test
+    void lockTimeoutOnEveryAttempt_isRejectedWithNothingReserved() {
+        // AirPods is locked first (name order), MacBook Pro never gets its turn
+        products.lockedOut("MacBook Pro", 3);
+
+        assertThat(service.reserve(command(22L, "pi_22", line("AirPods", 1), line("MacBook Pro", 1))))
+                .contains(ReservationDecision.REJECTED);
+
+        assertThat(products.locked()).containsExactly("AirPods", "AirPods", "AirPods");
+        assertThat(products.saved()).isEmpty();
+        assertThat(reservations.all()).isEmpty();
+        assertThat(auditTrail.audits()).isEmpty();
+        assertThat(productListCache.invalidations()).isZero();
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.decision()).isEqualTo(ReservationDecision.REJECTED));
+    }
+
+    @Test
+    void oneLockAttempt_rejectsOnTheFirstTimeout() {
+        ReserveStockService singleAttempt = new ReserveStockService(reservations,
+                new StockReserver(products, reservations, auditTrail, productListCache), publisher, 1);
+        products.lockedOut("MacBook Pro", 1);
+
+        assertThat(singleAttempt.reserve(command(23L, null, line("MacBook Pro", 1)))).contains(ReservationDecision.REJECTED);
+        assertThat(products.quantityOf("MacBook Pro")).isEqualTo(10);
+    }
+
+    @Test
+    void lockAttemptsBelowOne_areRefused() {
+        StockReserver reserver = new StockReserver(products, reservations, auditTrail, productListCache);
+
+        assertThatThrownBy(() -> new ReserveStockService(reservations, reserver, publisher, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("lockAttempts must be at least 1, was 0");
     }
 
     @Test

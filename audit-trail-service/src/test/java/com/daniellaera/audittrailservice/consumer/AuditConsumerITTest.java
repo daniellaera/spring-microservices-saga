@@ -1,9 +1,12 @@
 package com.daniellaera.audittrailservice.consumer;
 
 import com.daniellaera.audittrailservice.TestcontainersConfiguration;
+import com.daniellaera.audittrailservice.enums.AuditEventType;
 import com.daniellaera.audittrailservice.repository.AuditEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -56,6 +59,34 @@ class AuditConsumerITTest {
                         assertThat(auditEventRepository.findByUserEmailOrderByCreatedAtDesc("buyer@test.com"))
                                 .hasSize(1)
                 );
+    }
+
+    // payment compensation (PR #17) and outbox dead-letter events: before they were AuditEventTypes, all were dropped
+    @ParameterizedTest
+    @ValueSource(strings = {"PAYMENT_REFUNDED", "PAYMENT_REFUND_FAILED", "PAYMENT_DEAD_LETTERED", "OUTBOX_EVENT_FAILED"})
+    void consume_compensationAndOutboxEvents_savedWithTheirType(String eventType) {
+        String json = """
+                {
+                  "eventType": "%s",
+                  "userEmail": "system",
+                  "entityType": "PAYMENT",
+                  "entityId": "77",
+                  "payload": "{\\"orderId\\":77}",
+                  "serviceName": "payment-service",
+                  "timestamp": "2026-10-23T00:00:00"
+                }
+                """.formatted(eventType);
+
+        kafkaTemplate.send(AUDIT_TOPIC, json);
+
+        await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertThat(auditEventRepository.findAll()).singleElement().satisfies(saved -> {
+                    assertThat(saved.getEventType()).isEqualTo(AuditEventType.valueOf(eventType));
+                    assertThat(saved.getEntityId()).isEqualTo("77");
+                    assertThat(saved.getPayload()).isEqualTo("{\"orderId\":77}");
+                }));
     }
 
     @Test

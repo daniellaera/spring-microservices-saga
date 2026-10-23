@@ -11,6 +11,7 @@ import com.daniellaera.inventoryservice.domain.port.out.InventoryResultPublisher
 import com.daniellaera.inventoryservice.domain.port.out.ProductListCache;
 import com.daniellaera.inventoryservice.domain.port.out.ProductRepository;
 import com.daniellaera.inventoryservice.domain.port.out.StockReservationRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -27,8 +28,10 @@ public class InventoryUseCaseConfig {
     @Bean
     public ReserveStockService reserveStockService(StockReservationRepository stockReservationRepository,
                                                    StockReserver stockReserver,
-                                                   InventoryResultPublisher inventoryResultPublisher) {
-        return new ReserveStockService(stockReservationRepository, stockReserver, inventoryResultPublisher);
+                                                   InventoryResultPublisher inventoryResultPublisher,
+                                                   @Value("${inventory.reservation.lock-attempts:3}") int lockAttempts) {
+        return new ReserveStockService(stockReservationRepository, stockReserver, inventoryResultPublisher,
+                lockAttempts);
     }
 
     @Bean
