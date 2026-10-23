@@ -36,7 +36,6 @@ export class AuditComponent implements OnInit, OnDestroy {
   events: AuditEventDto[] = [];
   loading = signal(false);
   totalRecords = 0;
-  expandedRows: Record<number, boolean> = {};
 
   ngOnInit(): void {
     this.loadEvents();
@@ -61,14 +60,6 @@ export class AuditComponent implements OnInit, OnDestroy {
           this.loading.set(false);
         }
       });
-  }
-
-  toggleRow(event: AuditEventDto): void {
-    if (this.expandedRows[event.id]) {
-      delete this.expandedRows[event.id];
-    } else {
-      this.expandedRows[event.id] = true;
-    }
   }
 
   severityFor(eventType: string): 'success' | 'danger' | 'info' {
