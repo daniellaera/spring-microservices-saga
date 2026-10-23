@@ -7,7 +7,6 @@ import com.daniellaera.inventoryservice.application.fakes.RecordingInventoryResu
 import com.daniellaera.inventoryservice.domain.model.OrderLine;
 import com.daniellaera.inventoryservice.domain.model.ReservationDecision;
 import com.daniellaera.inventoryservice.domain.model.StockReservation;
-import com.daniellaera.inventoryservice.domain.model.UnknownProductException;
 import com.daniellaera.inventoryservice.domain.port.in.ReserveStockCommand;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,24 +81,30 @@ class ReserveStockServiceTest {
     }
 
     @Test
-    void unknownProduct_throwsAndPublishesNothing() {
-        assertThatThrownBy(() -> service.reserve(command(3L, null, line("Unknown Product", 1))))
-                .isInstanceOf(UnknownProductException.class)
-                .hasMessage("Product not found: Unknown Product");
+    void unknownProduct_isRejectedAndPublishedWithNothingReserved() {
+        ReserveStockCommand command = command(3L, "pi_unknown", line("Unknown Product", 1));
+
+        assertThat(service.reserve(command)).contains(ReservationDecision.REJECTED);
 
         assertThat(products.saved()).isEmpty();
         assertThat(reservations.all()).isEmpty();
-        assertThat(publisher.published()).isEmpty();
+        assertThat(auditTrail.audits()).isEmpty();
+        assertThat(publisher.published()).singleElement().satisfies(published -> {
+            assertThat(published.decision()).isEqualTo(ReservationDecision.REJECTED);
+            assertThat(published.command()).isSameAs(command);
+        });
     }
 
     @Test
-    void unknownProductAfterAKnownOne_touchesNothing() {
+    void unknownProductAfterAKnownOne_touchesNothingAndIsRejected() {
         // products are resolved before any write
-        assertThatThrownBy(() -> service.reserve(command(3L, null, line("MacBook Pro", 1), line("Unknown Product", 1))))
-                .isInstanceOf(UnknownProductException.class);
+        assertThat(service.reserve(command(3L, null, line("MacBook Pro", 1), line("Unknown Product", 1))))
+                .contains(ReservationDecision.REJECTED);
 
         assertThat(products.saved()).isEmpty();
         assertThat(reservations.all()).isEmpty();
+        assertThat(publisher.published()).singleElement()
+                .satisfies(published -> assertThat(published.decision()).isEqualTo(ReservationDecision.REJECTED));
     }
 
     @Test

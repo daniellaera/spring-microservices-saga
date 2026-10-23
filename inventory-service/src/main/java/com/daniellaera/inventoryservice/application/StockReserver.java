@@ -45,8 +45,8 @@ public class StockReserver {
         log.info("=== Inventory: received order {} with {} item(s)", command.orderId(), lines.size());
 
         // resolve and lock products up front, in name order (see ProductRepository.findByNameForUpdate): an
-        // unknown product aborts the whole order. One instance per name, as the persistence context gives the
-        // same entity for a repeated product.
+        // unknown product throws before any write and rolls back. One instance per name, as the persistence
+        // context gives the same entity for a repeated product.
         Map<String, Product> productsByName = new LinkedHashMap<>();
         for (String name : inNameOrder(lines.stream().map(OrderLine::productName))) {
             productsByName.put(name, productRepository.findByNameForUpdate(name)

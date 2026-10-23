@@ -1,7 +1,6 @@
 package com.daniellaera.inventoryservice.adapter.in.messaging;
 
 import com.daniellaera.inventoryservice.domain.model.OrderLine;
-import com.daniellaera.inventoryservice.domain.model.UnknownProductException;
 import com.daniellaera.inventoryservice.domain.port.in.ReserveStockCommand;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
@@ -66,10 +65,10 @@ class OrderEventListenerTest {
     @Test
     void useCaseFailure_isSwallowed() {
         OrderEventListener failing = new OrderEventListener(command -> {
-            throw new UnknownProductException("Unknown Product");
+            throw new IllegalStateException("database unavailable");
         }, objectMapper);
 
-        assertThatCode(() -> failing.consumeOrder("{\"orderId\":3,\"productName\":\"Unknown Product\",\"quantity\":1}"))
+        assertThatCode(() -> failing.consumeOrder("{\"orderId\":3,\"productName\":\"MacBook Pro\",\"quantity\":1}"))
                 .doesNotThrowAnyException();
     }
 }
