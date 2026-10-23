@@ -26,4 +26,6 @@ public class TransactionJpaEntity extends BaseEntity {
     private BigDecimal totalAmount;
 
     private String paymentIntentId;
+
+    private String refundId;
 }

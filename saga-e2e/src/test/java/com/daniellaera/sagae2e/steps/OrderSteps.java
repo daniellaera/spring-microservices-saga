@@ -10,6 +10,7 @@ import io.cucumber.java.en.When;
 import tools.jackson.databind.JsonNode;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,6 +61,18 @@ public class OrderSteps {
         placeOrder(List.of(line(product, quantity)), context.preparedIntentId());
     }
 
+    @When("the customer orders {int} {string} paid with the same intent")
+    public void ordersPaidWithTheSameIntent(int quantity, String product) {
+        placeOrder(List.of(line(product, quantity)), context.lastIntentId());
+    }
+
+    @Then("the first order is still {word}")
+    public void theFirstOrderIsStill(String status) {
+        long firstOrderId = context.firstOrderId();
+        await().during(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(30)).untilAsserted(() -> assertThat(
+                shop.order(firstOrderId, context.customerEmail()).path("status").asString()).isEqualTo(status));
+    }
+
     @Then("the order is {word}")
     public void theOrderIs(String status) {
         long orderId = context.orderId();
@@ -101,5 +114,8 @@ public class OrderSteps {
         JsonNode order = shop.placeOrder(context.customerEmail(), lines, paymentIntentId);
         assertThat(order.path("status").asString()).isEqualTo("PENDING");
         context.orderPlaced(order.path("id").asLong());
+        if (paymentIntentId != null) {
+            context.orderPaidWith(paymentIntentId);
+        }
     }
 }

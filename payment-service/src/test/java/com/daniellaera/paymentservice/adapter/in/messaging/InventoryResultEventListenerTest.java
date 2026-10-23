@@ -1,23 +1,33 @@
 package com.daniellaera.paymentservice.adapter.in.messaging;
 
 import com.daniellaera.paymentservice.domain.port.in.InventoryResult;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
+import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.kafka.retrytopic.TopicSuffixingStrategy;
+import org.springframework.kafka.support.KafkaHeaders;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class InventoryResultEventListenerTest {
 
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
     private final List<InventoryResult> results = new ArrayList<>();
-    private final InventoryResultEventListener listener = new InventoryResultEventListener(results::add, objectMapper);
+    private final List<DeadLettered> deadLettered = new ArrayList<>();
+    private final InventoryResultEventListener listener = new InventoryResultEventListener(results::add,
+            (orderId, userEmail, error) -> deadLettered.add(new DeadLettered(orderId, userEmail, error)), objectMapper);
+
+    private record DeadLettered(Long orderId, String userEmail, String error) {}
 
     @Test
     void inventoryResult_mapsEveryFieldAndItem() throws Exception {
@@ -49,10 +59,62 @@ class InventoryResultEventListenerTest {
     void useCaseFailure_propagatesToTheContainer() {
         InventoryResultEventListener failing = new InventoryResultEventListener(result -> {
             throw new IllegalStateException("db down");
-        }, objectMapper);
+        }, (orderId, userEmail, error) -> { }, objectMapper);
 
         assertThatThrownBy(() -> failing.handleInventoryResult("{\"orderId\":4,\"status\":\"REJECTED\"}"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("db down");
+    }
+
+    @Test
+    void deadLetteredResult_isReportedWithItsOrderAndTheError() {
+        listener.handleDlt(dltRecord("{\"orderId\":7,\"status\":\"APPROVED\",\"userEmail\":\"user@test.com\"}",
+                "Stripe unavailable: 503"));
+
+        assertThat(deadLettered).containsExactly(new DeadLettered(7L, "user@test.com", "Stripe unavailable: 503"));
+    }
+
+    @Test
+    void unreadableDeadLetteredResult_isStillReported_andNeverThrows() {
+        assertThatCode(() -> listener.handleDlt(dltRecord("not json", "Unrecognized token"))).doesNotThrowAnyException();
+
+        assertThat(deadLettered).containsExactly(new DeadLettered(null, null, "Unrecognized token"));
+    }
+
+    @Test
+    void deadLetteredByAPlainRecoverer_readsItsDltExceptionHeader() {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>("inventory-topic-dlt", 0, 0L, null, "{\"orderId\":9}");
+        record.headers().add(KafkaHeaders.DLT_EXCEPTION_MESSAGE, "db down".getBytes(StandardCharsets.UTF_8));
+
+        listener.handleDlt(record);
+
+        assertThat(deadLettered).containsExactly(new DeadLettered(9L, null, "db down"));
+    }
+
+    @Test
+    void deadLetteredResultWithoutTheExceptionHeader_isReportedWithoutError() {
+        listener.handleDlt(new ConsumerRecord<>("inventory-topic-dlt", 0, 0L, null, "{\"orderId\":8}"));
+
+        assertThat(deadLettered).containsExactly(new DeadLettered(8L, null, null));
+    }
+
+    private static ConsumerRecord<String, String> dltRecord(String value, String error) {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>("inventory-topic-dlt", 0, 0L, null, value);
+        record.headers().add(KafkaHeaders.EXCEPTION_MESSAGE, error.getBytes(StandardCharsets.UTF_8));
+        return record;
+    }
+
+    @Test
+    void retries_areNonBlockingRetryTopics_withTheProductionBudget() throws Exception {
+        RetryableTopic retry = InventoryResultEventListener.class.getMethod("handleInventoryResult", String.class)
+                .getAnnotation(RetryableTopic.class);
+
+        // retried after 2, 6, 18 and 54 s
+        assertThat(retry.attempts()).isEqualTo("${payment.retry.attempts:5}");
+        assertThat(retry.backOff().delayString()).isEqualTo("${payment.retry.delay:2000}");
+        assertThat(retry.backOff().multiplierString()).isEqualTo("${payment.retry.multiplier:3.0}");
+        assertThat(retry.backOff().maxDelayString()).isEqualTo("${payment.retry.max-delay:60000}");
+        // keeps the existing topic names inventory-topic-retry-0, -1, ...
+        assertThat(retry.topicSuffixingStrategy()).isEqualTo(TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE);
     }
 }

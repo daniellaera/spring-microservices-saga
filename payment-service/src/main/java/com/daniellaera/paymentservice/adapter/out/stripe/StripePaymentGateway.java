@@ -2,11 +2,19 @@ package com.daniellaera.paymentservice.adapter.out.stripe;
 
 import com.daniellaera.paymentservice.domain.model.IntentVerification;
 import com.daniellaera.paymentservice.domain.model.PaymentGatewayException;
+import com.daniellaera.paymentservice.domain.model.PaymentGatewayUnavailableException;
+import com.daniellaera.paymentservice.domain.model.PaymentRefund;
+import com.daniellaera.paymentservice.domain.model.PaymentRefundRefusedException;
 import com.daniellaera.paymentservice.domain.port.in.CreatedPaymentIntent;
 import com.daniellaera.paymentservice.domain.port.out.PaymentGateway;
+import com.stripe.exception.ApiConnectionException;
+import com.stripe.exception.RateLimitException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
+import com.stripe.model.Refund;
+import com.stripe.net.RequestOptions;
 import com.stripe.param.PaymentIntentCreateParams;
+import com.stripe.param.RefundCreateParams;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +27,9 @@ import java.util.Optional;
 @Component
 @Slf4j
 public class StripePaymentGateway implements PaymentGateway {
+
+    // Stripe's error code when the charge was refunded already, e.g. by hand in the dashboard
+    private static final String CHARGE_ALREADY_REFUNDED = "charge_already_refunded";
 
     @Override
     public CreatedPaymentIntent createIntent(long amount, String currency, String description) {
@@ -50,8 +61,41 @@ public class StripePaymentGateway implements PaymentGateway {
                     intent.getAmount(), intent.getCurrency());
             return Optional.of(new IntentVerification(intent.getStatus(), intent.getAmount(), intent.getCurrency()));
         } catch (StripeException e) {
+            if (isTemporary(e)) {
+                log.warn("=== Stripe: could not retrieve PaymentIntent {} for now: {}", intentId, e.getMessage());
+                throw new PaymentGatewayUnavailableException("Stripe unavailable: " + e.getMessage(), e);
+            }
             log.error("=== Stripe: failed to confirm payment: {}", e.getMessage());
             return Optional.empty();
         }
+    }
+
+    @Override
+    public PaymentRefund refund(String intentId, String idempotencyKey) {
+        try {
+            Refund refund = Refund.create(RefundCreateParams.builder().setPaymentIntent(intentId).build(),
+                    RequestOptions.builder().setIdempotencyKey(idempotencyKey).build());
+            log.info("=== Stripe: refunded PaymentIntent {}: refund {} status {}", intentId, refund.getId(),
+                    refund.getStatus());
+            return new PaymentRefund(refund.getId(), refund.getStatus());
+        } catch (StripeException e) {
+            if (isTemporary(e)) {
+                log.warn("=== Stripe: could not refund PaymentIntent {} for now: {}", intentId, e.getMessage());
+                throw new PaymentGatewayUnavailableException("Stripe unavailable: " + e.getMessage(), e);
+            }
+            if (CHARGE_ALREADY_REFUNDED.equals(e.getCode())) {
+                log.warn("=== Stripe: PaymentIntent {} was already refunded", intentId);
+                return PaymentRefund.alreadyRefunded();
+            }
+            log.error("=== Stripe: refund of PaymentIntent {} refused: {}", intentId, e.getMessage());
+            throw new PaymentRefundRefusedException(intentId, e.getCode(), e.getMessage());
+        }
+    }
+
+    // Worth retrying: no answer at all, rate limited, or a server error. Any other 4xx is a refusal.
+    static boolean isTemporary(StripeException e) {
+        Integer status = e.getStatusCode();
+        return e instanceof ApiConnectionException || e instanceof RateLimitException
+                || status == null || status == 429 || status >= 500;
     }
 }

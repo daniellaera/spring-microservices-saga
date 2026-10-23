@@ -106,7 +106,7 @@ class EventContractTest {
         resultPublisher().publish(result, PaymentStatus.SUCCESS);
         auditTrail().paymentProcessed(
                 // the paying intent is stored but is not part of the audit payload (fixture unchanged)
-                new PaymentTransaction(7L, 42L, new BigDecimal("1399.79"), PaymentStatus.SUCCESS, "pi_3QxYz123",
+                new PaymentTransaction(7L, 42L, new BigDecimal("1399.79"), PaymentStatus.SUCCESS, "pi_3QxYz123", null,
                         CREATED_AT),
                 result.userEmail());
 
@@ -120,7 +120,7 @@ class EventContractTest {
 
         resultPublisher().publish(result, PaymentStatus.FAILED);
         auditTrail().paymentProcessed(
-                new PaymentTransaction(7L, 7L, new BigDecimal("179.00"), PaymentStatus.FAILED, null, CREATED_AT),
+                new PaymentTransaction(7L, 7L, new BigDecimal("179.00"), PaymentStatus.FAILED, null, null, CREATED_AT),
                 result.userEmail());
 
         assertPaymentEvent("payment-event-failed.json");
@@ -170,7 +170,7 @@ class EventContractTest {
     // What the listener hands to the use case for the inventory-topic fixture, so the adapter path is pinned
     private InventoryResult inventoryResult(String fixtureName) throws Exception {
         List<InventoryResult> results = new ArrayList<>();
-        new InventoryResultEventListener(results::add, objectMapper).handleInventoryResult(fixture(fixtureName));
+        new InventoryResultEventListener(results::add, (orderId, userEmail, error) -> { }, objectMapper).handleInventoryResult(fixture(fixtureName));
         assertThat(results).hasSize(1);
         return results.get(0);
     }

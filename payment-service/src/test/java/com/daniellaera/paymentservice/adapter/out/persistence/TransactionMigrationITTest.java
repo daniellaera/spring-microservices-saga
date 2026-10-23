@@ -72,6 +72,23 @@ class TransactionMigrationITTest {
                 .hasMessageContaining("uk_transaction_payment_intent_id");
     }
 
+    @Test
+    void v5_existingRowsHaveNoRefund() {
+        freshDatabase("v5");
+        flyway("4").migrate();
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.update("INSERT INTO transaction (order_id, status, total_amount) VALUES (100, 'FAILED', 10.00)");
+
+        flyway("5").migrate();
+
+        assertThat(jdbc.queryForObject("SELECT refund_id FROM transaction WHERE order_id = 100", String.class))
+                .isNull();
+        jdbc.update("INSERT INTO transaction (order_id, status, payment_intent_id, refund_id) "
+                + "VALUES (101, 'FAILED', 'pi_r', 're_r')");
+        assertThat(jdbc.queryForObject("SELECT refund_id FROM transaction WHERE order_id = 101", String.class))
+                .isEqualTo("re_r");
+    }
+
     private void freshDatabase(String name) {
         DataSource admin = new DriverManagerDataSource(postgres.getJdbcUrl(), postgres.getUsername(),
                 postgres.getPassword());

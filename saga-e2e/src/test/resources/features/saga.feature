@@ -87,3 +87,21 @@ Feature: Order saga across order, inventory and payment
     When the customer orders 2 "Lamp" paid with an accepted card
     Then the order is CONFIRMED
     And the product list shows "Lamp" with 8 in stock
+
+  Scenario: Inventory rejects a paid order, the payment is refunded
+    Given a product "Keyboard" with 1 in stock
+    When the customer orders 2 "Keyboard" paid with an accepted card
+    Then the order is CANCELLED
+    And "Keyboard" still has 1 in stock
+    And the payment of the order is refunded once
+    And PAYMENT_REFUNDED is audited exactly once for the order
+
+  Scenario: A reused intent is not refunded
+    Given a product "Keyboard" with 10 in stock
+    And the customer orders 2 "Keyboard" paid with an accepted card
+    And the order is CONFIRMED
+    When the customer orders 1 "Keyboard" paid with the same intent
+    Then the order is CANCELLED
+    And the payment intent is never refunded
+    And the first order is still CONFIRMED
+    And "Keyboard" has 8 in stock

@@ -36,6 +36,28 @@ public class KafkaAuditTrail implements AuditTrail {
                 String.valueOf(transaction.orderId()), () -> TransactionAuditPayload.of(transaction));
     }
 
+    @Async
+    @Override
+    public void paymentRefunded(PaymentTransaction transaction, String userEmail) {
+        publish("PAYMENT_REFUNDED", userEmail, String.valueOf(transaction.orderId()),
+                () -> new RefundAuditPayload(transaction.orderId(), transaction.paymentIntentId(),
+                        transaction.refundId()));
+    }
+
+    @Async
+    @Override
+    public void paymentRefundFailed(PaymentTransaction transaction, String errorCode, String userEmail) {
+        publish("PAYMENT_REFUND_FAILED", userEmail, String.valueOf(transaction.orderId()),
+                () -> new RefundFailedAuditPayload(transaction.orderId(), transaction.paymentIntentId(), errorCode));
+    }
+
+    @Async
+    @Override
+    public void paymentDeadLettered(Long orderId, String userEmail, String error) {
+        publish("PAYMENT_DEAD_LETTERED", userEmail, orderId != null ? String.valueOf(orderId) : null,
+                () -> new DeadLetterAuditPayload(orderId, error));
+    }
+
     private void publish(String eventType, String userEmail, String entityId, Supplier<Object> payload) {
         try {
             Map<String, Object> auditMessage = Map.of(

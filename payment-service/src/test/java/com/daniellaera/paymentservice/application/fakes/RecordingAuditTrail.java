@@ -13,8 +13,17 @@ public class RecordingAuditTrail implements AuditTrail {
 
     public record Processed(PaymentTransaction transaction, String userEmail) {}
 
+    public record DeadLettered(Long orderId, String userEmail, String error) {}
+
+    public record Refunded(PaymentTransaction transaction, String userEmail) {}
+
+    public record RefundFailed(PaymentTransaction transaction, String errorCode, String userEmail) {}
+
     private final List<Initiated> initiated = new ArrayList<>();
     private final List<Processed> processed = new ArrayList<>();
+    private final List<DeadLettered> deadLettered = new ArrayList<>();
+    private final List<Refunded> refunded = new ArrayList<>();
+    private final List<RefundFailed> refundFailed = new ArrayList<>();
     private final EffectLog effectLog;
 
     public RecordingAuditTrail(EffectLog effectLog) {
@@ -31,6 +40,36 @@ public class RecordingAuditTrail implements AuditTrail {
     public void paymentProcessed(PaymentTransaction transaction, String userEmail) {
         processed.add(new Processed(transaction, userEmail));
         effectLog.add("audit " + transaction.status());
+    }
+
+    @Override
+    public void paymentRefunded(PaymentTransaction transaction, String userEmail) {
+        refunded.add(new Refunded(transaction, userEmail));
+        effectLog.add("audit REFUNDED");
+    }
+
+    @Override
+    public void paymentRefundFailed(PaymentTransaction transaction, String errorCode, String userEmail) {
+        refundFailed.add(new RefundFailed(transaction, errorCode, userEmail));
+        effectLog.add("audit REFUND_FAILED");
+    }
+
+    public List<Refunded> refunded() {
+        return List.copyOf(refunded);
+    }
+
+    public List<RefundFailed> refundFailed() {
+        return List.copyOf(refundFailed);
+    }
+
+    @Override
+    public void paymentDeadLettered(Long orderId, String userEmail, String error) {
+        deadLettered.add(new DeadLettered(orderId, userEmail, error));
+        effectLog.add("audit DEAD_LETTERED");
+    }
+
+    public List<DeadLettered> deadLettered() {
+        return List.copyOf(deadLettered);
     }
 
     public List<Initiated> initiated() {
