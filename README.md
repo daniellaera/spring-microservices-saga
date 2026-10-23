@@ -232,7 +232,9 @@ Login uses email OTP. Locally, OTP emails are caught by Mailpit (http://localhos
 
 ### Public deployment (https://shop-staging.daniellaera.com)
 - The demo accounts above **do not exist**: `V3__remove_demo_users.sql` deletes them (and their refresh
-  tokens) in every environment where the old V1 seed created them.- The login page does not show demo credentials in production builds.
+  tokens) in every environment where the old V1 seed created them.
+- Login is limited: 5 wrong OTP codes invalidate the code (429, log in again), and at most 5 codes are issued
+  per email in 15 minutes (429). Both are audited as `USER_LOGIN_FAILED`.- The login page does not show demo credentials in production builds.
 - Anyone can register and use the shop as a **USER** (browse, cart, orders, Stripe test payments). The OTP is sent to the email you register with, so use an address you can read.
 - **ADMIN** features (product management and restock, audit trail, all customers' orders) are restricted to a single maintainer-owned account. There is no way to obtain the ADMIN role through the UI.
 - Payments run in Stripe **test mode**: use test cards such as 4242 4242 4242 4242 (success) or 4000 0000 0000 0002 (declined). No real money is charged.

@@ -11,6 +11,7 @@ import com.daniellaera.authservice.dto.RegisterRequest;
 import com.daniellaera.authservice.enums.Role;
 import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.model.User;
+import com.daniellaera.authservice.otp.OtpLimitExceededException;
 import com.daniellaera.authservice.otp.OtpService;
 import com.daniellaera.authservice.repository.UserRepository;
 import com.daniellaera.authservice.util.JwtUtil;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -60,7 +62,12 @@ public class DefaultAuthService implements AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        otpService.initiateOtp(user.getEmail());
+        try {
+            otpService.initiateOtp(user.getEmail());
+        } catch (OtpLimitExceededException e) {
+            auditLoginFailed(user.getEmail(), e);
+            throw e;
+        }
         auditPublisher.publish("USER_LOGIN_INITIATED", user.getEmail(), "USER", user.getEmail(), user.getEmail());
 
         return new OtpInitiatedResponse(true, user.getEmail(), "OTP sent to your email address");
@@ -68,7 +75,12 @@ public class DefaultAuthService implements AuthService {
 
     @Override
     public AuthResponse verifyOtpAndLogin(OtpRequest request) {
-        otpService.verifyOtp(request.email(), request.otp());
+        try {
+            otpService.verifyOtp(request.email(), request.otp());
+        } catch (OtpLimitExceededException e) {
+            auditLoginFailed(request.email(), e);
+            throw e;
+        }
 
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
@@ -126,6 +138,10 @@ public class DefaultAuthService implements AuthService {
                 displayName,
                 user.getRole().name()
         );
+    }
+
+    private void auditLoginFailed(String email, OtpLimitExceededException e) {
+        auditPublisher.publish("USER_LOGIN_FAILED", email, "USER", email, Map.of("reason", e.auditReason()));
     }
 
     private String generateTokenForUser(User user) {

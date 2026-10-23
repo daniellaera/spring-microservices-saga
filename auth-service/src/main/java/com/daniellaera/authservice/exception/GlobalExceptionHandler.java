@@ -33,6 +33,8 @@ public class GlobalExceptionHandler {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", ex.getStatusCode().value());
         response.put("error", ex.getReason());
+        // shop-ui shows `message` (e.g. "Too many invalid codes — please login again")
+        response.put("message", ex.getReason());
         return ResponseEntity.status(ex.getStatusCode()).body(response);
     }
 
