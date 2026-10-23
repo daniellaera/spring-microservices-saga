@@ -28,12 +28,15 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -66,7 +69,10 @@ class EventContractTest {
 
     @Test
     void orderEvent_multiItemWithLegacyFields_isSentToOrdersTopicWithoutKey() throws Exception {
-        new KafkaOrderEventSender(kafkaTemplate, objectMapper).send(multiItemOrderEvent());
+        // the sender waits for Kafka's acknowledgement
+        when(kafkaTemplate.send(eq("orders-topic"), anyString())).thenReturn(CompletableFuture.completedFuture(null));
+
+        new KafkaOrderEventSender(kafkaTemplate, objectMapper, Duration.ofSeconds(1)).send(multiItemOrderEvent());
 
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
         verify(kafkaTemplate).send(eq("orders-topic"), message.capture());
