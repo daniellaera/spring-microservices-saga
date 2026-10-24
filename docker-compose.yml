@@ -35,7 +35,8 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:17-alpine
+    # pinned: a recreate of postgres:17-alpine silently moved 17.10 -> 17.11 on 2026-10-24; upgrade on purpose
+    image: postgres:17.11-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
     container_name: postgres
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -71,10 +72,14 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:8-alpine
+    # pinned: a recreate of redis:8-alpine silently moved 8.8.0 -> 8.10.2 on 2026-10-24; upgrade on purpose
+    image: redis:8.10.2-alpine@sha256:0bf6577d7774e592b29d093e3ac9390eb91e13d72c21e506afce736de5e0eeb0
     container_name: redis
-    # carts and OTP codes must never be evicted: refuse writes at 200 MB instead of hitting mem_limit
-    command: ["redis-server", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
+    # carts and OTP codes must never be evicted: refuse writes at 200 MB instead of hitting mem_limit.
+    # They must survive a recreate too: AOF (fsync every second) on the redis-data volume, plus the default RDB snapshots.
+    command: ["redis-server", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis-data:/data
     networks:
       - app-network
     healthcheck:
@@ -397,7 +402,8 @@ services:
     restart: unless-stopped
 
   uptime-kuma:
-    image: louislam/uptime-kuma:latest
+    # pinned: Uptime Kuma 1.23.17 (the :1 build running since 2026-10-24); :latest may move to 2.x, which migrates its database
+    image: louislam/uptime-kuma:1@sha256:70233f4acb5163fd2a59a49909cf01e44415cecff13dba69e3a86647a2919f83
     container_name: uptime-kuma
     ports:
       - "3001:3001"
@@ -413,3 +419,4 @@ volumes:
   uptime-kuma-data:
   kafka-data:
   grafana-data:
+  redis-data:
