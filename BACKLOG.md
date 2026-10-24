@@ -4,26 +4,23 @@
   API paths `/products` and `/audit` are also Angular routes, so nginx tells page loads from API calls
   by the `Accept: text/html` header (`$spa_navigation` in `shop-ui/config/nginx.conf`). A separate `/api`
   prefix removes that workaround.
-- **infra-node1 memory headroom**: 7.9 GB RAM. Since 2026-10-24: a 4 GB swap file (swappiness 10), every
-  container except shop-ui and dozzle has a `mem_limit`, and Kafka runs with a 512 MB heap. Watch
-  `free -m` and swap use for a week, then decide whether the host needs more RAM before adding services (the
-  `sda` disk also has ~30 GB unallocated, if the root volume needs to grow).
 - **`/orders/stream` answers 500 when order-service is down**: the SSE route (`order-stream` in the
   gateway's `application.yml`) has no CircuitBreaker filter, unlike `/orders/**`, so a browser reconnecting
   during an order-service restart gets a 500 with a stack trace in the gateway log (seen during the v1.1.0
   deploy, 2026-10-23 19:27). Give it a fallback answering 503 (an SSE client retries on its own), without the
   1 s time limit, which would cut a long-lived stream.
-- **Redis has no data volume**: its RDB snapshots stay in the container's writable layer (`docker inspect`
-  shows no mounts), so recreating the container empties it: carts, OTP codes and rate-limiter counters are
-  lost. Mount a `redis-data` volume on `/data` (it was empty when recreated for the memory limits on
-  2026-10-24, so nothing was lost then).
 - **Order 59 may hold an unrefunded payment**: cancelled on 2026-10-21 (inventory REJECTED) before payment
   compensation existed; its intent `pi_3USvDh…` (€15,999.80) may have been captured. Check it in the Stripe
   dashboard and refund it there if it was.
-- **Clean up after the Kafka/Grafana volume move (2026-10-23), from 2026-10-30**: delete
-  `/srv/online-shop/maintenance/20261023/{kafka-logs,kafka-logs.tgz,grafana-data}` (3.4 GB; 9.9 GB free on `/`
-  until then), then remove the old anonymous Kafka volumes, checking each one first (see "Afterwards" in
-  `docs/maintenance/kafka-and-grafana-volumes.md`).
+- **2026-10-30: delete the maintenance backups and review a week of memory on infra-node1.**
+  - Delete `/srv/online-shop/maintenance/20261023/{kafka-logs,kafka-logs.tgz,grafana-data}` (3.4 GB) and
+    `/srv/online-shop/maintenance/20261024`, then remove the old anonymous Kafka volumes, checking each one first
+    (see "Afterwards" in `docs/maintenance/kafka-and-grafana-volumes.md`).
+  - Review `free -m` and swap use since 2026-10-24 (4 GB swap file, swappiness 10, a `mem_limit` on every
+    container but shop-ui and dozzle, Kafka heap 512 MB) and decide whether the host needs more RAM before adding
+    services. Baseline: `maintenance/20261024/memory.{before,after}` (1961 → 3236 MiB available). Nothing records
+    host memory over time yet (no node exporter), so take readings during the week or add one. The `sda` disk
+    also has ~30 GB unallocated if the root volume needs to grow.
 - **Warm the Stripe client when payment-service starts**: the first Stripe call after a restart took over 1 s
   (the gateway 404 of 2026-10-23). The gateway now allows 10 s, so this is only latency for the first buyer.
 - **Dormant DLT handlers in inventory-service and order-service:** their listeners declare
