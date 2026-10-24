@@ -431,6 +431,8 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro,rslave
+      # disk device properties for the diskstats collector (else an ERROR at startup)
+      - /run/udev/data:/run/udev/data:ro
     pid: host
     networks:
       - app-network
