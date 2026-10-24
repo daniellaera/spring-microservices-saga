@@ -66,6 +66,10 @@ services:
       - "4318:4318"
     volumes:
       - grafana-data:/data
+      # scrape node-exporter and cadvisor, and provision the infra-node1 dashboard; the deploy downloads these files
+      - ./observability/prometheus.yaml:/otel-lgtm/prometheus.yaml:ro
+      - ./observability/grafana/infra-node1-dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/infra-node1.yaml:ro
+      - ./observability/grafana/infra-node1.json:/otel-lgtm/grafana-dashboard-infra-node1.json:ro
     networks:
       - app-network
     mem_limit: 1536m
@@ -412,6 +416,46 @@ services:
     networks:
       - app-network
     mem_limit: 384m
+    restart: unless-stopped
+
+  node-exporter:
+    # host memory and swap for the infra-node1 dashboard; pinned like every infrastructure image
+    image: prom/node-exporter:v1.12.1@sha256:1b4e4438faca4dd7e001dd445d161a4a2091b0fededa84093b3a8dfeae1f1be0
+    container_name: node-exporter
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($$|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro,rslave
+    pid: host
+    networks:
+      - app-network
+    mem_limit: 64m
+    restart: unless-stopped
+
+  cadvisor:
+    # per-container memory for the infra-node1 dashboard (node-exporter only sees the host). Unprivileged and
+    # limited to cpu/memory metrics; the Docker socket maps cgroups to container names (it is root-equivalent,
+    # even read-only), and without /dev/kmsg it reports no OOM events.
+    image: ghcr.io/google/cadvisor:0.57.0@sha256:e75bdb03b74b0b6995f208f166fead2e6e555dde73e44200113bb26f41b1981d
+    container_name: cadvisor
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=30s
+      - --store_container_labels=false
+      - --enable_metrics=cpu,memory
+    volumes:
+      - /:/rootfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - app-network
+    mem_limit: 128m
     restart: unless-stopped
 
 volumes:
