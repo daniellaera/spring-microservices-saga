@@ -13,6 +13,10 @@
   during an order-service restart gets a 500 with a stack trace in the gateway log (seen during the v1.1.0
   deploy, 2026-10-23 19:27). Give it a fallback answering 503 (an SSE client retries on its own), without the
   1 s time limit, which would cut a long-lived stream.
+- **Redis has no data volume**: its RDB snapshots stay in the container's writable layer (`docker inspect`
+  shows no mounts), so recreating the container empties it: carts, OTP codes and rate-limiter counters are
+  lost. Mount a `redis-data` volume on `/data` (it was empty when recreated for the memory limits on
+  2026-10-24, so nothing was lost then).
 - **Order 59 may hold an unrefunded payment**: cancelled on 2026-10-21 (inventory REJECTED) before payment
   compensation existed; its intent `pi_3USvDh…` (€15,999.80) may have been captured. Check it in the Stripe
   dashboard and refund it there if it was.
