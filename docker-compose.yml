@@ -18,6 +18,8 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_NUM_PARTITIONS: 1
       CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+      # the image default is 1 GB, sized for production brokers; this one holds ~100 MB in 11 single-partition topics
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms512m"
       KAFKA_LOG_DIRS: /var/lib/kafka/data
     volumes:
       - kafka-data:/var/lib/kafka/data
@@ -29,6 +31,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    mem_limit: 1g
     restart: unless-stopped
 
   postgres:
@@ -49,6 +52,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    mem_limit: 1g
     restart: unless-stopped
 
   grafana:
@@ -63,11 +67,14 @@ services:
       - grafana-data:/data
     networks:
       - app-network
+    mem_limit: 1536m
     restart: unless-stopped
 
   redis:
     image: redis:8-alpine
     container_name: redis
+    # carts and OTP codes must never be evicted: refuse writes at 200 MB instead of hitting mem_limit
+    command: ["redis-server", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
     networks:
       - app-network
     healthcheck:
@@ -75,6 +82,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    mem_limit: 256m
     restart: unless-stopped
 
   config-server:
@@ -84,6 +92,7 @@ services:
       - "8888:8888"
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana:4318
+      - JAVA_TOOL_OPTIONS=-Xms64m -Xmx150m
     networks:
       - app-network
     healthcheck:
@@ -92,6 +101,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    mem_limit: 768m
     restart: unless-stopped
 
   auth-service:
@@ -126,6 +136,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    mem_limit: 768m
     restart: unless-stopped
 
   order-service:
@@ -156,6 +167,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    mem_limit: 768m
     restart: unless-stopped
 
   inventory-service:
@@ -189,6 +201,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    mem_limit: 768m
     restart: unless-stopped
 
   payment-service:
@@ -221,6 +234,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    mem_limit: 768m
     restart: unless-stopped
 
   notification-service:
@@ -248,6 +262,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    mem_limit: 768m
     restart: unless-stopped
 
   cart-service:
@@ -273,6 +288,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    mem_limit: 768m
     restart: unless-stopped
 
   audit-trail-service:
@@ -304,6 +320,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    mem_limit: 768m
     restart: unless-stopped
 
   gateway-service:
@@ -348,6 +365,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    mem_limit: 768m
     restart: unless-stopped
 
   shop-ui:
@@ -387,6 +405,7 @@ services:
       - uptime-kuma-data:/app/data
     networks:
       - app-network
+    mem_limit: 384m
     restart: unless-stopped
 
 volumes:
