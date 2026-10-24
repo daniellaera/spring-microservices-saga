@@ -16,11 +16,13 @@
   - Delete `/srv/online-shop/maintenance/20261023/{kafka-logs,kafka-logs.tgz,grafana-data}` (3.4 GB) and
     `/srv/online-shop/maintenance/20261024`, then remove the old anonymous Kafka volumes, checking each one first
     (see "Afterwards" in `docs/maintenance/kafka-and-grafana-volumes.md`).
-  - Review `free -m` and swap use since 2026-10-24 (4 GB swap file, swappiness 10, a `mem_limit` on every
-    container but shop-ui and dozzle, Kafka heap 512 MB) and decide whether the host needs more RAM before adding
-    services. Baseline: `maintenance/20261024/memory.{before,after}` (1961 → 3236 MiB available). Nothing records
-    host memory over time yet (no node exporter), so take readings during the week or add one. The `sda` disk
-    also has ~30 GB unallocated if the root volume needs to grow.
+  - Review a week of memory on the Grafana dashboard **infra-node1** (node-exporter + cAdvisor, since
+    2026-10-24): memory available, swap used and pages swapped, memory per container and as a % of its
+    `mem_limit`. Setup: 4 GB swap file (swappiness 10), a `mem_limit` on every container but shop-ui and
+    dozzle, Kafka heap 512 MB; baseline `maintenance/20261024/memory.{before,after}` (1961 → 3236 MiB available).
+    Decide whether the host needs more RAM before adding services: steady swap use, available memory under
+    1 GiB, or a container near its limit say yes. The `sda` disk also has ~30 GB unallocated if the root volume
+    needs to grow.
 - **Warm the Stripe client when payment-service starts**: the first Stripe call after a restart took over 1 s
   (the gateway 404 of 2026-10-23). The gateway now allows 10 s, so this is only latency for the first buyer.
 - **Dormant DLT handlers in inventory-service and order-service:** their listeners declare
