@@ -335,6 +335,17 @@ jobs:
               -o init-db.sql
             echo "init-db.sql size: $(wc -c < init-db.sql) bytes"
 
+            # Bind-mounted into the grafana container. curl rewrites each file in place (same inode), so the
+            # running container sees the new content: Grafana reloads the dashboard on its own, Prometheus
+            # needs `docker compose restart grafana`.
+            echo "=== Downloading observability config ==="
+            mkdir -p observability/grafana
+            for f in observability/prometheus.yaml observability/grafana/infra-node1-dashboards.yaml \
+                     observability/grafana/infra-node1.json; do
+              curl -sSf "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/$f" -o "$f"
+              echo "$f: $(wc -c < "$f") bytes"
+            done
+
             echo "=== Pulling latest images ==="
             docker compose -f docker-compose.yml pull
 

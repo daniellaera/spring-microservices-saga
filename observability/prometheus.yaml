@@ -1,0 +1,56 @@
+# Prometheus config of the grafana (otel-lgtm) container, mounted over /otel-lgtm/prometheus.yaml.
+# Lines up to scrape_configs are a verbatim copy of that file in the pinned image
+# (grafana/otel-lgtm@sha256:10f48eb2…); re-copy them when the image is upgraded.
+---
+global:
+  scrape_native_histograms: true
+otlp:
+  keep_identifying_resource_attributes: true
+  # Recommended attributes to be promoted to labels.
+  promote_resource_attributes:
+    - service.instance.id
+    - service.name
+    - service.namespace
+    - service.version
+    - cloud.availability_zone
+    - cloud.region
+    - container.name
+    - deployment.environment # backward compatibility
+    - deployment.environment.name
+    - k8s.cluster.name
+    - k8s.container.name
+    - k8s.cronjob.name
+    - k8s.daemonset.name
+    - k8s.deployment.name
+    - k8s.job.name
+    - k8s.namespace.name
+    - k8s.node.name
+    - k8s.pod.name
+    - k8s.replicaset.name
+    - k8s.statefulset.name
+    - host.name
+    - postgresql.database.name
+    - postgresql.schema.name
+    - postgresql.table.name
+    - postgresql.index.name
+    - database # used by otelcol/receiver/mongodb
+    - kafka.cluster.alias
+storage:
+  tsdb:
+    # A 10min time window is enough because it can easily absorb retries and network delays.
+    out_of_order_time_window: 10m
+
+# Host metrics for infra-node1 (memory, swap) and per-container memory. See the "infra-node1" dashboard.
+scrape_configs:
+  - job_name: node-exporter
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels:
+          instance: infra-node1
+  - job_name: cadvisor
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels:
+          instance: infra-node1
