@@ -2,10 +2,10 @@ package com.daniellaera.authservice.service;
 
 import com.daniellaera.authservice.audit.AuditPublisher;
 import com.daniellaera.authservice.domain.model.Role;
-import com.daniellaera.authservice.model.RefreshToken;
-import com.daniellaera.authservice.model.User;
-import com.daniellaera.authservice.repository.RefreshTokenRepository;
-import com.daniellaera.authservice.repository.UserRepository;
+import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaEntity;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaEntity;
+import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaRepository;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -26,8 +26,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class RefreshTokenServiceTest {
 
-    @Mock private RefreshTokenRepository refreshTokenRepository;
-    @Mock private UserRepository userRepository;
+    @Mock private RefreshTokenJpaRepository refreshTokenRepository;
+    @Mock private UserJpaRepository userRepository;
     @Mock private AuditPublisher auditPublisher;
 
     @InjectMocks
@@ -36,12 +36,12 @@ class RefreshTokenServiceTest {
     @Test
     void createRefreshToken_shouldCreateTokenForValidUser() {
         ReflectionTestUtils.setField(refreshTokenService, "refreshExpiration", 604800000L);
-        User user = User.builder().email("john@test.com").role(Role.USER).build();
+        UserJpaEntity user = UserJpaEntity.builder().email("john@test.com").role(Role.USER).build();
         when(userRepository.findByEmail("john@test.com")).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.save(any(RefreshToken.class)))
+        when(refreshTokenRepository.save(any(RefreshTokenJpaEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken("john@test.com");
+        RefreshTokenJpaEntity refreshToken = refreshTokenService.createRefreshToken("john@test.com");
 
         assertThat(refreshToken.getToken()).isNotBlank();
         assertThat(refreshToken.getUser()).isEqualTo(user);
@@ -53,14 +53,14 @@ class RefreshTokenServiceTest {
     @Test
     void createRefreshToken_shouldRevokeExistingTokensFirst() {
         ReflectionTestUtils.setField(refreshTokenService, "refreshExpiration", 604800000L);
-        User user = User.builder().email("john@test.com").role(Role.USER).build();
+        UserJpaEntity user = UserJpaEntity.builder().email("john@test.com").role(Role.USER).build();
         when(userRepository.findByEmail("john@test.com")).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.save(any(RefreshToken.class)))
+        when(refreshTokenRepository.save(any(RefreshTokenJpaEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         refreshTokenService.createRefreshToken("john@test.com");
 
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        ArgumentCaptor<UserJpaEntity> userCaptor = ArgumentCaptor.forClass(UserJpaEntity.class);
         verify(refreshTokenRepository, times(1)).revokeAllUserTokens(userCaptor.capture());
         assertThat(userCaptor.getValue()).isEqualTo(user);
     }
@@ -76,13 +76,13 @@ class RefreshTokenServiceTest {
 
     @Test
     void validateRefreshToken_shouldReturnToken_whenValid() {
-        RefreshToken token = new RefreshToken();
+        RefreshTokenJpaEntity token = new RefreshTokenJpaEntity();
         token.setToken("valid-token");
         token.setRevoked(false);
         token.setExpiryDate(Instant.now().plusSeconds(3600));
         when(refreshTokenRepository.findByToken("valid-token")).thenReturn(Optional.of(token));
 
-        RefreshToken result = refreshTokenService.validateRefreshToken("valid-token");
+        RefreshTokenJpaEntity result = refreshTokenService.validateRefreshToken("valid-token");
 
         assertThat(result).isEqualTo(token);
     }
@@ -98,7 +98,7 @@ class RefreshTokenServiceTest {
 
     @Test
     void validateRefreshToken_shouldThrow_whenRevoked() {
-        RefreshToken token = new RefreshToken();
+        RefreshTokenJpaEntity token = new RefreshTokenJpaEntity();
         token.setToken("revoked-token");
         token.setRevoked(true);
         token.setExpiryDate(Instant.now().plusSeconds(3600));
@@ -111,7 +111,7 @@ class RefreshTokenServiceTest {
 
     @Test
     void validateRefreshToken_shouldThrowAndRevoke_whenExpired() {
-        RefreshToken token = new RefreshToken();
+        RefreshTokenJpaEntity token = new RefreshTokenJpaEntity();
         token.setToken("expired-token");
         token.setRevoked(false);
         token.setExpiryDate(Instant.now().minusSeconds(3600));
@@ -127,8 +127,8 @@ class RefreshTokenServiceTest {
 
     @Test
     void revokeRefreshToken_shouldSetRevokedTrue() {
-        User user = User.builder().email("john@test.com").role(Role.USER).build();
-        RefreshToken token = new RefreshToken();
+        UserJpaEntity user = UserJpaEntity.builder().email("john@test.com").role(Role.USER).build();
+        RefreshTokenJpaEntity token = new RefreshTokenJpaEntity();
         token.setToken("some-token");
         token.setUser(user);
         token.setRevoked(false);

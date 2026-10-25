@@ -1,10 +1,10 @@
 package com.daniellaera.authservice.service;
 
 import com.daniellaera.authservice.audit.AuditPublisher;
-import com.daniellaera.authservice.model.RefreshToken;
-import com.daniellaera.authservice.model.User;
-import com.daniellaera.authservice.repository.RefreshTokenRepository;
-import com.daniellaera.authservice.repository.UserRepository;
+import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaEntity;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaEntity;
+import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaRepository;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Hibernate;
@@ -20,35 +20,35 @@ import java.util.UUID;
 @Slf4j
 public class RefreshTokenService {
 
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final UserRepository userRepository;
+    private final RefreshTokenJpaRepository refreshTokenRepository;
+    private final UserJpaRepository userRepository;
     private final AuditPublisher auditPublisher;
 
     @Value("${app.jwt.refresh-expiration:604800000}")
     private long refreshExpiration;
 
     @Transactional
-    public RefreshToken createRefreshToken(String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
+    public RefreshTokenJpaEntity createRefreshToken(String userEmail) {
+        UserJpaEntity user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
         refreshTokenRepository.revokeAllUserTokens(user);
 
-        RefreshToken refreshToken = new RefreshToken();
+        RefreshTokenJpaEntity refreshToken = new RefreshTokenJpaEntity();
         refreshToken.setToken(UUID.randomUUID().toString());
         refreshToken.setUser(user);
         refreshToken.setExpiryDate(Instant.now().plusMillis(refreshExpiration));
         refreshToken.setRevoked(false);
 
-        RefreshToken saved = refreshTokenRepository.save(refreshToken);
+        RefreshTokenJpaEntity saved = refreshTokenRepository.save(refreshToken);
         log.info("=== RefreshToken created for {}", userEmail);
         auditPublisher.publish("TOKEN_REFRESHED", userEmail, "USER", userEmail, userEmail);
         return saved;
     }
 
     @Transactional
-    public RefreshToken validateRefreshToken(String token) {
-        RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
+    public RefreshTokenJpaEntity validateRefreshToken(String token) {
+        RefreshTokenJpaEntity refreshToken = refreshTokenRepository.findByToken(token)
                 .orElseThrow(() -> new RuntimeException("Refresh token not found"));
 
         if (refreshToken.isRevoked()) {

@@ -9,11 +9,11 @@ import com.daniellaera.authservice.dto.ProfileRequest;
 import com.daniellaera.authservice.dto.ProfileResponse;
 import com.daniellaera.authservice.dto.RegisterRequest;
 import com.daniellaera.authservice.domain.model.Role;
-import com.daniellaera.authservice.model.RefreshToken;
-import com.daniellaera.authservice.model.User;
+import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaEntity;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaEntity;
 import com.daniellaera.authservice.otp.OtpLimitExceededException;
 import com.daniellaera.authservice.otp.OtpService;
-import com.daniellaera.authservice.repository.UserRepository;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaRepository;
 import com.daniellaera.authservice.util.JwtUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,7 +39,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class DefaultAuthServiceTest {
 
-    @Mock private UserRepository userRepository;
+    @Mock private UserJpaRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtUtil jwtUtil;
     @Mock private AuthenticationManager authenticationManager;
@@ -55,7 +55,7 @@ class DefaultAuthServiceTest {
         RegisterRequest request = new RegisterRequest("john@test.com", "password123");
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         when(jwtUtil.generateToken("john@test.com", "USER")).thenReturn("mocked-token");
-        RefreshToken refreshToken = new RefreshToken();
+        RefreshTokenJpaEntity refreshToken = new RefreshTokenJpaEntity();
         refreshToken.setToken("mocked-refresh-token");
         when(refreshTokenService.createRefreshToken("john@test.com")).thenReturn(refreshToken);
 
@@ -64,9 +64,9 @@ class DefaultAuthServiceTest {
         assertThat(response.token()).isEqualTo("mocked-token");
         assertThat(response.refreshToken()).isEqualTo("mocked-refresh-token");
 
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        ArgumentCaptor<UserJpaEntity> userCaptor = ArgumentCaptor.forClass(UserJpaEntity.class);
         verify(userRepository, times(1)).save(userCaptor.capture());
-        User savedUser = userCaptor.getValue();
+        UserJpaEntity savedUser = userCaptor.getValue();
         assertThat(savedUser.getEmail()).isEqualTo("john@test.com");
         assertThat(savedUser.getFirstName()).isNull();
         assertThat(savedUser.getLastName()).isNull();
@@ -78,7 +78,7 @@ class DefaultAuthServiceTest {
     @Test
     void login_shouldAuthenticateAndInitiateOtp() {
         LoginRequest request = new LoginRequest("admin@test.com", "password");
-        User user = User.builder()
+        UserJpaEntity user = UserJpaEntity.builder()
                 .email("admin@test.com")
                 .role(Role.ADMIN)
                 .build();
@@ -95,7 +95,7 @@ class DefaultAuthServiceTest {
 
     @Test
     void login_whenTooManyCodesWereIssued_auditsTheFailureAndRethrows() {
-        User user = User.builder().email("admin@test.com").role(Role.ADMIN).build();
+        UserJpaEntity user = UserJpaEntity.builder().email("admin@test.com").role(Role.ADMIN).build();
         when(userRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
         OtpLimitExceededException limit = new OtpLimitExceededException(
                 OtpLimitExceededException.TOO_MANY_CODES_ISSUED, "Too many login attempts");
@@ -137,13 +137,13 @@ class DefaultAuthServiceTest {
     @Test
     void verifyOtpAndLogin_shouldValidateOtpAndReturnToken() {
         OtpRequest request = new OtpRequest("admin@test.com", "123456");
-        User user = User.builder()
+        UserJpaEntity user = UserJpaEntity.builder()
                 .email("admin@test.com")
                 .role(Role.ADMIN)
                 .build();
         when(userRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
         when(jwtUtil.generateToken("admin@test.com", "ADMIN")).thenReturn("admin-token");
-        RefreshToken refreshToken = new RefreshToken();
+        RefreshTokenJpaEntity refreshToken = new RefreshTokenJpaEntity();
         refreshToken.setToken("admin-refresh-token");
         when(refreshTokenService.createRefreshToken("admin@test.com")).thenReturn(refreshToken);
 
@@ -157,7 +157,7 @@ class DefaultAuthServiceTest {
 
     @Test
     void getProfile_shouldReturnProfileResponse() {
-        User user = User.builder()
+        UserJpaEntity user = UserJpaEntity.builder()
                 .email("john@test.com")
                 .firstName("John")
                 .lastName("Doe")
@@ -176,7 +176,7 @@ class DefaultAuthServiceTest {
 
     @Test
     void getProfile_shouldFallBackToEmailPrefix_whenNamesAreNull() {
-        User user = User.builder()
+        UserJpaEntity user = UserJpaEntity.builder()
                 .email("john@test.com")
                 .role(Role.USER)
                 .build();
@@ -200,12 +200,12 @@ class DefaultAuthServiceTest {
 
     @Test
     void updateProfile_shouldUpdateFirstAndLastName() {
-        User user = User.builder()
+        UserJpaEntity user = UserJpaEntity.builder()
                 .email("john@test.com")
                 .role(Role.USER)
                 .build();
         when(userRepository.findByEmail("john@test.com")).thenReturn(Optional.of(user));
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.save(any(UserJpaEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ProfileResponse response = authService.updateProfile(
                 "john@test.com", new ProfileRequest("John", "Doe"));
@@ -217,14 +217,14 @@ class DefaultAuthServiceTest {
 
     @Test
     void updateProfile_shouldSupportPartialUpdate() {
-        User user = User.builder()
+        UserJpaEntity user = UserJpaEntity.builder()
                 .email("john@test.com")
                 .firstName("Old")
                 .lastName("Name")
                 .role(Role.USER)
                 .build();
         when(userRepository.findByEmail("john@test.com")).thenReturn(Optional.of(user));
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.save(any(UserJpaEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ProfileResponse response = authService.updateProfile(
                 "john@test.com", new ProfileRequest("New", null));

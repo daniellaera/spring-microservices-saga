@@ -1,6 +1,6 @@
 package com.daniellaera.authservice.config;
 
-import com.daniellaera.authservice.repository.UserRepository;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @RequiredArgsConstructor
 public class ApplicationConfig {
 
-    private final UserRepository userRepository;
+    private final UserJpaRepository userRepository;
 
     @Bean
     public UserDetailsService userDetailsService() {

@@ -6,8 +6,8 @@ import com.daniellaera.authservice.dto.LoginRequest;
 import com.daniellaera.authservice.dto.OtpInitiatedResponse;
 import com.daniellaera.authservice.dto.OtpRequest;
 import com.daniellaera.authservice.dto.RegisterRequest;
-import com.daniellaera.authservice.model.RefreshToken;
-import com.daniellaera.authservice.model.User;
+import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaEntity;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaEntity;
 import com.daniellaera.authservice.domain.model.Role;
 import com.daniellaera.authservice.service.AuthService;
 import com.daniellaera.authservice.service.RefreshTokenService;
@@ -106,12 +106,12 @@ class AuthControllerTest {
 
     @Test
     void refresh_shouldReturn200AndNewToken() throws Exception {
-        User user = User.builder().email("john@test.com").role(Role.USER).build();
-        RefreshToken existingToken = new RefreshToken();
+        UserJpaEntity user = UserJpaEntity.builder().email("john@test.com").role(Role.USER).build();
+        RefreshTokenJpaEntity existingToken = new RefreshTokenJpaEntity();
         existingToken.setToken("old-refresh-token");
         existingToken.setUser(user);
 
-        RefreshToken newToken = new RefreshToken();
+        RefreshTokenJpaEntity newToken = new RefreshTokenJpaEntity();
         newToken.setToken("new-refresh-token");
         newToken.setUser(user);
 

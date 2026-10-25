@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.model;
+package com.daniellaera.authservice.adapter.out.persistence;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -20,7 +20,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
-public class RefreshToken {
+public class RefreshTokenJpaEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,7 +31,7 @@ public class RefreshToken {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private UserJpaEntity user;
 
     @Column(nullable = false)
     private Instant expiryDate;

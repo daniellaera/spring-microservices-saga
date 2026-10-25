@@ -2,7 +2,7 @@ package com.daniellaera.authservice.controller;
 
 import com.daniellaera.authservice.TestcontainersConfiguration;
 import com.daniellaera.authservice.domain.port.out.OtpRepository;
-import com.daniellaera.authservice.repository.UserRepository;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ public class AuthControllerITTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private UserRepository userRepository;
+    private UserJpaRepository userRepository;
 
     @Autowired
     private OtpRepository otpRepository;

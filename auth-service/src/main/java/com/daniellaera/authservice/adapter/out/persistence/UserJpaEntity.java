@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.model;
+package com.daniellaera.authservice.adapter.out.persistence;
 
 import com.daniellaera.authservice.domain.model.Role;
 import jakarta.persistence.*;
@@ -20,7 +20,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User implements UserDetails {
+public class UserJpaEntity implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

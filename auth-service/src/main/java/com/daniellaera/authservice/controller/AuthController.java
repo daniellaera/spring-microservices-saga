@@ -9,7 +9,7 @@ import com.daniellaera.authservice.dto.ProfileRequest;
 import com.daniellaera.authservice.dto.ProfileResponse;
 import com.daniellaera.authservice.dto.RefreshTokenRequest;
 import com.daniellaera.authservice.dto.RegisterRequest;
-import com.daniellaera.authservice.model.RefreshToken;
+import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaEntity;
 import com.daniellaera.authservice.service.AuthService;
 import com.daniellaera.authservice.service.RefreshTokenService;
 import com.daniellaera.authservice.util.JwtUtil;
@@ -56,13 +56,13 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        RefreshToken refreshToken = refreshTokenService.validateRefreshToken(request.refreshToken());
+        RefreshTokenJpaEntity refreshToken = refreshTokenService.validateRefreshToken(request.refreshToken());
 
         String userEmail = refreshToken.getUser().getEmail();
         String role = refreshToken.getUser().getRole().name();
 
         refreshTokenService.revokeRefreshToken(request.refreshToken());
-        RefreshToken newRefreshToken = refreshTokenService.createRefreshToken(userEmail);
+        RefreshTokenJpaEntity newRefreshToken = refreshTokenService.createRefreshToken(userEmail);
 
         String newJwt = jwtUtil.generateToken(userEmail, role);
 
