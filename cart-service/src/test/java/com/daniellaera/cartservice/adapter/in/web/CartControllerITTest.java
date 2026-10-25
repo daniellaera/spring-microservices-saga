@@ -1,4 +1,4 @@
-package com.daniellaera.cartservice.controller;
+package com.daniellaera.cartservice.adapter.in.web;
 
 import com.daniellaera.cartservice.TestcontainersConfiguration;
 import org.junit.jupiter.api.Test;

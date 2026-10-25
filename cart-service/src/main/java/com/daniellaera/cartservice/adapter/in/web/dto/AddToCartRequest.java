@@ -1,4 +1,4 @@
-package com.daniellaera.cartservice.dto;
+package com.daniellaera.cartservice.adapter.in.web.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;

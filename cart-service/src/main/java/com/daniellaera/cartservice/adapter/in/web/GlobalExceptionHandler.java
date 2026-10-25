@@ -1,6 +1,6 @@
-package com.daniellaera.cartservice.exception;
+package com.daniellaera.cartservice.adapter.in.web;
 
-import com.daniellaera.cartservice.dto.ErrorResponse;
+import com.daniellaera.cartservice.adapter.in.web.dto.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

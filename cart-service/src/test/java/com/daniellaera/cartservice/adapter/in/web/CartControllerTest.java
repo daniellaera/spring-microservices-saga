@@ -1,9 +1,12 @@
-package com.daniellaera.cartservice.controller;
+package com.daniellaera.cartservice.adapter.in.web;
 
-import com.daniellaera.cartservice.dto.CartResponse;
-import com.daniellaera.cartservice.exception.GlobalExceptionHandler;
-import com.daniellaera.cartservice.model.CartItem;
-import com.daniellaera.cartservice.service.CartService;
+import com.daniellaera.cartservice.domain.model.Cart;
+import com.daniellaera.cartservice.domain.model.CartItem;
+import com.daniellaera.cartservice.domain.port.in.AddToCartUseCase;
+import com.daniellaera.cartservice.domain.port.in.ClearCartUseCase;
+import com.daniellaera.cartservice.domain.port.in.GetCartQuery;
+import com.daniellaera.cartservice.domain.port.in.RemoveFromCartUseCase;
+import com.daniellaera.cartservice.domain.port.in.UpdateCartItemUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,7 +37,19 @@ class CartControllerTest {
     private CartController cartController;
 
     @Mock
-    private CartService cartService;
+    private GetCartQuery getCartQuery;
+
+    @Mock
+    private AddToCartUseCase addToCartUseCase;
+
+    @Mock
+    private UpdateCartItemUseCase updateCartItemUseCase;
+
+    @Mock
+    private RemoveFromCartUseCase removeFromCartUseCase;
+
+    @Mock
+    private ClearCartUseCase clearCartUseCase;
 
     private MockMvc mockMvc;
 
@@ -50,8 +65,7 @@ class CartControllerTest {
 
     @Test
     void getCart_returns200WithCart() throws Exception {
-        CartResponse cart = new CartResponse(USER_EMAIL, List.of(), BigDecimal.ZERO, 0, "Cart is empty");
-        when(cartService.getCart(USER_EMAIL)).thenReturn(cart);
+        when(getCartQuery.getCart(USER_EMAIL)).thenReturn(Cart.empty(USER_EMAIL));
 
         mockMvc.perform(get("/cart").header("X-User-Email", USER_EMAIL))
                 .andExpect(status().isOk())
@@ -61,9 +75,8 @@ class CartControllerTest {
     @Test
     void addItem_withValidBody_returns200() throws Exception {
         CartItem item = new CartItem("MacBookPro", 1, BigDecimal.valueOf(999.99));
-        CartResponse cart = new CartResponse(USER_EMAIL, List.of(item), BigDecimal.valueOf(999.99), 1800, "30m 0s");
-        when(cartService.addItem(eq(USER_EMAIL), any(com.daniellaera.cartservice.dto.AddToCartRequest.class)))
-                .thenReturn(cart);
+        Cart cart = new Cart(USER_EMAIL, List.of(item), 1800, true);
+        when(addToCartUseCase.addItem(eq(USER_EMAIL), any(CartItem.class))).thenReturn(cart);
 
         mockMvc.perform(post("/cart/items")
                         .header("X-User-Email", USER_EMAIL)
@@ -84,8 +97,7 @@ class CartControllerTest {
 
     @Test
     void removeItem_returns200() throws Exception {
-        CartResponse cart = new CartResponse(USER_EMAIL, List.of(), BigDecimal.ZERO, 0, "Cart is empty");
-        when(cartService.removeItem(USER_EMAIL, "MacBookPro")).thenReturn(cart);
+        when(removeFromCartUseCase.removeItem(USER_EMAIL, "MacBookPro")).thenReturn(Cart.empty(USER_EMAIL));
 
         mockMvc.perform(delete("/cart/items/{productName}", "MacBookPro")
                         .header("X-User-Email", USER_EMAIL))
