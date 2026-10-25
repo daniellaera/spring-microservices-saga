@@ -1,0 +1,50 @@
+[
+  {
+    "id": 201,
+    "eventType": "ORDER_CREATED",
+    "userEmail": "buyer@example.com",
+    "entityType": "ORDER",
+    "entityId": "42",
+    "payload": "{\"orderId\":42,\"productName\":\"Lamp\",\"quantity\":1,\"price\":49.9,\"totalAmount\":49.9}",
+    "serviceName": "order-service",
+    "createdAt": "2026-07-01T08:00:00.000",
+    "correlationId": "42",
+    "recordedAt": "2026-07-01T08:00:00.000Z"
+  },
+  {
+    "id": 202,
+    "eventType": "STOCK_DEDUCTED",
+    "userEmail": "buyer@example.com",
+    "entityType": "PRODUCT",
+    "entityId": "3",
+    "payload": "{\"productName\":\"Lamp\",\"quantity\":1,\"price\":49.9,\"totalAmount\":49.9}",
+    "serviceName": "inventory-service",
+    "createdAt": "2026-07-01T08:00:00.400",
+    "correlationId": "42",
+    "recordedAt": "2026-07-01T08:00:00.400Z"
+  },
+  {
+    "id": 203,
+    "eventType": "PAYMENT_SUCCEEDED",
+    "userEmail": "buyer@example.com",
+    "entityType": "PAYMENT",
+    "entityId": "42",
+    "payload": "{\"id\":9,\"orderId\":42,\"status\":\"SUCCESS\",\"totalAmount\":49.9}",
+    "serviceName": "payment-service",
+    "createdAt": "2026-07-01T08:00:01.200",
+    "correlationId": "42",
+    "recordedAt": "2026-07-01T08:00:01.200Z"
+  },
+  {
+    "id": 204,
+    "eventType": "ORDER_CONFIRMED",
+    "userEmail": "buyer@example.com",
+    "entityType": "ORDER",
+    "entityId": "42",
+    "payload": "{\"orderId\":42,\"status\":\"SUCCESS\"}",
+    "serviceName": "order-service",
+    "createdAt": "2026-07-01T08:00:01.500",
+    "correlationId": "42",
+    "recordedAt": "2026-07-01T08:00:01.500Z"
+  }
+]

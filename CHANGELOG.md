@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Per-order saga timeline** ([ADR 18](docs/adr/0018-saga-timeline-correlation-id.md)). The saga audit events
+  of order-, inventory- and payment-service carry a new `correlationId` (the order id); audit-trail-service
+  stores it (Flyway V2, nullable, no backfill) and answers `GET /audit/orders/{id}/timeline`, older events
+  matched by their entity. shop-ui shows it at `/audit/orders/:orderId`, linked from the audit trail and, for
+  admins, from the dashboard's orders: outcome, compensation, and each step's time in the browser's zone.
+- **Server-side pagination and filters on `GET /audit`**: `q`, `eventType`, `serviceName`, `userEmail`,
+  `orderId`, `from`, `to`, newest first, at most 200 per page. The audit page uses them instead of searching
+  the 200 newest events in the browser.
+- Audit events have `recordedAt`, their recording instant in UTC with its offset; `createdAt` is unchanged.
 - **Stripe warm-up in payment-service**: once the service is ready, one authenticated
   `GET /v1/payment_intents?limit=1` on its own thread (5 s connect, 10 s read timeout), so the first buyer
   after a restart no longer waits for the SDK's first call (over 1 s on 2026-10-23). A failure is only logged;
@@ -35,6 +44,7 @@ All notable changes to this project are documented here. The format follows
   config-server sets `spring.cloud.config.fail-fast` with spring-retry: 10 attempts over about 85 s
   (3 s connect and 10 s read timeout each), then a clear `ConfigClientFailFastException`. The import stays
   mandatory. `ClientConfigImportTest` runs each client's `application.yml` against a stub config server.
+- `GET /audit/user/{email}` and `GET /audit/order/{orderId}` answered 500 (unnamed path variables).
 
 ## [1.1.0] - 2026-10-23
 

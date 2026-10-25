@@ -1,0 +1,84 @@
+<div class="p-4">
+  <p-card>
+    <ng-template pTemplate="header">
+      <div class="flex flex-wrap align-items-center justify-content-between gap-2 px-4 pt-4">
+        <div class="flex align-items-center gap-2">
+          <a routerLink="/audit" class="no-underline text-color-secondary" aria-label="Back to the audit trail">
+            <i class="pi pi-arrow-left"></i>
+          </a>
+          <h2 class="m-0 text-xl" data-testid="timeline-title">
+            @if (orderId() !== null) { Order #{{ orderId() }} · saga timeline } @else { Saga timeline }
+          </h2>
+        </div>
+        <form class="flex gap-2" (ngSubmit)="openOtherOrder()">
+          <input pInputText type="text" inputmode="numeric" name="otherOrder" [(ngModel)]="otherOrder"
+                 placeholder="Order id" aria-label="Order id" class="w-8rem" />
+          <p-button type="submit" label="Open" [outlined]="true" size="small" />
+        </form>
+      </div>
+    </ng-template>
+
+    @if (loading()) {
+      <div class="flex justify-content-center p-5">
+        <p-progress-spinner strokeWidth="4" styleClass="w-3rem h-3rem" />
+      </div>
+    } @else if (invalid()) {
+      <p class="text-center text-color-secondary py-4" data-testid="timeline-invalid">
+        That is not an order id: enter the number of an order.
+      </p>
+    } @else if (failed()) {
+      <p class="text-center text-color-secondary py-4" data-testid="timeline-error">
+        The timeline could not be loaded. Try again later.
+      </p>
+    } @else if (events().length === 0) {
+      <p class="text-center text-color-secondary py-4" data-testid="timeline-empty">
+        No audit events for order #{{ orderId() }}.
+      </p>
+    } @else {
+      @if (summary(); as s) {
+        <div class="flex flex-wrap align-items-center gap-2 mb-4" data-testid="timeline-summary">
+          <p-tag [value]="s.outcome.replace('_', ' ')" [severity]="outcomeSeverity(s)" data-testid="timeline-outcome" />
+          @if (s.compensated) {
+            <p-tag value="COMPENSATED" severity="warn" data-testid="timeline-compensated" />
+          }
+          <span class="text-sm text-color-secondary">
+            {{ events().length }} events in {{ formatDuration(s.durationMs) }}
+          </span>
+        </div>
+      }
+
+      <p-timeline [value]="events()" align="left" styleClass="saga-timeline">
+        <ng-template pTemplate="marker" let-event>
+          <span class="flex align-items-center justify-content-center border-circle w-1rem h-1rem"
+                [style.background]="'var(--p-' + markerColor(event.eventType) + '-500)'"></span>
+        </ng-template>
+        <ng-template pTemplate="content" let-event>
+          <div class="pb-3" data-testid="timeline-event">
+            <div class="flex flex-wrap align-items-center gap-2">
+              <p-tag [value]="event.eventType" [severity]="severityFor(event.eventType)" data-testid="timeline-event-type" />
+              @if (isCompensation(event.eventType)) {
+                <span class="text-xs text-color-secondary">compensation</span>
+              }
+              <span class="text-sm text-color-secondary">{{ event.serviceName }}</span>
+            </div>
+            <div class="text-sm mt-1">
+              <!-- in the browser's time zone -->
+              <time [attr.datetime]="instantOf(event)" data-testid="timeline-event-time">
+                {{ instantOf(event) | date:'yyyy-MM-dd HH:mm:ss.SSS' }}
+              </time>
+              <span class="text-color-secondary ml-2" data-testid="timeline-event-offset">{{ sinceStart(event) }}</span>
+            </div>
+            <p-button [text]="true" size="small" class="mt-1"
+                      [label]="expanded.has(event.id) ? 'Hide payload' : 'Payload'"
+                      [icon]="expanded.has(event.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
+                      (onClick)="toggle(event)" />
+            @if (expanded.has(event.id)) {
+              <pre class="m-0 p-3 surface-100 border-round text-sm"
+                   style="white-space:pre-wrap; word-break:break-word">{{ formatPayload(event.payload) }}</pre>
+            }
+          </div>
+        </ng-template>
+      </p-timeline>
+    }
+  </p-card>
+</div>

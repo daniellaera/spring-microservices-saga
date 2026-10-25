@@ -33,18 +33,18 @@ class TransactionAwareKafkaAuditTrailTest {
     @Test
     void insideTransaction_publishesOnlyAfterCommit() {
         transaction.executeWithoutResult(status -> {
-            auditTrail.stockDeducted(product, line, "user@test.com");
+            auditTrail.stockDeducted(product, line, 42L, "user@test.com");
             verifyNoInteractions(publisher);
         });
 
-        verify(publisher).publish("STOCK_DEDUCTED", "user@test.com", "PRODUCT", "11",
+        verify(publisher).publish("STOCK_DEDUCTED", "user@test.com", "PRODUCT", "11", 42L,
                 new OrderItemEvent("MacBook Pro", 2, new BigDecimal("1299.99"), new BigDecimal("2599.98")));
     }
 
     @Test
     void insideTransaction_rollback_publishesNothing() {
         assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
-            auditTrail.stockDeducted(product, line, "user@test.com");
+            auditTrail.stockDeducted(product, line, 42L, "user@test.com");
             throw new IllegalStateException("reservation insert failed");
         })).isInstanceOf(IllegalStateException.class);
 
@@ -58,9 +58,10 @@ class TransactionAwareKafkaAuditTrailTest {
         auditTrail.productCreated(product);
         auditTrail.productRestocked(product);
 
-        verify(publisher).publish(eq("STOCK_RESTORED"), eq("user@test.com"), eq("PRODUCT"), eq("11"), any());
-        verify(publisher).publish(eq("PRODUCT_CREATED"), eq(null), eq("PRODUCT"), eq("11"), any());
-        verify(publisher).publish(eq("PRODUCT_RESTOCKED"), eq(null), eq("PRODUCT"), eq("11"), any());
+        // the reservation's order is the saga's correlation id; the product events have none
+        verify(publisher).publish(eq("STOCK_RESTORED"), eq("user@test.com"), eq("PRODUCT"), eq("11"), eq(5L), any());
+        verify(publisher).publish(eq("PRODUCT_CREATED"), eq(null), eq("PRODUCT"), eq("11"), eq(null), any());
+        verify(publisher).publish(eq("PRODUCT_RESTOCKED"), eq(null), eq("PRODUCT"), eq("11"), eq(null), any());
     }
 
     private static class NoResourceTransactionManager extends AbstractPlatformTransactionManager {

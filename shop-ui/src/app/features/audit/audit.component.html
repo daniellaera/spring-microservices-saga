@@ -1,89 +1,117 @@
 <div class="p-4">
   <p-card header="Audit Trail">
-    @if (loading()) {
-      <div class="flex justify-content-center p-5">
-        <p-progress-spinner strokeWidth="4" styleClass="w-3rem h-3rem" />
-      </div>
-    } @else {
-      <div style="overflow-x:auto; -webkit-overflow-scrolling:touch">
-      <p-table
-        #dt
-        [value]="events"
-        [paginator]="true"
-        [rows]="20"
-        [rowsPerPageOptions]="[20, 50, 100]"
-        [showCurrentPageReport]="true"
-        currentPageReportTemplate="{first} to {last} of {totalRecords}"
-        [globalFilterFields]="['userEmail','eventType','entityType','entityId','serviceName']"
-        dataKey="id"
-        styleClass="p-datatable-sm"
-        responsiveLayout="scroll">
+    <div style="overflow-x:auto; -webkit-overflow-scrolling:touch">
+    <p-table
+      [value]="events"
+      [lazy]="true"
+      (onLazyLoad)="onLazyLoad($event)"
+      [loading]="loading()"
+      [paginator]="true"
+      [first]="first"
+      [rows]="rows"
+      [totalRecords]="totalRecords"
+      [rowsPerPageOptions]="[20, 50, 100]"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="{first} to {last} of {totalRecords}"
+      dataKey="id"
+      styleClass="p-datatable-sm"
+      responsiveLayout="scroll">
 
-        <ng-template pTemplate="caption">
-          <div class="flex align-items-center justify-content-between">
-            <input
-              type="text"
-              pInputText
-              placeholder="Search..."
-              (input)="dt.filterGlobal($any($event.target).value, 'contains')" />
+      <ng-template pTemplate="caption">
+        <div class="flex flex-wrap align-items-center gap-2">
+          <input
+            type="text"
+            pInputText
+            placeholder="Search..."
+            aria-label="Search the audit trail"
+            [value]="search"
+            (input)="onSearch($any($event.target).value)" />
+          <p-select
+            [options]="eventTypes"
+            [(ngModel)]="eventType"
+            (onChange)="firstPage()"
+            [showClear]="true"
+            placeholder="Any event"
+            ariaLabel="Event type" />
+          <p-select
+            [options]="services"
+            [(ngModel)]="serviceName"
+            (onChange)="firstPage()"
+            [showClear]="true"
+            placeholder="Any service"
+            ariaLabel="Service" />
+          <p-button
+            icon="pi pi-refresh"
+            [text]="true"
+            [rounded]="true"
+            [loading]="loading()"
+            (onClick)="loadEvents()"
+            title="Refresh" />
+        </div>
+      </ng-template>
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width:3rem"></th>
+          <th>Timestamp</th>
+          <th>Event</th>
+          <th>User</th>
+          <th class="hidden md:table-cell">Entity</th>
+          <th class="hidden lg:table-cell">Service</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-event let-expanded="expanded">
+        <tr>
+          <td>
             <p-button
-              icon="pi pi-refresh"
+              [pRowToggler]="event"
+              [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
               [text]="true"
-              [rounded]="true"
-              [loading]="loading()"
-              (onClick)="loadEvents()"
-              title="Refresh" />
-          </div>
-        </ng-template>
-
-        <ng-template pTemplate="header">
-          <tr>
-            <th style="width:3rem"></th>
-            <th pSortableColumn="createdAt">Timestamp <p-sortIcon field="createdAt" /></th>
-            <th pSortableColumn="eventType">Event <p-sortIcon field="eventType" /></th>
-            <th pSortableColumn="userEmail">User <p-sortIcon field="userEmail" /></th>
-            <th class="hidden md:table-cell">Entity</th>
-            <th pSortableColumn="serviceName" class="hidden lg:table-cell">Service <p-sortIcon field="serviceName" /></th>
-          </tr>
-        </ng-template>
-
-        <ng-template pTemplate="body" let-event let-expanded="expanded">
-          <tr>
-            <td>
-              <p-button
-                [pRowToggler]="event"
-                [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
-                [text]="true"
-                [rounded]="true" />
-            </td>
-            <td>{{ event.createdAt | date:'yyyy-MM-dd HH:mm:ss' }}</td>
-            <td>
+              [rounded]="true" />
+          </td>
+          <!-- in the browser's time zone -->
+          <td>{{ instantOf(event) | date:'yyyy-MM-dd HH:mm:ss' }}</td>
+          <td>
+            <div class="flex align-items-center gap-2">
               <p-tag [value]="event.eventType" [severity]="severityFor(event.eventType)" />
-            </td>
-            <td>{{ event.userEmail }}</td>
-            <td class="hidden md:table-cell">{{ event.entityType }} / {{ event.entityId }}</td>
-            <td class="hidden lg:table-cell">{{ event.serviceName }}</td>
-          </tr>
-        </ng-template>
+              @if (orderIdOf(event); as orderId) {
+                <a [routerLink]="['/audit/orders', orderId]"
+                   class="timeline-link text-sm no-underline"
+                   [attr.aria-label]="'Timeline of order ' + orderId"
+                   title="Saga timeline of order {{ orderId }}">
+                  <i class="pi pi-history"></i>
+                </a>
+              }
+            </div>
+          </td>
+          <td>{{ event.userEmail }}</td>
+          <td class="hidden md:table-cell">{{ event.entityType }} / {{ event.entityId }}</td>
+          <td class="hidden lg:table-cell">{{ event.serviceName }}</td>
+        </tr>
+      </ng-template>
 
-        <ng-template pTemplate="expandedrow" let-event>
-          <tr>
-            <td colspan="6">
-              <pre class="m-0 p-3 surface-100 border-round text-sm"
-                   style="white-space:pre-wrap; word-break:break-word">{{ formatPayload(event.payload) }}</pre>
-            </td>
-          </tr>
-        </ng-template>
+      <ng-template pTemplate="expandedrow" let-event>
+        <tr>
+          <td colspan="6">
+            <pre class="m-0 p-3 surface-100 border-round text-sm"
+                 style="white-space:pre-wrap; word-break:break-word">{{ formatPayload(event.payload) }}</pre>
+          </td>
+        </tr>
+      </ng-template>
 
-        <ng-template pTemplate="emptymessage">
-          <tr>
-            <td colspan="6" class="text-center text-color-secondary py-4">
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6" class="text-center text-color-secondary py-4">
+            @if (failed()) {
+              The audit trail could not be loaded. Try again with Refresh.
+            } @else {
               No audit events found.
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
-      </div>
-    }
+            }
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+    </div>
   </p-card>
 </div>

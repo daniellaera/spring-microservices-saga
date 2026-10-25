@@ -73,7 +73,7 @@ public class StockReserver {
             log.info("=== Inventory: deducted {} x{} — {} remaining",
                     line.productName(), line.quantity(), product.quantity());
             // published only once the transaction has committed
-            auditTrail.stockDeducted(product, line, command.userEmail());
+            auditTrail.stockDeducted(product, line, command.orderId(), command.userEmail());
         }
         // invalidated only once the transaction has committed
         productListCache.invalidate();

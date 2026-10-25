@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../.."
 rm -rf /usr/share/nginx/html
 mkdir -p /usr/share/nginx/html /stub
 cp -r dist/shop-ui/browser/. /usr/share/nginx/html/
-cp e2e/stack/audit-events.json /stub/
+cp e2e/stack/audit-events.json e2e/stack/timeline-events.json /stub/
 rm -f /etc/nginx/sites-enabled/default
 cp config/nginx.conf /etc/nginx/conf.d/shop-ui.conf
 cp e2e/stack/gateway-stub.conf /etc/nginx/conf.d/gateway-stub.conf

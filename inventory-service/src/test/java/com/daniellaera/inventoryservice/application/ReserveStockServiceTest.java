@@ -53,6 +53,7 @@ class ReserveStockServiceTest {
         assertThat(auditTrail.audits()).singleElement().satisfies(audit -> {
             assertThat(audit.eventType()).isEqualTo("STOCK_DEDUCTED");
             assertThat(audit.userEmail()).isEqualTo("user@test.com");
+            assertThat(audit.orderId()).isEqualTo(1L);
             assertThat(audit.product().quantity()).isEqualTo(8);
             assertThat(audit.payload()).isEqualTo(line("MacBook Pro", 2));
         });

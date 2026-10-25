@@ -24,3 +24,4 @@ services:
     volumes:
       - ./gateway-stub.conf:/etc/nginx/conf.d/default.conf:ro
       - ./audit-events.json:/stub/audit-events.json:ro
+      - ./timeline-events.json:/stub/timeline-events.json:ro

@@ -78,6 +78,13 @@ public final class ShopApi {
                 .toList();
     }
 
+    // audit-trail-service's saga timeline of the order, oldest first (the gateway only lets an ADMIN through)
+    public List<JsonNode> timeline(long orderId) {
+        JsonNode all = send(HttpRequest.newBuilder(
+                URI.create(environment.auditTrailServiceUrl() + "/audit/orders/" + orderId + "/timeline")).GET());
+        return StreamSupport.stream(all.spliterator(), false).toList();
+    }
+
     private static HttpRequest.BodyPublisher body(Object value) {
         return HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(value));
     }

@@ -30,6 +30,13 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
+    path: 'audit/orders/:orderId',
+    loadComponent: () =>
+      import('./features/audit/audit-timeline.component')
+        .then(m => m.AuditTimelineComponent),
+    canActivate: [authGuard]
+  },
+  {
     path: 'audit',
     loadComponent: () =>
       import('./features/audit/audit.component')

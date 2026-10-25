@@ -1,13 +1,15 @@
 name: Saga E2E
 
 # Cucumber suite for the order / inventory / payment saga (saga-e2e module, e2e profile).
-# The services run from their own jars in Testcontainers, so only those three services and the suite matter.
+# The services run from their own jars in Testcontainers, so only those three services, audit-trail-service (the saga
+# timeline) and the suite matter.
 on:
   pull_request:
     paths:
       - 'order-service/**'
       - 'inventory-service/**'
       - 'payment-service/**'
+      - 'audit-trail-service/**'
       - 'saga-e2e/**'
       - 'pom.xml'
       - '.gitea/workflows/e2e.yml'
@@ -17,6 +19,7 @@ on:
       - 'order-service/**'
       - 'inventory-service/**'
       - 'payment-service/**'
+      - 'audit-trail-service/**'
       - 'saga-e2e/**'
       - 'pom.xml'
       - '.gitea/workflows/e2e.yml'
@@ -34,7 +37,7 @@ jobs:
       # pr.yml already runs the services' own tests: here they are only packaged (and installed, so the
       # saga-e2e build that follows resolves them), then the suite runs against their jars
       - name: Build the saga services
-        run: mvn -pl order-service,inventory-service,payment-service -am install -DskipTests --no-transfer-progress
+        run: mvn -pl order-service,inventory-service,payment-service,audit-trail-service -am install -DskipTests --no-transfer-progress
 
       - name: Run the saga e2e suite
         run: mvn -Pe2e -pl saga-e2e verify --no-transfer-progress

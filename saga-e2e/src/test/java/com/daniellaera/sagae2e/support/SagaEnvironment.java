@@ -21,7 +21,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * order-service, inventory-service and payment-service, each run from its own packaged jar, with Postgres, Kafka,
+ * order-service, inventory-service, payment-service and audit-trail-service (for the saga timeline), each run from its
+ * own packaged jar, with Postgres, Kafka,
  * Redis and WireMock (as Stripe and as config server) on one Docker network. Started once for the whole suite;
  * Testcontainers removes the containers, network and built images when the JVM exits.
  */
@@ -99,6 +100,7 @@ public final class SagaEnvironment {
         services.put("order-service", service("order-service", 8081, Map.of()));
         services.put("inventory-service", service("inventory-service", 8082, Map.of("REDIS_HOST", "redis")));
         services.put("payment-service", service("payment-service", 8083, Map.of()));
+        services.put("audit-trail-service", service("audit-trail-service", 8087, Map.of()));
         Startables.deepStart(services.values()).join();
 
         kafkaTraffic = new KafkaTraffic(kafka.getBootstrapServers());
@@ -178,6 +180,10 @@ public final class SagaEnvironment {
 
     public String paymentServiceUrl() {
         return baseUrl("payment-service", 8083);
+    }
+
+    public String auditTrailServiceUrl() {
+        return baseUrl("audit-trail-service", 8087);
     }
 
     private String baseUrl(String service, int port) {

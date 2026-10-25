@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Component
@@ -18,14 +19,16 @@ public class KafkaAuditPublisher {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
+    // correlationId: the order id of a saga event (audit-trail-service's per-order timeline), null otherwise
     @Async
     public void publish(String eventType,
                          String userEmail,
                          String entityType,
                          String entityId,
+                         Long correlationId,
                          Object payload) {
         try {
-            Map<String, Object> auditMessage = Map.of(
+            Map<String, Object> auditMessage = new LinkedHashMap<>(Map.of(
                     "eventType", eventType,
                     "userEmail", userEmail != null ? userEmail : "system",
                     "entityType", entityType,
@@ -33,7 +36,10 @@ public class KafkaAuditPublisher {
                     "payload", objectMapper.writeValueAsString(payload),
                     "serviceName", "inventory-service",
                     "timestamp", LocalDateTime.now().toString()
-            );
+            ));
+            if (correlationId != null) {
+                auditMessage.put("correlationId", String.valueOf(correlationId));
+            }
             kafkaTemplate.send("audit-topic", objectMapper.writeValueAsString(auditMessage));
         } catch (Exception e) {
             log.warn("=== Audit: failed to publish event: {}", e.getMessage());
