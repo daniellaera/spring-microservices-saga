@@ -14,6 +14,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -35,10 +36,18 @@ class KafkaAuditTrailTest {
     }
 
     @Test
-    void everyAuditMethod_isAsync() {
+    void theOutcomeEvents_areSentOnTheCallersThread_soTheyPrecedeThePaymentResult() {
         assertThat(Arrays.stream(KafkaAuditTrail.class.getDeclaredMethods())
-                .filter(m -> m.getName().startsWith("payment")))
-                .hasSize(5)
+                .filter(m -> Set.of("paymentProcessed", "paymentRefunded", "paymentRefundFailed").contains(m.getName())))
+                .hasSize(3)
+                .noneSatisfy(m -> assertThat(m.isAnnotationPresent(Async.class)).isTrue());
+    }
+
+    @Test
+    void theOtherEvents_areAsync() {
+        assertThat(Arrays.stream(KafkaAuditTrail.class.getDeclaredMethods())
+                .filter(m -> Set.of("paymentInitiated", "paymentDeadLettered").contains(m.getName())))
+                .hasSize(2)
                 .allSatisfy(m -> assertThat(m.isAnnotationPresent(Async.class)).isTrue());
     }
 

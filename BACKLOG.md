@@ -25,3 +25,8 @@
   correlation id by entity and by `payload LIKE '%"orderId":N,%'` (ADR 18), so PostgreSQL cannot use the
   correlation id index alone. Harmless at today's size; once the table is large, or once no order older than
   2026-10-25 matters any more, drop the legacy branch or make it a separate, bounded query.
+- **order-service and inventory-service still send their saga audit events with `@Async`**: ORDER_CREATED and
+  STOCK_DEDUCTED could in principle reach the audit topic after the next service's event, which would swap two
+  steps of the saga timeline (payment-service had the same race, fixed after e2e run 295). Not seen so far:
+  inventory-service's database work and payment-service's Stripe call come in between. Same fix if it shows up:
+  send the event on the caller's thread before the message that starts the next step.

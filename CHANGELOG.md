@@ -37,6 +37,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A declined payment's saga timeline could show STOCK_RESTORED before PAYMENT_FAILED** (e2e run 295):
+  payment-service sent PAYMENT_FAILED, PAYMENT_REFUNDED and PAYMENT_REFUND_FAILED from an `@Async` thread, so the
+  payment result could reach inventory-service, and its STOCK_RESTORED the audit topic, first. They are now handed
+  to the producer on the listener's thread, before the result.
 - **A service whose config file is missing no longer starts on its local defaults**: config-server answers 404
   for an application without its own `configs/<name>.yml` (it used to answer with the shared `application.yml`
   alone), and the client fails its startup clearly. notification-service, missed in the fail-fast change, now
