@@ -5,6 +5,10 @@ import com.daniellaera.orderservice.domain.port.in.ApplyPaymentResultUseCase;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.Test;
@@ -20,7 +24,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.kafka.KafkaContainer;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,9 +100,31 @@ class DeadLetterITTest {
     void anUnreadablePaymentResult_skipsTheRetries(CapturedOutput output) {
         kafkaTemplate.send("payment-topic", "not json 912");
 
-        // before the first 3 s backoff could even end: JacksonException is excluded from the retries
-        await().atMost(Duration.ofMillis(2500))
+        // JacksonException is excluded from the retries: straight to the dead-letter topic, never on a retry topic
+        await().atMost(Duration.ofSeconds(30))
                 .untilAsserted(() -> assertThat(output.getAll()).contains("DLT received failed message: not json 912 error: "));
+        assertThat(messagesOnTopicsMatching(Pattern.compile("payment-topic-order-dlt"))).contains("not json 912");
+        assertThat(messagesOnTopicsMatching(Pattern.compile("payment-topic-order-retry.*"))).doesNotContain("not json 912");
         verify(applyPaymentResultUseCase, never()).applyPaymentResult(any());
+    }
+
+    // Every record on the topics matching the pattern, read from the beginning for a few seconds
+    private List<String> messagesOnTopicsMatching(Pattern topics) {
+        Map<String, Object> config = Map.of(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
+                ConsumerConfig.GROUP_ID_CONFIG, "dead-letter-it-" + UUID.randomUUID(),
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        try (KafkaConsumer<String, String> consumer =
+                     new KafkaConsumer<>(config, new StringDeserializer(), new StringDeserializer())) {
+            consumer.subscribe(topics);
+            List<String> messages = new ArrayList<>();
+            long end = System.currentTimeMillis() + 5000;
+            while (System.currentTimeMillis() < end) {
+                for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(500))) {
+                    messages.add(record.value());
+                }
+            }
+            return messages;
+        }
     }
 }

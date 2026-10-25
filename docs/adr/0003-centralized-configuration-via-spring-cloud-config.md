@@ -24,6 +24,12 @@ environment profiles are managed in one place.
 
 - A service cannot start without the config server: `spring.config.import: configserver:` is not optional.
   The saga e2e suite therefore runs a WireMock config server that serves an empty environment.
+  Since 2026-10-25 a client waits for a config server that is still starting: `fail-fast` with spring-retry,
+  10 attempts over about 85 s (3 s connect, 10 s read timeout each), then the startup fails with
+  `ConfigClientFailFastException`. `ClientConfigImportTest` (config-server module) checks every client's own
+  `application.yml`.
+- A reachable config server with no file for the service is not detected: the native backend still answers
+  with the shared `configs/application.yml`, and the service starts on its local defaults (BACKLOG.md).
 - A configuration change takes effect when the service that reads it restarts. The deploy only restarts the
   services whose directory changed: a change to `configs/gateway-service.yml` alone restarts `config-server`,
   not the gateway. When both change, the gateway waits for `config-server: service_healthy` and reads the new

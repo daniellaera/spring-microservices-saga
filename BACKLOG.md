@@ -24,3 +24,9 @@
   dead-lettered compensation leaves the stock deducted. Watch for `DLT received failed message` in the logs of
   both services, and replay from `orders-topic-inventory-dlt`, `payment-topic-inventory-dlt` or
   `payment-topic-order-dlt` the same way.
+- **A config server without the service's file is not detected**: config-server's native backend always answers
+  with the shared `configs/application.yml`, so a renamed or missing `configs/<service>.yml` lets the service start
+  on its local defaults (localhost database, no secrets) and fail later, unclearly. Options: config-server answers
+  404 for an application without its own file (a change of its HTTP answer, to agree on first: every client and
+  the config-server health check `app` request), or each client fails at startup without a property only its
+  file sets.
