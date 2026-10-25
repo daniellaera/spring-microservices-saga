@@ -77,16 +77,6 @@ public class AuditEventJpaEntity {
             String entityType,
             String entityId,
             String payload,
-            String serviceName) {
-        return of(eventType, userEmail, entityType, entityId, payload, serviceName, null);
-    }
-
-    public static AuditEventJpaEntity of(
-            AuditEventType eventType,
-            String userEmail,
-            String entityType,
-            String entityId,
-            String payload,
             String serviceName,
             String correlationId) {
         AuditEventJpaEntity event = new AuditEventJpaEntity();
