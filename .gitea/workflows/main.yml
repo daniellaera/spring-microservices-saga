@@ -105,6 +105,27 @@ jobs:
           echo "sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           echo "Images are pushed as :latest and :${SHORT_SHA}"
 
+      # The service Dockerfiles only copy their jar: build the jars of every changed service here, in one run
+      - name: Package the changed services
+        run: |
+          MODULES=""
+          ${{ needs.detect-changes.outputs.config-server == 'true' && 'MODULES="$MODULES,config-server"' || '' }}
+          ${{ needs.detect-changes.outputs.auth-service == 'true' && 'MODULES="$MODULES,auth-service"' || '' }}
+          ${{ needs.detect-changes.outputs.order-service == 'true' && 'MODULES="$MODULES,order-service"' || '' }}
+          ${{ needs.detect-changes.outputs.inventory-service == 'true' && 'MODULES="$MODULES,inventory-service"' || '' }}
+          ${{ needs.detect-changes.outputs.payment-service == 'true' && 'MODULES="$MODULES,payment-service"' || '' }}
+          ${{ needs.detect-changes.outputs.notification-service == 'true' && 'MODULES="$MODULES,notification-service"' || '' }}
+          ${{ needs.detect-changes.outputs.gateway-service == 'true' && 'MODULES="$MODULES,gateway-service"' || '' }}
+          ${{ needs.detect-changes.outputs.cart-service == 'true' && 'MODULES="$MODULES,cart-service"' || '' }}
+          ${{ needs.detect-changes.outputs.audit-trail-service == 'true' && 'MODULES="$MODULES,audit-trail-service"' || '' }}
+          MODULES="${MODULES#,}"
+          if [ -z "$MODULES" ]; then
+            echo "No backend service changed: nothing to package"
+            exit 0
+          fi
+          echo "Packaging: $MODULES"
+          mvn -pl "$MODULES" -am package -DskipTests --no-transfer-progress
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

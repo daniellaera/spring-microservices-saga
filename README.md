@@ -376,11 +376,23 @@ plus every Playwright spec) and `e2e.yml` (the Cucumber suite, when the saga ser
 > Use only for full manual rebuild outside CI/CD pipeline.
 > Normal deployments are handled automatically by Gitea Actions.
 
+The service Dockerfiles are runtime-only (`eclipse-temurin:21-jre-jammy` plus the jar): they copy
+`<service>/target/<service>.jar` and never run Maven. Build the jar first, from the repo root:
+
+```bash
+mvn -pl order-service -am package -DskipTests
+docker build -f order-service/Dockerfile -t order-service .
+```
+
+The script packages every service before building. config-server's jar never contains `*-local.yml`
+(excluded in its `pom.xml`), so an image built from a working tree with local configs does not ship them.
+
 ---
 
 ## CI/CD Pipeline
 
 Gitea Actions with path-based change detection — only changed services are rebuilt:
+- One Maven run packages the jars of the changed services (`-pl <services> -am`), then each image copies its jar
 - Docker images built for `linux/amd64`, pushed to Docker Hub as `:latest` and as the commit's short SHA
 - Secrets fetched from self-hosted Infisical via Machine Identity (Universal Auth)
 - Services deployed to Proxmox homelab (`infra-node1`) via SSH; the deploy log lists the tag and digest of
