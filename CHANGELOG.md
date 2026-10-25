@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **`/orders/stream` while order-service is down** answers 503 (`/fallback/order-stream`, JSON) instead of a
+  500 with a stack trace in the gateway log. Its own breaker `order-stream-cb` has no time limit, so a long-lived
+  stream is never cut; shop-ui reconnects after the 503 as after any non-200 answer.
+
 ## [1.1.0] - 2026-10-23
 
 Hardening of the order saga: payments, stock and order events are now idempotent and safe to redeliver, a

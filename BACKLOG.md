@@ -4,11 +4,6 @@
   API paths `/products` and `/audit` are also Angular routes, so nginx tells page loads from API calls
   by the `Accept: text/html` header (`$spa_navigation` in `shop-ui/config/nginx.conf`). A separate `/api`
   prefix removes that workaround.
-- **`/orders/stream` answers 500 when order-service is down**: the SSE route (`order-stream` in the
-  gateway's `application.yml`) has no CircuitBreaker filter, unlike `/orders/**`, so a browser reconnecting
-  during an order-service restart gets a 500 with a stack trace in the gateway log (seen during the v1.1.0
-  deploy, 2026-10-23 19:27). Give it a fallback answering 503 (an SSE client retries on its own), without the
-  1 s time limit, which would cut a long-lived stream.
 - **Order 59 may hold an unrefunded payment**: cancelled on 2026-10-21 (inventory REJECTED) before payment
   compensation existed; its intent `pi_3USvDh…` (€15,999.80) may have been captured. Check it in the Stripe
   dashboard and refund it there if it was.

@@ -18,6 +18,13 @@ spring:
               metadata:
                 response-timeout: -1
                 connect-timeout: 5000
+              # no time limit (see spring.cloud.circuitbreaker below): only a failure to reach order-service
+              # falls back, never the length of the stream
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: order-stream-cb
+                    fallbackUri: forward:/fallback/order-stream
             - id: order-service
               uri: ${ORDER_SERVICE_URI:http://localhost:8081}
               predicates:
@@ -98,6 +105,13 @@ spring:
                     name: audit-cb
                     fallbackUri: forward:/fallback/audit
 
+    # The order-stream route's breaker and its settings live here, next to the route, and not in config-server:
+    # a gateway started against an older config-server would otherwise apply resilience4j's 1 s time limit
+    circuitbreaker:
+      resilience4j:
+        disable-time-limiter-map:
+          order-stream-cb: true
+
   application:
     name: gateway-service
   config:
@@ -122,6 +136,15 @@ management:
   health:
     circuitbreakers:
       enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      order-stream-cb:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
 
 logging:
   level:
