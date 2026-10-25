@@ -18,6 +18,7 @@ public enum AuditEventType {
     ORDER_CREATED,
     ORDER_CONFIRMED,
     ORDER_CANCELLED,
+    ORDER_DEAD_LETTERED,
 
     // Payment events
     PAYMENT_INITIATED,
@@ -32,6 +33,8 @@ public enum AuditEventType {
     PRODUCT_RESTOCKED,
     STOCK_DEDUCTED,
     STOCK_RESTORED,
+    STOCK_RESERVATION_DEAD_LETTERED,
+    STOCK_RESTORE_DEAD_LETTERED,
 
     // Outbox events (order-service)
     OUTBOX_EVENT_FAILED,

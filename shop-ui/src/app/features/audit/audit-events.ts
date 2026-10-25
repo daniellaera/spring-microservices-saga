@@ -9,10 +9,11 @@ const SUCCESS_EVENTS = new Set([
   'CART_ITEM_ADDED', 'CART_CHECKOUT'
 ]);
 
-// someone has to act on these: a refund to make by hand, a result to replay, an order event never sent
+// someone has to act on these: a refund to make by hand, a message to replay, an order event never sent
 const FAILED_EVENTS = new Set([
   'USER_LOGIN_FAILED', 'ORDER_CANCELLED', 'PAYMENT_FAILED',
-  'PAYMENT_REFUND_FAILED', 'PAYMENT_DEAD_LETTERED', 'OUTBOX_EVENT_FAILED'
+  'PAYMENT_REFUND_FAILED', 'PAYMENT_DEAD_LETTERED', 'OUTBOX_EVENT_FAILED',
+  'ORDER_DEAD_LETTERED', 'STOCK_RESERVATION_DEAD_LETTERED', 'STOCK_RESTORE_DEAD_LETTERED'
 ]);
 
 // handled, but worth a look: an order failed after its payment was captured, and the money went back

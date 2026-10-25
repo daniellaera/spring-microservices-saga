@@ -17,12 +17,13 @@ class AuditEventTypeTest {
             "USER_REGISTER", "USER_LOGIN_INITIATED", "USER_LOGIN", "USER_LOGOUT", "USER_PROFILE_UPDATED",
             "TOKEN_REFRESHED",
             // order-service: adapter/out/messaging/KafkaAuditTrail
-            "ORDER_CREATED", "ORDER_CONFIRMED", "ORDER_CANCELLED", "OUTBOX_EVENT_FAILED",
+            "ORDER_CREATED", "ORDER_CONFIRMED", "ORDER_CANCELLED", "OUTBOX_EVENT_FAILED", "ORDER_DEAD_LETTERED",
             // payment-service: adapter/out/messaging/KafkaAuditTrail
             "PAYMENT_INITIATED", "PAYMENT_SUCCEEDED", "PAYMENT_FAILED", "PAYMENT_REFUNDED", "PAYMENT_REFUND_FAILED",
             "PAYMENT_DEAD_LETTERED",
             // inventory-service: adapter/out/messaging/TransactionAwareKafkaAuditTrail
-            "PRODUCT_CREATED", "PRODUCT_RESTOCKED", "STOCK_DEDUCTED", "STOCK_RESTORED"
+            "PRODUCT_CREATED", "PRODUCT_RESTOCKED", "STOCK_DEDUCTED", "STOCK_RESTORED",
+            "STOCK_RESERVATION_DEAD_LETTERED", "STOCK_RESTORE_DEAD_LETTERED"
     })
     void everyTypeAProducerSends_isStored(String eventType) {
         assertThatCode(() -> AuditEventType.valueOf(eventType)).doesNotThrowAnyException();
