@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Stripe warm-up in payment-service**: once the service is ready, one authenticated
+  `GET /v1/payment_intents?limit=1` on its own thread (5 s connect, 10 s read timeout), so the first buyer
+  after a restart no longer waits for the SDK's first call (over 1 s on 2026-10-23). A failure is only logged;
+  without a secret key it is skipped.
+
 ### Changed
 
 - **Service images are runtime-only** (#31): `eclipse-temurin:21-jre-jammy` plus the service's jar, which
