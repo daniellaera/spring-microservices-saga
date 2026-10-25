@@ -6,6 +6,18 @@ spring:
     name: audit-trail-service
   config:
     import: "configserver:${CONFIG_SERVER_URI:http://localhost:8888}"
+  # config-server unavailable at startup (a host reboot, a deploy that restarts it too): retry for about 85 s, then
+  # fail. The import stays mandatory, so the service never starts on its local defaults alone.
+  cloud:
+    config:
+      fail-fast: true
+      request-connect-timeout: 3000
+      request-read-timeout: 10000
+      retry:
+        initial-interval: 2000
+        multiplier: 1.5
+        max-interval: 15000
+        max-attempts: 10
 
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}

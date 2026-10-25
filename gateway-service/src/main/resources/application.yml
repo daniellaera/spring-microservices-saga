@@ -111,6 +111,17 @@ spring:
       resilience4j:
         disable-time-limiter-map:
           order-stream-cb: true
+    # config-server unavailable at startup (a host reboot, a deploy that restarts it too): retry for about 85 s, then
+    # fail. The import stays mandatory, so the gateway never starts on its local defaults alone.
+    config:
+      fail-fast: true
+      request-connect-timeout: 3000
+      request-read-timeout: 10000
+      retry:
+        initial-interval: 2000
+        multiplier: 1.5
+        max-interval: 15000
+        max-attempts: 10
 
   application:
     name: gateway-service

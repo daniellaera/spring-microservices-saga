@@ -14,7 +14,7 @@ jobs:
       - name: Run backend tests
         run: |
           mvn verify \
-            -pl auth-service,order-service,inventory-service,payment-service,notification-service,cart-service,audit-trail-service,gateway-service,coverage-report \
+            -pl auth-service,order-service,inventory-service,payment-service,notification-service,cart-service,audit-trail-service,gateway-service,config-server,coverage-report \
             -am \
             --no-transfer-progress
       - name: Enforce coverage gate
