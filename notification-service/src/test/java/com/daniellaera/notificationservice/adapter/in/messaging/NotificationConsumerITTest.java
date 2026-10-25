@@ -1,4 +1,4 @@
-package com.daniellaera.notificationservice.consumer;
+package com.daniellaera.notificationservice.adapter.in.messaging;
 
 import com.daniellaera.notificationservice.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;

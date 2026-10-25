@@ -1,4 +1,4 @@
-package com.daniellaera.notificationservice.dto;
+package com.daniellaera.notificationservice.adapter.in.messaging;
 
 public record OtpMessage(
         String email,

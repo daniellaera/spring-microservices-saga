@@ -1,0 +1,6 @@
+[ {
+  "from" : "shop@daniellaera.com",
+  "to" : [ "buyer@test.com" ],
+  "subject" : "Your verification code — Online Shop",
+  "text" : "Hi,\n\nYour verification code is:\n\n    482913\n\nThis code expires in 5 minutes.\nIf you didn't request this, ignore this email.\n\n— Online Shop Security\n"
+} ]
