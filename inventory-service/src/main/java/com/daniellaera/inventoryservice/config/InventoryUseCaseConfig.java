@@ -3,6 +3,7 @@ package com.daniellaera.inventoryservice.config;
 import com.daniellaera.inventoryservice.application.CompensateStockService;
 import com.daniellaera.inventoryservice.application.ManageProductsService;
 import com.daniellaera.inventoryservice.application.ProductQueryService;
+import com.daniellaera.inventoryservice.application.ReportDeadLetteredService;
 import com.daniellaera.inventoryservice.application.ReserveStockService;
 import com.daniellaera.inventoryservice.application.StockReserver;
 import com.daniellaera.inventoryservice.domain.port.out.AuditTrail;
@@ -42,6 +43,11 @@ public class InventoryUseCaseConfig {
                                                          ProductListCache productListCache) {
         return new CompensateStockService(productRepository, stockReservationRepository, compensationLedger,
                 auditTrail, productListCache);
+    }
+
+    @Bean
+    public ReportDeadLetteredService reportDeadLetteredService(AuditTrail auditTrail) {
+        return new ReportDeadLetteredService(auditTrail);
     }
 
     @Bean

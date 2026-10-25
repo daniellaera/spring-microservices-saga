@@ -77,6 +77,30 @@ class KafkaAuditTrailTest {
                 "error", "unreadable payload: Unexpected character"));
     }
 
+    @Test
+    void paymentResultDeadLettered_publishesTheOrderAndError_withTheOrderAsCorrelationId() {
+        auditTrail.paymentResultDeadLettered(7L, "user@test.com", "db down");
+
+        Map<?, ?> message = sentMessage();
+        assertThat(message.get("eventType")).isEqualTo("ORDER_DEAD_LETTERED");
+        assertThat(message.get("entityType")).isEqualTo("ORDER");
+        assertThat(message.get("entityId")).isEqualTo("7");
+        assertThat(message.get("correlationId")).isEqualTo("7");
+        assertThat(message.get("userEmail")).isEqualTo("user@test.com");
+        assertThat(objectMapper.readValue((String) message.get("payload"), Map.class))
+                .isEqualTo(Map.of("orderId", 7, "error", "db down"));
+    }
+
+    @Test
+    void anUnreadableDeadLetteredResult_hasNoOrder() {
+        auditTrail.paymentResultDeadLettered(null, null, "Unexpected character");
+
+        Map<?, ?> message = sentMessage();
+        assertThat(message.get("entityId")).isEqualTo("");
+        assertThat(message.containsKey("correlationId")).isFalse();
+        assertThat(message.get("userEmail")).isEqualTo("system");
+    }
+
     private Map<?, ?> sentMessage() {
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
         verify(kafkaTemplate).send(eq("audit-topic"), message.capture());

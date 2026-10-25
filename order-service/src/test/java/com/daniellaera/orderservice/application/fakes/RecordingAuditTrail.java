@@ -13,9 +13,12 @@ public class RecordingAuditTrail implements AuditTrail {
 
     public record OutboxFailure(long orderId, String userEmail, String eventType, int attempts, String error) {}
 
+    public record DeadLetter(Long orderId, String userEmail, String error) {}
+
     private final List<Order> placed = new ArrayList<>();
     private final List<PaymentAudit> paymentResults = new ArrayList<>();
     private final List<OutboxFailure> outboxFailures = new ArrayList<>();
+    private final List<DeadLetter> deadLetters = new ArrayList<>();
 
     @Override
     public void orderPlaced(Order order) {
@@ -30,6 +33,15 @@ public class RecordingAuditTrail implements AuditTrail {
     @Override
     public void outboxEventFailed(long orderId, String userEmail, String eventType, int attempts, String error) {
         outboxFailures.add(new OutboxFailure(orderId, userEmail, eventType, attempts, error));
+    }
+
+    @Override
+    public void paymentResultDeadLettered(Long orderId, String userEmail, String error) {
+        deadLetters.add(new DeadLetter(orderId, userEmail, error));
+    }
+
+    public List<DeadLetter> deadLetters() {
+        return List.copyOf(deadLetters);
     }
 
     public List<OutboxFailure> outboxFailures() {

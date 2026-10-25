@@ -64,9 +64,12 @@ restored stock that had never been reserved.
   - an order for an unknown product stayed PENDING forever; it is now REJECTED;
   - a failed order whose payment had been captured was never refunded ([ADR 17](0017-payment-compensation-by-refund.md)).
 - **A step that never answers leaves the order PENDING.** There is no saga timeout. The places where a result
-  can stop are now visible in the audit trail: an outbox row that can't be sent (`OUTBOX_EVENT_FAILED`), and an
-  inventory result dead-lettered by payment-service (`PAYMENT_DEAD_LETTERED`, replayed by hand with
-  `docs/maintenance/replay-dead-lettered-inventory-results.md`).
+  can stop are now visible in the audit trail: an outbox row that can't be sent (`OUTBOX_EVENT_FAILED`), and a
+  record dead-lettered after its retries: an inventory result in payment-service (`PAYMENT_DEAD_LETTERED`,
+  replayed with `docs/maintenance/replay-dead-lettered-inventory-results.md`), an order or a payment result in
+  inventory-service (`STOCK_RESERVATION_DEAD_LETTERED`, `STOCK_RESTORE_DEAD_LETTERED`) and a payment result in
+  order-service (`ORDER_DEAD_LETTERED`), replayed with
+  `docs/maintenance/replay-dead-lettered-orders-and-payment-results.md`. Each is on the order's saga timeline.
 - **Adding a step means changing the services around it**, not one orchestrator. With three steps that is still
   cheaper than running and operating an orchestrator. A fourth step or a timeout policy would be the moment to
   reconsider orchestration.

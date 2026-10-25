@@ -10,4 +10,7 @@ public interface AuditTrail {
 
     /** An order's event could not be delivered to the saga after the maximum number of attempts. */
     void outboxEventFailed(long orderId, String userEmail, String eventType, int attempts, String error);
+
+    /** A payment result was dead-lettered (orderId null when it cannot be read): the order stays PENDING. */
+    void paymentResultDeadLettered(Long orderId, String userEmail, String error);
 }

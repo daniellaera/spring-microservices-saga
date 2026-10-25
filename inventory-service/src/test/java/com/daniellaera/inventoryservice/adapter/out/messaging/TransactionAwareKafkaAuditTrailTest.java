@@ -52,6 +52,20 @@ class TransactionAwareKafkaAuditTrailTest {
     }
 
     @Test
+    void deadLettered_isPublishedForTheOrder_withTheOrderAsCorrelationId() {
+        auditTrail.stockReservationDeadLettered(7L, "user@test.com", "database unavailable");
+        auditTrail.stockRestoreDeadLettered(8L, null, "db down");
+        auditTrail.stockReservationDeadLettered(null, null, "Unrecognized token 'not'");
+
+        verify(publisher).publish("STOCK_RESERVATION_DEAD_LETTERED", "user@test.com", "ORDER", "7", 7L,
+                new DeadLetterAuditPayload(7L, "database unavailable"));
+        verify(publisher).publish("STOCK_RESTORE_DEAD_LETTERED", null, "ORDER", "8", 8L,
+                new DeadLetterAuditPayload(8L, "db down"));
+        verify(publisher).publish("STOCK_RESERVATION_DEAD_LETTERED", null, "ORDER", null, null,
+                new DeadLetterAuditPayload(null, "Unrecognized token 'not'"));
+    }
+
+    @Test
     void outsideTransaction_publishesImmediately() {
         auditTrail.stockRestored(product, new StockReservation(UUID.randomUUID(), 5L, "MacBook Pro", 2, null),
                 "user@test.com");

@@ -26,7 +26,8 @@ class PaymentEventListenerTest {
 
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
     private final List<PaymentOutcome> outcomes = new ArrayList<>();
-    private final PaymentEventListener listener = new PaymentEventListener(outcomes::add, objectMapper);
+    private final RecordingDeadLetters deadLetters = new RecordingDeadLetters();
+    private final PaymentEventListener listener = new PaymentEventListener(outcomes::add, deadLetters, objectMapper);
 
     @Test
     void paymentEvent_isMappedToAnOutcome() throws Exception {
@@ -46,7 +47,7 @@ class PaymentEventListenerTest {
     void useCaseFailure_propagatesToTheContainer() {
         PaymentEventListener failing = new PaymentEventListener(outcome -> {
             throw new IllegalStateException("db down");
-        }, objectMapper);
+        }, deadLetters, objectMapper);
 
         assertThatThrownBy(() -> failing.handlePaymentResult("{\"orderId\":6,\"status\":\"FAILED\"}"))
                 .isInstanceOf(IllegalStateException.class)
@@ -54,14 +55,22 @@ class PaymentEventListenerTest {
     }
 
     @Test
-    void deadLetteredPaymentResult_isLoggedWithTheRetryTopicsError(CapturedOutput output) {
+    void deadLetteredPaymentResult_isLoggedAndReportedWithTheRetryTopicsError(CapturedOutput output) {
         ConsumerRecord<String, String> record = new ConsumerRecord<>("payment-topic-inventory-dlt", 0, 0L, null, "{\"orderId\":6}");
         record.headers().add(KafkaHeaders.EXCEPTION_MESSAGE, "db down".getBytes(StandardCharsets.UTF_8));
 
         assertThatCode(() -> listener.handleDlt(record)).doesNotThrowAnyException();
 
         assertThat(output.getAll()).contains("DLT received failed message: {\"orderId\":6} error: db down");
+        assertThat(deadLetters.reports()).containsExactly(new RecordingDeadLetters.Report("restore", 6L, null, "db down"));
         assertThat(outcomes).isEmpty();
+    }
+
+    @Test
+    void anUnreadableDeadLetteredPaymentResult_isReportedWithoutAnOrder() {
+        listener.handleDlt(new ConsumerRecord<>("payment-topic-inventory-dlt", 0, 0L, null, "not json"));
+
+        assertThat(deadLetters.reports()).containsExactly(new RecordingDeadLetters.Report("restore", null, null, null));
     }
 
     @Test

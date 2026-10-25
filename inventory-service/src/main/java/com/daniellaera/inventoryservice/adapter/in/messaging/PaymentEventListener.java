@@ -2,6 +2,7 @@ package com.daniellaera.inventoryservice.adapter.in.messaging;
 
 import com.daniellaera.inventoryservice.domain.port.in.CompensateStockUseCase;
 import com.daniellaera.inventoryservice.domain.port.in.PaymentOutcome;
+import com.daniellaera.inventoryservice.domain.port.in.ReportDeadLetteredUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -20,6 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 public class PaymentEventListener {
 
     private final CompensateStockUseCase compensateStockUseCase;
+    private final ReportDeadLetteredUseCase reportDeadLetteredUseCase;
     private final ObjectMapper objectMapper;
 
     // Nothing is caught: a failing compensation is retried on the retry topics, then dead-lettered to handleDlt; an
@@ -41,10 +43,19 @@ public class PaymentEventListener {
         compensateStockUseCase.compensate(new PaymentOutcome(event.orderId(), event.status(), event.userEmail()));
     }
 
-    // Called once per dead-lettered payment result, whose stock is then not restored. It must not throw: the DLT
-    // container would retry it forever.
+    // Called once per dead-lettered payment result, whose stock is then not restored: logged and audited
+    // (STOCK_RESTORE_DEAD_LETTERED). It must not throw: the DLT container would retry it forever.
     @DltHandler
     public void handleDlt(ConsumerRecord<String, String> record) {
-        log.error("DLT received failed message: {} error: {}", record.value(), DeadLetters.errorOf(record));
+        String error = DeadLetters.errorOf(record);
+        log.error("DLT received failed message: {} error: {}", record.value(), error);
+        PaymentEvent event;
+        try {
+            event = objectMapper.readValue(record.value(), PaymentEvent.class);
+        } catch (Exception e) {
+            reportDeadLetteredUseCase.restoreDeadLettered(null, null, error);
+            return;
+        }
+        reportDeadLetteredUseCase.restoreDeadLettered(event.orderId(), event.userEmail(), error);
     }
 }

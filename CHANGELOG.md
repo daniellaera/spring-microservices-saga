@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Dead-lettered records in inventory-service and order-service are audited**, like payment-service's
+  `PAYMENT_DEAD_LETTERED`: `STOCK_RESERVATION_DEAD_LETTERED` (an order whose stock was not reserved),
+  `STOCK_RESTORE_DEAD_LETTERED` (a failed payment whose stock was not released) and `ORDER_DEAD_LETTERED` (a
+  payment result not applied), each with the order as correlation id, so it shows on the order's timeline. They
+  were only logged. audit-trail-service stores the new types, shop-ui shows them as failures. Runbook:
+  `docs/maintenance/replay-dead-lettered-orders-and-payment-results.md`.
 - **Per-order saga timeline** ([ADR 18](docs/adr/0018-saga-timeline-correlation-id.md)). The saga audit events
   of order-, inventory- and payment-service carry a new `correlationId` (the order id); audit-trail-service
   stores it (Flyway V2, nullable, no backfill) and answers `GET /audit/orders/{id}/timeline`, older events

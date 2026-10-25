@@ -2,6 +2,7 @@ package com.daniellaera.orderservice.adapter.in.messaging;
 
 import com.daniellaera.orderservice.domain.port.in.ApplyPaymentResultUseCase;
 import com.daniellaera.orderservice.domain.port.in.PaymentResult;
+import com.daniellaera.orderservice.domain.port.in.ReportDeadLetteredResultUseCase;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,7 +27,9 @@ import static org.mockito.Mockito.*;
 class PaymentEventListenerTest {
 
     private final ApplyPaymentResultUseCase useCase = mock(ApplyPaymentResultUseCase.class);
-    private final PaymentEventListener listener = new PaymentEventListener(useCase, JsonMapper.builder().build());
+    private final ReportDeadLetteredResultUseCase deadLetters = mock(ReportDeadLetteredResultUseCase.class);
+    private final PaymentEventListener listener =
+            new PaymentEventListener(useCase, deadLetters, JsonMapper.builder().build());
 
     @Test
     void mapsEveryFieldToThePaymentResult() {
@@ -57,14 +60,27 @@ class PaymentEventListenerTest {
     }
 
     @Test
-    void deadLetteredPaymentResult_isOnlyLogged_withTheRetryTopicsError(CapturedOutput output) {
-        ConsumerRecord<String, String> record = new ConsumerRecord<>("payment-topic-order-dlt", 0, 0L, null, "{\"orderId\":1}");
+    void deadLetteredPaymentResult_isLoggedAndReported_withTheRetryTopicsError(CapturedOutput output) {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>("payment-topic-order-dlt", 0, 0L, null,
+                "{\"orderId\":1,\"userEmail\":\"user@test.com\"}");
         record.headers().add(KafkaHeaders.EXCEPTION_MESSAGE, "db down".getBytes(StandardCharsets.UTF_8));
 
         assertThatCode(() -> listener.handleDlt(record)).doesNotThrowAnyException();
 
-        assertThat(output.getAll()).contains("DLT received failed message: {\"orderId\":1} error: db down");
+        assertThat(output.getAll()).contains("DLT received failed message: {\"orderId\":1,\"userEmail\":\"user@test.com\"} "
+                + "error: db down");
+        verify(deadLetters).deadLettered(1L, "user@test.com", "db down");
         verifyNoInteractions(useCase);
+    }
+
+    @Test
+    void anUnreadableDeadLetteredPaymentResult_isReportedWithoutAnOrder() {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>("payment-topic-order-dlt", 0, 0L, null, "{not json");
+        record.headers().add(KafkaHeaders.EXCEPTION_MESSAGE, "Unexpected character".getBytes(StandardCharsets.UTF_8));
+
+        listener.handleDlt(record);
+
+        verify(deadLetters).deadLettered(null, null, "Unexpected character");
     }
 
     @Test
