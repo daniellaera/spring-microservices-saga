@@ -18,8 +18,6 @@
     Decide whether the host needs more RAM before adding services: steady swap use, available memory under
     1 GiB, or a container near its limit say yes. The `sda` disk also has ~30 GB unallocated if the root volume
     needs to grow.
-- **Warm the Stripe client when payment-service starts**: the first Stripe call after a restart took over 1 s
-  (the gateway 404 of 2026-10-23). The gateway now allows 10 s, so this is only latency for the first buyer.
 - **Dead-lettered records in inventory-service and order-service are only logged** (since 2026-10-25): no audit
   event and no replay runbook, unlike payment-service's `PAYMENT_DEAD_LETTERED` and
   `docs/maintenance/replay-dead-lettered-inventory-results.md`. A dead-lettered order stays PENDING, a
