@@ -1,7 +1,6 @@
 package com.daniellaera.authservice.config;
 
-import com.daniellaera.authservice.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import com.daniellaera.authservice.domain.port.out.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -14,21 +13,24 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
-@RequiredArgsConstructor
 public class ApplicationConfig {
 
-    private final UserRepository userRepository;
-
+    // Spring Security's view of an account: its email, password hash and role, every account enabled
     @Bean
-    public UserDetailsService userDetailsService() {
+    public UserDetailsService userDetailsService(UserRepository userRepository) {
         return email -> userRepository.findByEmail(email)
+                .map(user -> org.springframework.security.core.userdetails.User.withUsername(user.email())
+                        .password(user.passwordHash())
+                        .authorities(user.role().name())
+                        .build())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService());
-        provider.setPasswordEncoder(passwordEncoder());
+    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService,
+                                                         PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
         return provider;
     }
 

@@ -1,0 +1,144 @@
+{
+  "steps" : [ {
+    "step" : "register",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "guesser@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  }, {
+    "step" : "login",
+    "status" : 200,
+    "body" : {
+      "email" : "guesser@example.com",
+      "message" : "OTP sent to your email address",
+      "requiresOtp" : true
+    }
+  }, {
+    "step" : "wrong code 1",
+    "status" : 401,
+    "body" : {
+      "error" : "Invalid OTP code",
+      "message" : "Invalid OTP code",
+      "status" : 401
+    }
+  }, {
+    "step" : "wrong code 2",
+    "status" : 401,
+    "body" : {
+      "error" : "Invalid OTP code",
+      "message" : "Invalid OTP code",
+      "status" : 401
+    }
+  }, {
+    "step" : "wrong code 3",
+    "status" : 401,
+    "body" : {
+      "error" : "Invalid OTP code",
+      "message" : "Invalid OTP code",
+      "status" : 401
+    }
+  }, {
+    "step" : "wrong code 4",
+    "status" : 401,
+    "body" : {
+      "error" : "Invalid OTP code",
+      "message" : "Invalid OTP code",
+      "status" : 401
+    }
+  }, {
+    "step" : "wrong code 5",
+    "status" : 429,
+    "body" : {
+      "error" : "Too many invalid codes — please login again",
+      "message" : "Too many invalid codes — please login again",
+      "status" : 429
+    }
+  }, {
+    "step" : "the right code after",
+    "status" : 401,
+    "body" : {
+      "error" : "OTP expired or not found — please login again",
+      "message" : "OTP expired or not found — please login again",
+      "status" : 401
+    }
+  } ],
+  "events" : [ {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "guesser@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"guesser@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "guesser@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "guesser@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN_FAILED",
+      "payload" : "{\"reason\":\"OTP_TOO_MANY_WRONG_CODES\"}",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "guesser@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "guesser@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN_INITIATED",
+      "payload" : "\"guesser@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "guesser@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "guesser@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_REGISTER",
+      "payload" : "\"guesser@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "guesser@example.com"
+    }
+  }, {
+    "topic" : "otp-topic",
+    "value" : {
+      "email" : "guesser@example.com",
+      "otp" : "<otp>",
+      "timestamp" : "<timestamp>"
+    }
+  } ],
+  "users" : [ {
+    "created" : true,
+    "email" : "guesser@example.com",
+    "first_name" : null,
+    "last_name" : null,
+    "password" : "<bcrypt $2a$10$>",
+    "role" : "USER"
+  } ],
+  "refreshTokens" : [ {
+    "days_left" : 7,
+    "email" : "guesser@example.com",
+    "revoked" : false,
+    "token" : "<uuid>"
+  } ],
+  "redis" : {
+    "otp-issued:guesser@example.com" : {
+      "ttl" : "<= 900 s",
+      "value" : "1"
+    }
+  }
+}

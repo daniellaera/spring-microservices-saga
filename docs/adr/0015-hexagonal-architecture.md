@@ -4,7 +4,9 @@ Date: 2026-10-22
 
 ## Status
 
-Accepted. Applied to order-service, inventory-service and payment-service.
+Accepted. Applied to every domain service: order-service, inventory-service and payment-service (2026-10-22),
+audit-trail-service, notification-service, cart-service and auth-service (2026-10-25). gateway-service and
+config-server have no domain and keep their layout.
 
 ## Context
 
@@ -60,5 +62,14 @@ fixtures that had to stay byte-identical.
   method runs on another thread and would no longer see the caller's transaction. The product-list cache
   invalidator lives in `adapter.in.web` next to the cache it owns, because adapters may not depend on each
   other.
-- The other services (auth, cart, notification, audit-trail, gateway, config-server) are still layered. They
-  hold little saga logic; converting them is optional.
+- On 2026-10-25 the remaining domain services followed, the same way and under the same rules: audit-trail-service
+  (#39), notification-service (#40), cart-service (#41) and auth-service (#42), each a pure refactor starting from
+  contract fixtures (REST bodies, consumed and produced messages, stored rows, Redis values, sent emails) that did
+  not change afterwards. auth-service was proven at the HTTP level: every endpoint and error, the audit and OTP
+  events, the stored users, refresh tokens and OTP keys, with the JWTs verified and described. gateway-service
+  (routing, JWT check, breakers) and config-server have no domain: they are not converted.
+- Placements the rules force there: auth-service's UserDetailsService is Spring wiring in `config`, built from the
+  `UserRepository` port, so that the JPA entity no longer implements Spring Security's `UserDetails`; its refresh
+  rotation lives in the application layer and calls `RefreshTokenService` through its bean, keeping one transaction
+  per step as before. notification-service's email wording is in the application layer (`OrderEmails`), the SMTP
+  details in `adapter.out.mail`. cart-service's Redis value stays the same plain JSON (`StoredCartItem`).

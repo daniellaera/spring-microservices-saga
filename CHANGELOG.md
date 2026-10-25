@@ -24,6 +24,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **audit-trail-, notification-, cart- and auth-service follow the hexagonal layout** (#39–#42,
+  [ADR 15](docs/adr/0015-hexagonal-architecture.md)): pure refactors behind contract fixtures recorded first, with
+  Spring-free use case tests and `HexagonalArchitectureTest` in each. Tests 47 → 68, 31 → 36, 17 → 38, 67 → 89.
 - **Service images are runtime-only** (#31): `eclipse-temurin:21-jre-jammy` plus the service's jar, which
   `main.yml` builds for every changed service in one Maven run (`-pl <services> -am`) instead of each image
   building the whole reactor. Images 486–568 MB → 330–412 MB; a full rebuild's image job 276–286 s → 226 s.

@@ -1,0 +1,125 @@
+{
+  "steps" : [ {
+    "step" : "register",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "rotate@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  }, {
+    "step" : "refresh",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "rotate@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  }, {
+    "step" : "refresh with the rotated token",
+    "status" : 400,
+    "body" : {
+      "error" : "Bad Request",
+      "message" : "Refresh token revoked",
+      "status" : 400
+    }
+  }, {
+    "step" : "refresh unknown",
+    "status" : 400,
+    "body" : {
+      "error" : "Bad Request",
+      "message" : "Refresh token not found",
+      "status" : 400
+    }
+  }, {
+    "step" : "refresh missing",
+    "status" : 400,
+    "body" : {
+      "error" : "Validation Failed",
+      "errors" : {
+        "refreshToken" : "Refresh token is required"
+      },
+      "status" : 400
+    }
+  }, {
+    "step" : "refresh expired",
+    "status" : 400,
+    "body" : {
+      "error" : "Bad Request",
+      "message" : "Refresh token expired",
+      "status" : 400
+    }
+  }, {
+    "step" : "refresh expired again",
+    "status" : 400,
+    "body" : {
+      "error" : "Bad Request",
+      "message" : "Refresh token expired",
+      "status" : 400
+    }
+  } ],
+  "events" : [ {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "rotate@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"rotate@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "rotate@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "rotate@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"rotate@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "rotate@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "rotate@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_REGISTER",
+      "payload" : "\"rotate@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "rotate@example.com"
+    }
+  } ],
+  "users" : [ {
+    "created" : true,
+    "email" : "rotate@example.com",
+    "first_name" : null,
+    "last_name" : null,
+    "password" : "<bcrypt $2a$10$>",
+    "role" : "USER"
+  } ],
+  "refreshTokens" : [ {
+    "days_left" : 7,
+    "email" : "rotate@example.com",
+    "revoked" : true,
+    "token" : "<uuid>"
+  }, {
+    "days_left" : 0,
+    "email" : "rotate@example.com",
+    "revoked" : false,
+    "token" : "<uuid>"
+  } ],
+  "redis" : { }
+}

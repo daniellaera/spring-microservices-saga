@@ -1,7 +1,7 @@
 package com.daniellaera.authservice;
 
-import com.daniellaera.authservice.model.User;
-import com.daniellaera.authservice.repository.UserRepository;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaEntity;
+import com.daniellaera.authservice.adapter.out.persistence.UserJpaRepository;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +23,7 @@ class DemoUsersProfileITTest {
     @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
     class DefaultProfile {
 
-        @Autowired private UserRepository userRepository;
+        @Autowired private UserJpaRepository userRepository;
         @MockitoBean private KafkaTemplate<String, String> kafkaTemplate;
 
         @Test
@@ -40,14 +40,14 @@ class DemoUsersProfileITTest {
     @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
     class LocalProfile {
 
-        @Autowired private UserRepository userRepository;
+        @Autowired private UserJpaRepository userRepository;
         @MockitoBean private KafkaTemplate<String, String> kafkaTemplate;
 
         @Test
         void seedsBothDemoAccounts() {
-            assertThat(userRepository.findByEmail("daniel@example.com")).map(User::getRole).map(Enum::name)
+            assertThat(userRepository.findByEmail("daniel@example.com")).map(UserJpaEntity::getRole).map(Enum::name)
                     .contains("USER");
-            assertThat(userRepository.findByEmail("admin@example.com")).map(User::getRole).map(Enum::name)
+            assertThat(userRepository.findByEmail("admin@example.com")).map(UserJpaEntity::getRole).map(Enum::name)
                     .contains("ADMIN");
         }
     }

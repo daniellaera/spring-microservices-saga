@@ -1,0 +1,130 @@
+{
+  "steps" : [ {
+    "step" : "register",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "new@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  }, {
+    "step" : "register again",
+    "status" : 409,
+    "body" : {
+      "error" : "Conflict",
+      "message" : "An account with this email already exists",
+      "status" : 409
+    }
+  }, {
+    "step" : "register invalid",
+    "status" : 400,
+    "body" : {
+      "error" : "Validation Failed",
+      "errors" : {
+        "email" : "Email must be valid",
+        "password" : "Password must be at least 6 characters"
+      },
+      "status" : 400
+    }
+  }, {
+    "step" : "register without email",
+    "status" : 400,
+    "body" : {
+      "error" : "Validation Failed",
+      "errors" : {
+        "email" : "Email is required"
+      },
+      "status" : 400
+    }
+  }, {
+    "step" : "register with extra fields",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "extra@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  } ],
+  "events" : [ {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "extra@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"extra@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "extra@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "extra@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_REGISTER",
+      "payload" : "\"extra@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "extra@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "new@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"new@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "new@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "new@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_REGISTER",
+      "payload" : "\"new@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "new@example.com"
+    }
+  } ],
+  "users" : [ {
+    "created" : true,
+    "email" : "extra@example.com",
+    "first_name" : null,
+    "last_name" : null,
+    "password" : "<bcrypt $2a$10$>",
+    "role" : "USER"
+  }, {
+    "created" : true,
+    "email" : "new@example.com",
+    "first_name" : null,
+    "last_name" : null,
+    "password" : "<bcrypt $2a$10$>",
+    "role" : "USER"
+  } ],
+  "refreshTokens" : [ {
+    "days_left" : 7,
+    "email" : "extra@example.com",
+    "revoked" : false,
+    "token" : "<uuid>"
+  }, {
+    "days_left" : 7,
+    "email" : "new@example.com",
+    "revoked" : false,
+    "token" : "<uuid>"
+  } ],
+  "redis" : { }
+}
