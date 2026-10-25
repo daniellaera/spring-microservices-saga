@@ -1,0 +1,6 @@
+[ {
+  "from" : "shop@daniellaera.com",
+  "to" : [ "buyer@test.com" ],
+  "subject" : "✅ Order confirmed — iPhone 16",
+  "text" : "Hi,\n\nGreat news! Your order has been confirmed.\n\nOrder details:\n─────────────────────────────────────\n  • iPhone 16                      x1  @ 999.99 €  = 999.99 €\n\n─────────────────────────────────────\nTotal:     999.99 €\n\nThank you for your purchase!\n\n— Online Shop\n"
+} ]

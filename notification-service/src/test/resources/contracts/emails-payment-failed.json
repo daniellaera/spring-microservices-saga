@@ -1,0 +1,6 @@
+[ {
+  "from" : "shop@daniellaera.com",
+  "to" : [ "buyer@test.com" ],
+  "subject" : "❌ Order cancelled — Lamp",
+  "text" : "Hi,\n\nUnfortunately your order could not be processed.\n\nOrder details:\n─────────────────────────────────────\n  • Lamp                           x3  @ 49.90 €  = 149.70 €\n\n─────────────────────────────────────\nTotal:     149.70 €\n\nYour inventory has been automatically restored.\nPlease try again or contact support.\n\n— Online Shop\n"
+} ]

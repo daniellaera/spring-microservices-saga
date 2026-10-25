@@ -1,0 +1,6 @@
+[ {
+  "from" : "shop@daniellaera.com",
+  "to" : [ "buyer@test.com" ],
+  "subject" : "✅ Order confirmed — 2 items",
+  "text" : "Hi,\n\nGreat news! Your order has been confirmed.\n\nOrder details:\n─────────────────────────────────────\n  • MacBook Pro                    x2  @ 1299.99 €  = 2599.98 €\n  • USB-C Hub                      x2  @ 49.90 €  = 99.80 €\n\n─────────────────────────────────────\nTotal:     2699.78 €\n\nThank you for your purchase!\n\n— Online Shop\n"
+} ]
