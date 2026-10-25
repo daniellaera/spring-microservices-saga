@@ -1,7 +1,9 @@
 package com.daniellaera.gatewayservice.controller;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,6 +20,17 @@ public class FallbackController {
                 .body(Map.of(
                         "status", "503",
                         "message", "Order service is currently unavailable. Please try again later."
+                ));
+    }
+
+    // The SSE request asks for text/event-stream: answer plain JSON. shop-ui reconnects after any non-200 answer.
+    @GetMapping("/order-stream")
+    public ResponseEntity<Map<String, String>> orderStreamFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of(
+                        "status", "503",
+                        "message", "Order updates are currently unavailable. Reconnecting shortly."
                 ));
     }
 

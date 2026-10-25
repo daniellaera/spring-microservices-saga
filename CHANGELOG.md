@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Service images are runtime-only** (#31): `eclipse-temurin:21-jre-jammy` plus the service's jar, which
+  `main.yml` builds for every changed service in one Maven run (`-pl <services> -am`) instead of each image
+  building the whole reactor. Images 486–568 MB → 330–412 MB; a full rebuild's image job 276–286 s → 226 s.
+  config-server's jar never contains `*-local.yml`.
+
+### Fixed
+
+- **`/orders/stream` while order-service is down** answers 503 (`/fallback/order-stream`, JSON) instead of a
+  500 with a stack trace in the gateway log. Its own breaker `order-stream-cb` has no time limit, so a long-lived
+  stream is never cut; shop-ui reconnects after the 503 as after any non-200 answer.
+
 ## [1.1.0] - 2026-10-23
 
 Hardening of the order saga: payments, stock and order events are now idempotent and safe to redeliver, a

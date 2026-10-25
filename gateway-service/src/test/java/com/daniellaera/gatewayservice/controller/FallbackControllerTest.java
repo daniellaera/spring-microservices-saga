@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -45,5 +46,19 @@ class FallbackControllerTest {
                 .expectBody()
                 .jsonPath("$.status").isEqualTo("503")
                 .jsonPath("$.message").isEqualTo("Payment service is currently unavailable. Please try again later.");
+    }
+
+    @Test
+    void orderStreamFallback_answersTheSseRequestWithJson() {
+        // the forwarded request still asks for text/event-stream
+        webTestClient
+                .get().uri("/fallback/order-stream")
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("503")
+                .jsonPath("$.message").isEqualTo("Order updates are currently unavailable. Reconnecting shortly.");
     }
 }
