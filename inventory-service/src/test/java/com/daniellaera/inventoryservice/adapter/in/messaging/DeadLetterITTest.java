@@ -6,6 +6,10 @@ import com.daniellaera.inventoryservice.domain.port.in.ReserveStockUseCase;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.Test;
@@ -25,7 +29,10 @@ import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -99,9 +106,11 @@ class DeadLetterITTest {
     void anUnreadableOrder_skipsTheRetries(CapturedOutput output) {
         kafkaTemplate.send("orders-topic", "not json 902");
 
-        // before the first 3 s backoff could even end: JacksonException is excluded from the retries
-        await().atMost(Duration.ofMillis(2500))
+        // JacksonException is excluded from the retries: straight to the dead-letter topic, never on a retry topic
+        await().atMost(Duration.ofSeconds(30))
                 .untilAsserted(() -> assertThat(output.getAll()).contains("DLT received failed message: not json 902 error: "));
+        assertThat(messagesOnTopicsMatching(Pattern.compile("orders-topic-inventory-dlt"))).contains("not json 902");
+        assertThat(messagesOnTopicsMatching(Pattern.compile("orders-topic-inventory-retry.*"))).doesNotContain("not json 902");
         verify(reserveStockUseCase, never()).reserve(any());
     }
 
@@ -135,5 +144,25 @@ class DeadLetterITTest {
         }
         await().pollDelay(Duration.ofSeconds(5)).atMost(Duration.ofSeconds(6)).untilAsserted(() ->
                 assertThat(output.getAll().split(Pattern.quote(handled), -1)).hasSize(2));
+    }
+
+    // Every record on the topics matching the pattern, read from the beginning for a few seconds
+    private List<String> messagesOnTopicsMatching(Pattern topics) {
+        Map<String, Object> config = Map.of(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
+                ConsumerConfig.GROUP_ID_CONFIG, "dead-letter-it-" + UUID.randomUUID(),
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        try (KafkaConsumer<String, String> consumer =
+                     new KafkaConsumer<>(config, new StringDeserializer(), new StringDeserializer())) {
+            consumer.subscribe(topics);
+            List<String> messages = new ArrayList<>();
+            long end = System.currentTimeMillis() + 5000;
+            while (System.currentTimeMillis() < end) {
+                for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(500))) {
+                    messages.add(record.value());
+                }
+            }
+            return messages;
+        }
     }
 }
