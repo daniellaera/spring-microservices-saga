@@ -2,14 +2,11 @@ package com.daniellaera.audittrailservice.repository;
 
 import com.daniellaera.audittrailservice.enums.AuditEventType;
 import com.daniellaera.audittrailservice.model.AuditEvent;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public interface AuditEventRepository extends JpaRepository<AuditEvent, Long>, JpaSpecificationExecutor<AuditEvent> {
@@ -37,13 +34,4 @@ public interface AuditEventRepository extends JpaRepository<AuditEvent, Long>, J
 
     List<AuditEvent> findByEntityTypeAndEntityIdOrderByCreatedAtDesc(
             String entityType, String entityId);
-
-    List<AuditEvent> findByEventTypeOrderByCreatedAtDesc(AuditEventType eventType);
-
-    Page<AuditEvent> findAllByOrderByCreatedAtDesc(Pageable pageable);
-
-    Page<AuditEvent> findByUserEmailOrderByCreatedAtDesc(String userEmail, Pageable pageable);
-
-    List<AuditEvent> findByCreatedAtBetweenOrderByCreatedAtDesc(
-            LocalDateTime from, LocalDateTime to);
 }
