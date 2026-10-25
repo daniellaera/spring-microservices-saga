@@ -52,7 +52,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * the KafkaTemplate are used, nothing of the service's own classes, so the refactor cannot change what is checked.
  * Values that differ on every run are normalized: a JWT becomes its algorithm, subject, role and validity (verified
  * with the signing key), a refresh token "<uuid>", an OTP "<otp>", a time "<timestamp>", a bcrypt hash its shape, an
- * expiry in seconds its bound. -Dcontracts.record=true rewrites the fixtures; only ever on code whose behaviour is
+ * expiry in seconds its bound, a token's SHA-256 prefix "sha256:<prefix>". -Dcontracts.record=true rewrites the fixtures; only ever on code whose behaviour is
  * the reference.
  */
 @SpringBootTest
@@ -367,7 +367,8 @@ class AuthHttpContractITTest {
             return JSON.getNodeFactory().stringNode("<timestamp>");
         }
         if (name.equals("payload")) {
-            return JSON.getNodeFactory().stringNode(text.replaceAll(UUID, "<uuid>"));
+            return JSON.getNodeFactory().stringNode(text.replaceAll(UUID, "<uuid>")
+                    .replaceAll("sha256:[0-9a-f]{12}", "sha256:<prefix>"));
         }
         return value;
     }
