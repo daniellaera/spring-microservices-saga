@@ -1,0 +1,9 @@
+{
+  "eventType": "USER_LOGIN",
+  "userEmail": "admin@example.com",
+  "entityType": "USER",
+  "entityId": "admin@example.com",
+  "payload": "\"admin@example.com\"",
+  "serviceName": "auth-service",
+  "timestamp": "2026-10-25T08:05:00"
+}

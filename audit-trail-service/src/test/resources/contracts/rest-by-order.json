@@ -1,0 +1,15 @@
+{
+  "status" : 200,
+  "body" : [ {
+    "id" : 10,
+    "eventType" : "ORDER_CREATED",
+    "userEmail" : "buyer@test.com",
+    "entityType" : "ORDER",
+    "entityId" : "66",
+    "payload" : "{\"orderId\":66}",
+    "serviceName" : "order-service",
+    "createdAt" : "2026-10-25T08:00:00",
+    "correlationId" : "66",
+    "recordedAt" : "2026-10-25T08:00:00Z"
+  } ]
+}

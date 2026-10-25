@@ -1,0 +1,11 @@
+{
+  "event_type" : "STOCK_DEDUCTED",
+  "user_email" : "buyer@test.com",
+  "entity_type" : "PRODUCT",
+  "entity_id" : "3",
+  "payload" : "{\"productName\":\"Lamp\",\"quantity\":1,\"price\":49.90,\"totalAmount\":49.90}",
+  "ip_address" : null,
+  "service_name" : "inventory-service",
+  "correlation_id" : "66",
+  "rows" : 1
+}

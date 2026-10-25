@@ -1,0 +1,64 @@
+{
+  "status" : 200,
+  "body" : {
+    "content" : [ {
+      "id" : 20,
+      "eventType" : "USER_LOGIN",
+      "userEmail" : "admin@example.com",
+      "entityType" : "USER",
+      "entityId" : "admin@example.com",
+      "payload" : "\"admin@example.com\"",
+      "serviceName" : "auth-service",
+      "createdAt" : "2026-10-25T08:05:00",
+      "correlationId" : null,
+      "recordedAt" : "2026-10-25T08:05:00Z"
+    }, {
+      "id" : 12,
+      "eventType" : "PAYMENT_SUCCEEDED",
+      "userEmail" : "buyer@test.com",
+      "entityType" : "PAYMENT",
+      "entityId" : "66",
+      "payload" : "{\"orderId\":66,\"status\":\"SUCCESS\"}",
+      "serviceName" : "payment-service",
+      "createdAt" : "2026-10-25T08:00:02",
+      "correlationId" : "66",
+      "recordedAt" : "2026-10-25T08:00:02Z"
+    }, {
+      "id" : 11,
+      "eventType" : "STOCK_DEDUCTED",
+      "userEmail" : "buyer@test.com",
+      "entityType" : "PRODUCT",
+      "entityId" : "3",
+      "payload" : "{\"productName\":\"Lamp\",\"quantity\":1}",
+      "serviceName" : "inventory-service",
+      "createdAt" : "2026-10-25T08:00:01.5",
+      "correlationId" : "66",
+      "recordedAt" : "2026-10-25T08:00:01.500Z"
+    } ],
+    "empty" : false,
+    "first" : true,
+    "last" : false,
+    "number" : 0,
+    "numberOfElements" : 3,
+    "pageable" : {
+      "offset" : 0,
+      "pageNumber" : 0,
+      "pageSize" : 3,
+      "paged" : true,
+      "sort" : {
+        "empty" : false,
+        "sorted" : true,
+        "unsorted" : false
+      },
+      "unpaged" : false
+    },
+    "size" : 3,
+    "sort" : {
+      "empty" : false,
+      "sorted" : true,
+      "unsorted" : false
+    },
+    "totalElements" : 7,
+    "totalPages" : 3
+  }
+}
