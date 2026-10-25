@@ -43,6 +43,9 @@ Keep Apache Kafka 4.2 in KRaft mode, one broker.
   `inventory-topic-retry-0` to `-3` and `inventory-topic-dlt`. Getting that right took a fix in 1.1.0: the
   retries configured through `spring.kafka.retry.topic.*` ignored the listener's `@DltHandler`, and the
   default dead-letter handler failed on every record and looped (about 20,000 stack traces a minute).
+  Since 2026-10-25 inventory-service and order-service declare it the same way. Their topics carry the
+  service's name (`payment-topic-order-retry-N`, `payment-topic-inventory-dlt`...): both consume
+  `payment-topic`, and shared retry topics would let each service re-process the other's failures.
 - **Consumers own their offsets and their idempotency.** Delivery is at least once, so every consumer must
   handle duplicates ([ADR 13](0013-choreographed-saga.md)).
 - **A JVM broker on a small host.** Kafka runs with a 1 GB heap on infra-node1, which has about 1 GB of memory

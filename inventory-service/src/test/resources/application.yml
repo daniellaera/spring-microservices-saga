@@ -9,6 +9,10 @@ spring:
       ack-mode: record
     consumer:
       auto-offset-reset: earliest
+    # The ITs run without a broker, except DeadLetterITTest: creating the listeners' retry topics at startup would
+    # stall every context for ~45 s
+    admin:
+      auto-create: false
   datasource:
     url: jdbc:postgresql://localhost:5432/inventorydb
     username: testuser

@@ -18,6 +18,12 @@ All notable changes to this project are documented here. The format follows
 - **`/orders/stream` while order-service is down** answers 503 (`/fallback/order-stream`, JSON) instead of a
   500 with a stack trace in the gateway log. Its own breaker `order-stream-cb` has no time limit, so a long-lived
   stream is never cut; shop-ui reconnects after the 503 as after any non-200 answer.
+- **Retries and dead-letter handling in inventory-service and order-service.** Their listeners swallowed every
+  failure (a database blip left the order PENDING), or retried it 10 times in a row and dropped it
+  (compensation), while their `@DltHandler(String, Exception)` methods never ran. Each listener now declares
+  `@RetryableTopic` like payment-service: 5 attempts after 2, 6, 18 and 54 s on the service's own retry topics,
+  an unreadable event straight to the dead-letter topic, whose handler reads the `kafka_exception-message`
+  header, logs the record once and never throws.
 
 ## [1.1.0] - 2026-10-23
 

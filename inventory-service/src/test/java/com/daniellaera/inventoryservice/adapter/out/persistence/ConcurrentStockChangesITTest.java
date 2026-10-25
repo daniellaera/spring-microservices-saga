@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@MockitoBean(types = KafkaTemplate.class)
 class ConcurrentStockChangesITTest {
 
     private static final String PRODUCT = "Contended Widget";
@@ -61,7 +62,7 @@ class ConcurrentStockChangesITTest {
     @Autowired
     private CompensationLogJpaRepository compensationLogRepository;
 
-    @MockitoBean
+    @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @BeforeEach

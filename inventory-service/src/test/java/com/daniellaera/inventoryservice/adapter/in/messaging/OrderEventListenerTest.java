@@ -2,18 +2,29 @@ package com.daniellaera.inventoryservice.adapter.in.messaging;
 
 import com.daniellaera.inventoryservice.domain.model.OrderLine;
 import com.daniellaera.inventoryservice.domain.port.in.ReserveStockCommand;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.kafka.retrytopic.TopicSuffixingStrategy;
+import org.springframework.kafka.support.KafkaHeaders;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@ExtendWith(OutputCaptureExtension.class)
 class OrderEventListenerTest {
 
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
@@ -56,19 +67,65 @@ class OrderEventListenerTest {
     }
 
     @Test
-    void malformedJson_isSwallowed() {
-        assertThatCode(() -> listener.consumeOrder("not json")).doesNotThrowAnyException();
+    void malformedJson_propagatesToTheContainer() {
+        // straight to the dead-letter topic: JacksonException is excluded from the retries
+        assertThatThrownBy(() -> listener.consumeOrder("not json")).isInstanceOf(JacksonException.class);
 
         assertThat(commands).isEmpty();
     }
 
     @Test
-    void useCaseFailure_isSwallowed() {
+    void useCaseFailure_propagatesToTheContainer() {
         OrderEventListener failing = new OrderEventListener(command -> {
             throw new IllegalStateException("database unavailable");
         }, objectMapper);
 
-        assertThatCode(() -> failing.consumeOrder("{\"orderId\":3,\"productName\":\"MacBook Pro\",\"quantity\":1}"))
+        assertThatThrownBy(() -> failing.consumeOrder("{\"orderId\":3,\"productName\":\"MacBook Pro\",\"quantity\":1}"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("database unavailable");
+    }
+
+    @Test
+    void deadLetteredOrder_isLoggedWithTheRetryTopicsError(CapturedOutput output) {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>("orders-topic-inventory-dlt", 0, 0L, null, "{\"orderId\":7}");
+        record.headers().add(KafkaHeaders.EXCEPTION_MESSAGE, "database unavailable".getBytes(StandardCharsets.UTF_8));
+
+        listener.handleDlt(record);
+
+        assertThat(output.getAll()).contains("DLT received failed message: {\"orderId\":7} error: database unavailable");
+        assertThat(commands).isEmpty();
+    }
+
+    @Test
+    void deadLetteredByAPlainRecoverer_readsItsDltExceptionHeader(CapturedOutput output) {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>("orders-topic-inventory-dlt", 0, 0L, null, "{\"orderId\":9}");
+        record.headers().add(KafkaHeaders.DLT_EXCEPTION_MESSAGE, "db down".getBytes(StandardCharsets.UTF_8));
+
+        listener.handleDlt(record);
+
+        assertThat(output.getAll()).contains("DLT received failed message: {\"orderId\":9} error: db down");
+    }
+
+    @Test
+    void deadLetteredOrderWithoutTheExceptionHeader_neverThrows() {
+        assertThatCode(() -> listener.handleDlt(new ConsumerRecord<>("orders-topic-inventory-dlt", 0, 0L, null, "not json")))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void retries_areNonBlockingRetryTopicsOfThisService_withTheProductionBudget() throws Exception {
+        RetryableTopic retry = OrderEventListener.class.getMethod("consumeOrder", String.class)
+                .getAnnotation(RetryableTopic.class);
+
+        // retried after 2, 6, 18 and 54 s
+        assertThat(retry.attempts()).isEqualTo("${inventory.retry.attempts:5}");
+        assertThat(retry.backOff().delayString()).isEqualTo("${inventory.retry.delay:2000}");
+        assertThat(retry.backOff().multiplierString()).isEqualTo("${inventory.retry.multiplier:3.0}");
+        assertThat(retry.backOff().maxDelayString()).isEqualTo("${inventory.retry.max-delay:60000}");
+        // orders-topic-inventory-retry-0, -1, ... and orders-topic-inventory-dlt
+        assertThat(retry.retryTopicSuffix()).isEqualTo("-inventory-retry");
+        assertThat(retry.dltTopicSuffix()).isEqualTo("-inventory-dlt");
+        assertThat(retry.topicSuffixingStrategy()).isEqualTo(TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE);
+        assertThat(retry.exclude()).containsExactly(JacksonException.class);
     }
 }

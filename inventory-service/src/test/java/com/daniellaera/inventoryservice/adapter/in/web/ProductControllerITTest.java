@@ -28,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@MockitoBean(types = KafkaTemplate.class)
 public class ProductControllerITTest {
 
     @Autowired
@@ -36,7 +37,7 @@ public class ProductControllerITTest {
     @Autowired
     private ProductJpaRepository productRepository;
 
-    @MockitoBean
+    @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @BeforeEach
