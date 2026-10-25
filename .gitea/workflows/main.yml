@@ -29,6 +29,7 @@ jobs:
       cart-service: ${{ steps.filter.outputs.cart-service }}
       audit-trail-service: ${{ steps.filter.outputs.audit-trail-service }}
       shop-ui: ${{ steps.filter.outputs.shop-ui }}
+      ci: ${{ steps.filter.outputs.ci }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,27 +38,44 @@ jobs:
         id: filter
         with:
           base: ${{ github.event.inputs.base }}
+          # The root pom sets every Java service's dependencies and plugins: a change to it is a change to each of
+          # them (tested, rebuilt, redeployed). The workflows, scripts and coverage aggregate only run the tests.
           filters: |
+            root-pom: &root-pom
+              - 'pom.xml'
             config-server:
+              - *root-pom
               - 'config-server/**'
             auth-service:
+              - *root-pom
               - 'auth-service/**'
             order-service:
+              - *root-pom
               - 'order-service/**'
             inventory-service:
+              - *root-pom
               - 'inventory-service/**'
             payment-service:
+              - *root-pom
               - 'payment-service/**'
             notification-service:
+              - *root-pom
               - 'notification-service/**'
             gateway-service:
+              - *root-pom
               - 'gateway-service/**'
             cart-service:
+              - *root-pom
               - 'cart-service/**'
             audit-trail-service:
+              - *root-pom
               - 'audit-trail-service/**'
             shop-ui:
               - 'shop-ui/**'
+            ci:
+              - '.gitea/workflows/**'
+              - 'scripts/**'
+              - 'coverage-report/**'
 
   test-backend:
     name: Test Backend Services
@@ -65,6 +83,8 @@ jobs:
     container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
     needs: detect-changes
     if: |
+      needs.detect-changes.outputs.ci == 'true' ||
+      needs.detect-changes.outputs.config-server == 'true' ||
       needs.detect-changes.outputs.auth-service == 'true' ||
       needs.detect-changes.outputs.order-service == 'true' ||
       needs.detect-changes.outputs.inventory-service == 'true' ||
@@ -75,10 +95,11 @@ jobs:
       needs.detect-changes.outputs.audit-trail-service == 'true'
     steps:
       - uses: actions/checkout@v4
+      # as in pr.yml
       - name: Run backend tests
         run: |
           mvn verify \
-            -pl auth-service,order-service,inventory-service,payment-service,notification-service,cart-service,audit-trail-service,coverage-report \
+            -pl auth-service,order-service,inventory-service,payment-service,notification-service,cart-service,audit-trail-service,gateway-service,config-server,coverage-report \
             -am \
             --no-transfer-progress
       - name: Enforce coverage gate

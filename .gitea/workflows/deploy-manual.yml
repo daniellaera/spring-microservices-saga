@@ -7,7 +7,7 @@ jobs:
   deploy:
     name: Deploy all to infra-node1
     runs-on: ubuntu-latest
-    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:24.04-1
+    container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
     steps:
       - name: Fetch secrets from Infisical and write .env
         uses: appleboy/ssh-action@v1.2.0
@@ -66,11 +66,20 @@ jobs:
               -o init-db.sql
             echo "init-db.sql size: $(wc -c < init-db.sql) bytes"
 
-            echo "=== Restarting ALL services ==="
-            docker compose -f docker-compose.yml up -d --force-recreate \
+            # as in main.yml's deploy: bind-mounted into the grafana container
+            echo "=== Downloading observability config ==="
+            mkdir -p observability/grafana
+            for f in observability/prometheus.yaml observability/grafana/infra-node1-dashboards.yaml \
+                     observability/grafana/infra-node1.json; do
+              curl -sSf "http://192.168.1.103:3000/daniellaera/spring-saga-store/raw/branch/main/$f" -o "$f"
+              echo "$f: $(wc -c < "$f") bytes"
+            done
+
+            echo "=== Restarting ALL services on their current :latest ==="
+            docker compose -f docker-compose.yml up -d --force-recreate --pull always \
               config-server auth-service order-service inventory-service \
               payment-service notification-service gateway-service \
-              cart-service shop-ui
+              cart-service audit-trail-service shop-ui
 
             echo "=== Running containers ==="
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"

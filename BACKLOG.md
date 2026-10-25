@@ -24,3 +24,11 @@
   steps of the saga timeline (payment-service had the same race, fixed after e2e run 295). Not seen so far:
   inventory-service's database work and payment-service's Stripe call come in between. Same fix if it shows up:
   send the event on the caller's thread before the message that starts the next step.
+- **CI: a test JVM that does not exit within 30 s fails the coverage gate** (seen once, PR #47 job 859): every test
+  of audit-trail-service passed, then its surefire fork was still alive 30 s after `System.exit(0)` and surefire
+  killed it ("Surefire is going to kill self fork JVM"); aggregate coverage fell from 97.9% to 88.87% (gate 90%).
+  The log does not show which thread held the exit (the last lines are OTLP metric pushes to the absent
+  localhost:4318 collector). If it comes back: take a thread dump of the fork at exit (`jstack`, or surefire
+  `forkedProcessExitTimeoutInSeconds` plus `-XX:+PrintConcurrentLocks` on a local `docker update --cpus` repro), and
+  turn off the OTLP exporters in test configuration (`management.otlp.metrics.export.enabled=false`).
+
