@@ -45,6 +45,10 @@ All notable changes to this project are documented here. The format follows
   (3 s connect and 10 s read timeout each), then a clear `ConfigClientFailFastException`. The import stays
   mandatory. `ClientConfigImportTest` runs each client's `application.yml` against a stub config server.
 - `GET /audit/user/{email}` and `GET /audit/order/{orderId}` answered 500 (unnamed path variables).
+- **`main.yml` deployed after failed tests** (run 259): with the images not built, the deploy restarted the
+  changed services on their previous `:latest` and logged a SHA tag that was never pushed. The deploy now
+  needs the test jobs. `workflow_dispatch` takes an optional `base` commit, so a failed run can be redeployed
+  with every service changed since the last good one.
 
 ## [1.1.0] - 2026-10-23
 
