@@ -3,7 +3,14 @@ name: Build and Deploy Online Shop
 on:
   push:
     branches: [ main ]
+  # After a failed run (no re-run API in Gitea): dispatch on main with base = the last commit that deployed fine,
+  # and every service changed since then is tested, built and deployed
   workflow_dispatch:
+    inputs:
+      base:
+        description: 'Commit to detect changes against (default: the previous commit)'
+        required: false
+        default: ''
 
 jobs:
 
@@ -24,9 +31,12 @@ jobs:
       shop-ui: ${{ steps.filter.outputs.shop-ui }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: dorny/paths-filter@v2
         id: filter
         with:
+          base: ${{ github.event.inputs.base }}
           filters: |
             config-server:
               - 'config-server/**'
@@ -293,7 +303,9 @@ jobs:
     name: Deploy to infra-node1
     runs-on: ubuntu-latest
     container: 192.168.1.103:3000/daniellaera/ci-java21-node24:bookworm-2
-    needs: [ detect-changes, build-and-push ]
+    # The test jobs too: when one fails, the images are not built, and a deploy would restart the services on their
+    # previous :latest and log a SHA tag that was never pushed (run 259, 2026-10-25)
+    needs: [ detect-changes, test-backend, test-frontend, build-and-push ]
     if: always() && !failure() && !cancelled()
     steps:
       - name: Fetch secrets from Infisical and write .env

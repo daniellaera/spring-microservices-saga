@@ -118,12 +118,17 @@ class DeadLetterITTest {
                      new KafkaConsumer<>(config, new StringDeserializer(), new StringDeserializer())) {
             consumer.subscribe(topics);
             List<String> messages = new ArrayList<>();
-            long end = System.currentTimeMillis() + 5000;
-            while (System.currentTimeMillis() < end) {
-                for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(500))) {
-                    messages.add(record.value());
-                }
+            // until the group has its partitions (slow on a busy runner), then up to their end offsets
+            long deadline = System.currentTimeMillis() + 30_000;
+            while (consumer.assignment().isEmpty() && System.currentTimeMillis() < deadline) {
+                consumer.poll(Duration.ofMillis(200)).forEach(record -> messages.add(record.value()));
             }
+            Map<TopicPartition, Long> end = consumer.endOffsets(consumer.assignment());
+            while (end.entrySet().stream().anyMatch(e -> consumer.position(e.getKey()) < e.getValue())
+                    && System.currentTimeMillis() < deadline) {
+                consumer.poll(Duration.ofMillis(200)).forEach(record -> messages.add(record.value()));
+            }
+            assertThat(consumer.assignment()).as("partitions assigned to the reading consumer").isNotEmpty();
             return messages;
         }
     }

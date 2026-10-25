@@ -9,6 +9,7 @@ import com.daniellaera.paymentservice.domain.port.out.PaymentGateway;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -76,7 +77,7 @@ class InventoryResultRetryITTest {
         kafkaTemplate.send("inventory-topic", approved(801L, "pi_801"));
 
         await().atMost(Duration.ofSeconds(60))
-                .untilAsserted(() -> assertThat(output.getAll()).contains("DLT received failed message"));
+                .untilAsserted(() -> assertThat(output.getAll()).contains("DLT received failed message: {\"orderId\":801,"));
         assertThat(messagesOn("inventory-topic-dlt")).anyMatch(message -> message.contains("\"orderId\":801"));
         // the handler ran once and its offset was committed: no retry loop on the dead-letter topic
         assertThat(output.getAll().split(Pattern.quote("DLT received failed message: {\"orderId\":801,"), -1))
@@ -133,13 +134,17 @@ class InventoryResultRetryITTest {
                      new KafkaConsumer<>(config, new StringDeserializer(), new StringDeserializer())) {
             consumer.subscribe(List.of(topic));
             List<String> messages = new ArrayList<>();
-            // poll for a few seconds: the topic may hold nothing at all
-            long end = System.currentTimeMillis() + 5000;
-            while (System.currentTimeMillis() < end) {
-                for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(500))) {
-                    messages.add(record.value());
-                }
+            // until the group has its partitions (slow on a busy runner), then up to their end offsets
+            long deadline = System.currentTimeMillis() + 30_000;
+            while (consumer.assignment().isEmpty() && System.currentTimeMillis() < deadline) {
+                consumer.poll(Duration.ofMillis(200)).forEach(record -> messages.add(record.value()));
             }
+            Map<TopicPartition, Long> end = consumer.endOffsets(consumer.assignment());
+            while (end.entrySet().stream().anyMatch(e -> consumer.position(e.getKey()) < e.getValue())
+                    && System.currentTimeMillis() < deadline) {
+                consumer.poll(Duration.ofMillis(200)).forEach(record -> messages.add(record.value()));
+            }
+            assertThat(consumer.assignment()).as("partitions assigned to the reading consumer").isNotEmpty();
             return messages;
         }
     }
