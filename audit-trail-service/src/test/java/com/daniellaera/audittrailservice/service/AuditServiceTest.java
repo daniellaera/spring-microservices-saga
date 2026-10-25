@@ -1,6 +1,6 @@
 package com.daniellaera.audittrailservice.service;
 
-import com.daniellaera.audittrailservice.dto.AuditEventDTO;
+import com.daniellaera.audittrailservice.adapter.in.web.dto.AuditEventDTO;
 import com.daniellaera.audittrailservice.domain.model.AuditEventFilter;
 import com.daniellaera.audittrailservice.dto.AuditMessage;
 import com.daniellaera.audittrailservice.domain.model.AuditEventType;

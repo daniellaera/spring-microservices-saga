@@ -1,4 +1,4 @@
-package com.daniellaera.audittrailservice.dto;
+package com.daniellaera.audittrailservice.adapter.in.web.dto;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
