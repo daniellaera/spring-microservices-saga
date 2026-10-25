@@ -1,6 +1,6 @@
 package com.daniellaera.audittrailservice.repository;
 
-import com.daniellaera.audittrailservice.enums.AuditEventType;
+import com.daniellaera.audittrailservice.domain.model.AuditEventType;
 import com.daniellaera.audittrailservice.model.AuditEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;

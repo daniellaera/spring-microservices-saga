@@ -1,8 +1,8 @@
 package com.daniellaera.audittrailservice.controller;
 
 import com.daniellaera.audittrailservice.dto.AuditEventDTO;
-import com.daniellaera.audittrailservice.dto.AuditEventFilter;
-import com.daniellaera.audittrailservice.enums.AuditEventType;
+import com.daniellaera.audittrailservice.domain.model.AuditEventFilter;
+import com.daniellaera.audittrailservice.domain.model.AuditEventType;
 import com.daniellaera.audittrailservice.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

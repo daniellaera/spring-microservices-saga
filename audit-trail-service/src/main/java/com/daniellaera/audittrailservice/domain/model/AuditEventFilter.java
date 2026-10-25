@@ -1,6 +1,4 @@
-package com.daniellaera.audittrailservice.dto;
-
-import com.daniellaera.audittrailservice.enums.AuditEventType;
+package com.daniellaera.audittrailservice.domain.model;
 
 import java.time.Instant;
 import java.util.List;

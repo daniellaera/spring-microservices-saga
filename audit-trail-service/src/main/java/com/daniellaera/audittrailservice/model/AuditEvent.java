@@ -1,6 +1,6 @@
 package com.daniellaera.audittrailservice.model;
 
-import com.daniellaera.audittrailservice.enums.AuditEventType;
+import com.daniellaera.audittrailservice.domain.model.AuditEventType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

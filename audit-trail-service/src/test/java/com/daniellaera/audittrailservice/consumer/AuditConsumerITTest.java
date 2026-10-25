@@ -1,7 +1,7 @@
 package com.daniellaera.audittrailservice.consumer;
 
 import com.daniellaera.audittrailservice.TestcontainersConfiguration;
-import com.daniellaera.audittrailservice.enums.AuditEventType;
+import com.daniellaera.audittrailservice.domain.model.AuditEventType;
 import com.daniellaera.audittrailservice.repository.AuditEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

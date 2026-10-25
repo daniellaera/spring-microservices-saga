@@ -1,7 +1,7 @@
 package com.daniellaera.audittrailservice.repository;
 
-import com.daniellaera.audittrailservice.dto.AuditEventFilter;
-import com.daniellaera.audittrailservice.enums.AuditEventType;
+import com.daniellaera.audittrailservice.domain.model.AuditEventFilter;
+import com.daniellaera.audittrailservice.domain.model.AuditEventType;
 import com.daniellaera.audittrailservice.model.AuditEvent;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;

@@ -1,4 +1,4 @@
-package com.daniellaera.audittrailservice.enums;
+package com.daniellaera.audittrailservice.domain.model;
 
 /**
  * Every event type the services send to audit-topic. A message with any other type is logged and dropped by
