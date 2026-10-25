@@ -24,6 +24,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **USER_LOGOUT no longer records the refresh token**: its payload is `"sha256:<first 12 hex digits>"` of the
+  revoked token instead of the token itself (auth-service's `auth-logout.json` fixture updated on purpose). Events
+  recorded before keep the raw, revoked token.
 - **audit-trail-, notification-, cart- and auth-service follow the hexagonal layout** (#39–#42,
   [ADR 15](docs/adr/0015-hexagonal-architecture.md)): pure refactors behind contract fixtures recorded first, with
   Spring-free use case tests and `HexagonalArchitectureTest` in each. Tests 47 → 68, 31 → 36, 17 → 38, 67 → 89.

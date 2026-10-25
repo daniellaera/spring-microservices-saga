@@ -31,7 +31,3 @@
   correlation id by entity and by `payload LIKE '%"orderId":N,%'` (ADR 18), so PostgreSQL cannot use the
   correlation id index alone. Harmless at today's size; once the table is large, or once no order older than
   2026-10-25 matters any more, drop the legacy branch or make it a separate, bounded query.
-- **The USER_LOGOUT audit event carries the raw refresh token** as its payload (and no user): it is revoked by
-  then, but a credential has no place in the audit trail. Record the user's email instead (the token's owner is
-  known when it is found) and leave the token out. A change of the audit payload: agree on it first, since it is
-  pinned by auth-service's contract fixtures (`auth-logout.json`).

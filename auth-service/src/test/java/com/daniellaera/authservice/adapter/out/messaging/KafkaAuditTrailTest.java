@@ -28,7 +28,8 @@ class KafkaAuditTrailTest {
         verify(publisher).publish("USER_LOGIN_FAILED", "a@b.c", "USER", "a@b.c",
                 Map.of("reason", "OTP_TOO_MANY_WRONG_CODES"));
         verify(publisher).publish("TOKEN_REFRESHED", "a@b.c", "USER", "a@b.c", "a@b.c");
-        verify(publisher).publish("USER_LOGOUT", null, "USER", null, "token");
+        // printf token | shasum -a 256
+        verify(publisher).publish("USER_LOGOUT", null, "USER", null, "sha256:3c469e9d6c58");
         verify(publisher).publish("USER_PROFILE_UPDATED", "a@b.c", "USER", "a@b.c",
                 new KafkaAuditTrail.ProfileUpdatePayload("Ada", null));
     }

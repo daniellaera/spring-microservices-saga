@@ -14,7 +14,7 @@ public interface AuditTrail {
     // a refresh token was issued (TOKEN_REFRESHED)
     void refreshTokenIssued(String email);
 
-    // the user is not known here: the payload is the refresh token that was revoked
+    // the user is not known here, only the refresh token that was revoked (recorded as a hash prefix, never as is)
     void loggedOut(String refreshToken);
 
     // the names as they were sent, null for one left unchanged

@@ -45,7 +45,7 @@
       "entityId" : "",
       "entityType" : "USER",
       "eventType" : "USER_LOGOUT",
-      "payload" : "\"<uuid>\"",
+      "payload" : "\"sha256:<prefix>\"",
       "serviceName" : "auth-service",
       "timestamp" : "<timestamp>",
       "userEmail" : "system"
@@ -56,7 +56,7 @@
       "entityId" : "",
       "entityType" : "USER",
       "eventType" : "USER_LOGOUT",
-      "payload" : "\"unknown\"",
+      "payload" : "\"sha256:<prefix>\"",
       "serviceName" : "auth-service",
       "timestamp" : "<timestamp>",
       "userEmail" : "system"
