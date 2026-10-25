@@ -1,7 +1,7 @@
 package com.daniellaera.authservice.controller;
 
 import com.daniellaera.authservice.TestcontainersConfiguration;
-import com.daniellaera.authservice.otp.OtpRepository;
+import com.daniellaera.authservice.domain.port.out.OtpRepository;
 import com.daniellaera.authservice.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;

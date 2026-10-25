@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.otp;
+package com.daniellaera.authservice.domain.port.out;
 
 import java.time.Duration;
 

@@ -1,5 +1,7 @@
 package com.daniellaera.authservice.otp;
 
+import com.daniellaera.authservice.domain.port.out.OtpRepository;
+import com.daniellaera.authservice.domain.port.out.OtpAttempts;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

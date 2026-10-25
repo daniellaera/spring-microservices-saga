@@ -1,6 +1,6 @@
 package com.daniellaera.authservice.model;
 
-import com.daniellaera.authservice.enums.Role;
+import com.daniellaera.authservice.domain.model.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

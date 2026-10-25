@@ -1,5 +1,8 @@
 package com.daniellaera.authservice.otp;
 
+import com.daniellaera.authservice.domain.port.out.OtpRepository;
+import com.daniellaera.authservice.domain.port.out.OtpAttempts;
+import com.daniellaera.authservice.domain.model.OtpCode;
 import com.daniellaera.authservice.TestcontainersConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

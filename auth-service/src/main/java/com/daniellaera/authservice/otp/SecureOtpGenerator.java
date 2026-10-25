@@ -1,5 +1,7 @@
 package com.daniellaera.authservice.otp;
 
+import com.daniellaera.authservice.domain.port.out.OtpGenerator;
+import com.daniellaera.authservice.domain.model.OtpCode;
 import org.springframework.stereotype.Component;
 
 import java.security.SecureRandom;

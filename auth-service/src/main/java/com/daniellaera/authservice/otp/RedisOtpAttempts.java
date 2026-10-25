@@ -1,5 +1,6 @@
 package com.daniellaera.authservice.otp;
 
+import com.daniellaera.authservice.domain.port.out.OtpAttempts;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;

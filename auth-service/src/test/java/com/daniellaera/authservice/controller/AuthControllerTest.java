@@ -8,7 +8,7 @@ import com.daniellaera.authservice.dto.OtpRequest;
 import com.daniellaera.authservice.dto.RegisterRequest;
 import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.model.User;
-import com.daniellaera.authservice.enums.Role;
+import com.daniellaera.authservice.domain.model.Role;
 import com.daniellaera.authservice.service.AuthService;
 import com.daniellaera.authservice.service.RefreshTokenService;
 import com.daniellaera.authservice.util.JwtUtil;

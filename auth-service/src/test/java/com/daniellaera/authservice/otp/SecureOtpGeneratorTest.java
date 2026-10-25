@@ -1,5 +1,6 @@
 package com.daniellaera.authservice.otp;
 
+import com.daniellaera.authservice.domain.model.OtpCode;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;

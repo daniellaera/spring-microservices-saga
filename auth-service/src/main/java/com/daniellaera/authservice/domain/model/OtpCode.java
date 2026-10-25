@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.otp;
+package com.daniellaera.authservice.domain.model;
 
 public record OtpCode(String value) {
     public OtpCode {

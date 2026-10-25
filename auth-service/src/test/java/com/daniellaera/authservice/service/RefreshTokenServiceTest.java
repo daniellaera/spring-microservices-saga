@@ -1,7 +1,7 @@
 package com.daniellaera.authservice.service;
 
 import com.daniellaera.authservice.audit.AuditPublisher;
-import com.daniellaera.authservice.enums.Role;
+import com.daniellaera.authservice.domain.model.Role;
 import com.daniellaera.authservice.model.RefreshToken;
 import com.daniellaera.authservice.model.User;
 import com.daniellaera.authservice.repository.RefreshTokenRepository;
