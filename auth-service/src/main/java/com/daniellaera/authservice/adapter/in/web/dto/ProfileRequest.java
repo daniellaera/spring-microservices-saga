@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.dto;
+package com.daniellaera.authservice.adapter.in.web.dto;
 
 import jakarta.validation.constraints.Size;
 

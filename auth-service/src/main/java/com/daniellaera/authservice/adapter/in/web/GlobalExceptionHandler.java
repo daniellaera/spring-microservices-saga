@@ -1,5 +1,8 @@
-package com.daniellaera.authservice.exception;
+package com.daniellaera.authservice.adapter.in.web;
 
+import com.daniellaera.authservice.domain.model.AuthenticationFailedException;
+import com.daniellaera.authservice.domain.model.EmailAlreadyRegisteredException;
+import com.daniellaera.authservice.domain.model.OtpLimitExceededException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -38,9 +41,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatusCode()).body(response);
     }
 
-    @ExceptionHandler(DataIntegrityViolationException.class)
+    // the domain's 401 and 429, with the body a ResponseStatusException had when they were ones
+    @ExceptionHandler({AuthenticationFailedException.class, OtpLimitExceededException.class})
+    public ResponseEntity<Map<String, Object>> handleAuthenticationFailure(RuntimeException ex) {
+        HttpStatus status = ex instanceof OtpLimitExceededException ? HttpStatus.TOO_MANY_REQUESTS : HttpStatus.UNAUTHORIZED;
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", status.value());
+        response.put("error", ex.getMessage());
+        response.put("message", ex.getMessage());
+        return ResponseEntity.status(status).body(response);
+    }
+
+    @ExceptionHandler({DataIntegrityViolationException.class, EmailAlreadyRegisteredException.class})
     @ResponseStatus(HttpStatus.CONFLICT)
-    public ResponseEntity<Map<String, Object>> handleDuplicateKey(DataIntegrityViolationException ex) {
+    public ResponseEntity<Map<String, Object>> handleDuplicateKey(RuntimeException ex) {
         return ResponseEntity.status(409).body(Map.of(
                 "status", 409,
                 "error", "Conflict",

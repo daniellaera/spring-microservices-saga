@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.controller;
+package com.daniellaera.authservice.adapter.in.web;
 
 import com.daniellaera.authservice.TestcontainersConfiguration;
 import com.daniellaera.authservice.domain.port.out.OtpRepository;

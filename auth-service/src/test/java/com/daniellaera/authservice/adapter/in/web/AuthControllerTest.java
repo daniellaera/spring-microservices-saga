@@ -1,17 +1,11 @@
-package com.daniellaera.authservice.controller;
+package com.daniellaera.authservice.adapter.in.web;
 
-import com.daniellaera.authservice.adapter.out.messaging.AuditPublisher;
-import com.daniellaera.authservice.dto.AuthResponse;
-import com.daniellaera.authservice.dto.LoginRequest;
-import com.daniellaera.authservice.dto.OtpInitiatedResponse;
-import com.daniellaera.authservice.dto.OtpRequest;
-import com.daniellaera.authservice.dto.RegisterRequest;
-import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaEntity;
-import com.daniellaera.authservice.adapter.out.persistence.UserJpaEntity;
-import com.daniellaera.authservice.domain.model.Role;
-import com.daniellaera.authservice.service.AuthService;
-import com.daniellaera.authservice.service.RefreshTokenService;
-import com.daniellaera.authservice.adapter.out.security.JwtUtil;
+import com.daniellaera.authservice.domain.model.AuthTokens;
+import com.daniellaera.authservice.domain.port.in.AccountQuery;
+import com.daniellaera.authservice.domain.port.in.LoginUseCase;
+import com.daniellaera.authservice.domain.port.in.RefreshTokensUseCase;
+import com.daniellaera.authservice.domain.port.in.RegisterUseCase;
+import com.daniellaera.authservice.domain.port.in.UpdateProfileUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,16 +28,19 @@ class AuthControllerTest {
     private AuthController authController;
 
     @Mock
-    private AuthService authService;
+    private RegisterUseCase registerUseCase;
 
     @Mock
-    private RefreshTokenService refreshTokenService;
+    private LoginUseCase loginUseCase;
 
     @Mock
-    private JwtUtil jwtUtil;
+    private RefreshTokensUseCase refreshTokensUseCase;
 
     @Mock
-    private AuditPublisher auditPublisher;
+    private AccountQuery accountQuery;
+
+    @Mock
+    private UpdateProfileUseCase updateProfileUseCase;
 
     private MockMvc mockMvc;
 
@@ -54,8 +51,8 @@ class AuthControllerTest {
 
     @Test
     void register_shouldReturn200AndToken() throws Exception {
-        when(authService.register(any(RegisterRequest.class)))
-                .thenReturn(new AuthResponse("mocked-token", "mocked-refresh-token"));
+        when(registerUseCase.register("john@test.com", "password123"))
+                .thenReturn(new AuthTokens("mocked-token", "mocked-refresh-token"));
 
         mockMvc.perform(post("/auth/register")
                         .contentType(APPLICATION_JSON)
@@ -71,8 +68,7 @@ class AuthControllerTest {
 
     @Test
     void login_shouldReturn200AndRequiresOtp() throws Exception {
-        when(authService.login(any(LoginRequest.class)))
-                .thenReturn(new OtpInitiatedResponse(true, "john@test.com", "OTP sent to your email address"));
+        when(loginUseCase.login("john@test.com", "password123")).thenReturn("john@test.com");
 
         mockMvc.perform(post("/auth/login")
                         .contentType(APPLICATION_JSON)
@@ -89,8 +85,8 @@ class AuthControllerTest {
 
     @Test
     void verifyOtp_shouldReturn200AndToken() throws Exception {
-        when(authService.verifyOtpAndLogin(any(OtpRequest.class)))
-                .thenReturn(new AuthResponse("login-token", "login-refresh-token"));
+        when(loginUseCase.verifyOtp("john@test.com", "123456"))
+                .thenReturn(new AuthTokens("login-token", "login-refresh-token"));
 
         mockMvc.perform(post("/auth/verify-otp")
                         .contentType(APPLICATION_JSON)
@@ -106,18 +102,7 @@ class AuthControllerTest {
 
     @Test
     void refresh_shouldReturn200AndNewToken() throws Exception {
-        UserJpaEntity user = UserJpaEntity.builder().email("john@test.com").role(Role.USER).build();
-        RefreshTokenJpaEntity existingToken = new RefreshTokenJpaEntity();
-        existingToken.setToken("old-refresh-token");
-        existingToken.setUser(user);
-
-        RefreshTokenJpaEntity newToken = new RefreshTokenJpaEntity();
-        newToken.setToken("new-refresh-token");
-        newToken.setUser(user);
-
-        when(refreshTokenService.validateRefreshToken("old-refresh-token")).thenReturn(existingToken);
-        when(refreshTokenService.createRefreshToken("john@test.com")).thenReturn(newToken);
-        when(jwtUtil.generateToken("john@test.com", "USER")).thenReturn("new-token");
+        when(refreshTokensUseCase.refresh("old-refresh-token")).thenReturn(new AuthTokens("new-token", "new-refresh-token"));
 
         mockMvc.perform(post("/auth/refresh")
                         .contentType(APPLICATION_JSON)

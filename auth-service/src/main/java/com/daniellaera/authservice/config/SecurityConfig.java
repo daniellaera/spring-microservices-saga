@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.security;
+package com.daniellaera.authservice.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;

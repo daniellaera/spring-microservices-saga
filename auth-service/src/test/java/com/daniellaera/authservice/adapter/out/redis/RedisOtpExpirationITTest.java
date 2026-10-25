@@ -1,6 +1,7 @@
 package com.daniellaera.authservice.adapter.out.redis;
 
-import com.daniellaera.authservice.otp.OtpValidator;
+import com.daniellaera.authservice.application.OtpService;
+import com.daniellaera.authservice.domain.model.AuthenticationFailedException;
 import com.daniellaera.authservice.domain.port.out.OtpRepository;
 import com.daniellaera.authservice.domain.port.out.OtpAttempts;
 import com.daniellaera.authservice.domain.model.OtpCode;
@@ -10,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 
@@ -26,7 +26,7 @@ class RedisOtpExpirationITTest {
     private OtpRepository otpRepository;
 
     @Autowired
-    private OtpValidator otpValidator;
+    private OtpService otpService;
 
     @Test
     void otpCode_shouldExpireFromRedis_afterTtlElapses() throws InterruptedException {
@@ -67,8 +67,8 @@ class RedisOtpExpirationITTest {
 
         Thread.sleep(1500);
 
-        assertThatThrownBy(() -> otpValidator.validate(email, "123456"))
-                .isInstanceOf(ResponseStatusException.class)
+        assertThatThrownBy(() -> otpService.verifyOtp(email, "123456"))
+                .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessageContaining("expired or not found");
     }
 }
