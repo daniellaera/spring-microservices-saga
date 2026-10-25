@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Service images are runtime-only** (#31): `eclipse-temurin:21-jre-jammy` plus the service's jar, which
+  `main.yml` builds for every changed service in one Maven run (`-pl <services> -am`) instead of each image
+  building the whole reactor. Images 486–568 MB → 330–412 MB; a full rebuild's image job 276–286 s → 226 s.
+  config-server's jar never contains `*-local.yml`.
+
 ### Fixed
 
 - **`/orders/stream` while order-service is down** answers 503 (`/fallback/order-stream`, JSON) instead of a
