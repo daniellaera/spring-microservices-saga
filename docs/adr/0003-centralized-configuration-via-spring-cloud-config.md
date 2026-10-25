@@ -28,8 +28,13 @@ environment profiles are managed in one place.
   10 attempts over about 85 s (3 s connect, 10 s read timeout each), then the startup fails with
   `ConfigClientFailFastException`. `ClientConfigImportTest` (config-server module) checks every client's own
   `application.yml`.
-- A reachable config server with no file for the service is not detected: the native backend still answers
-  with the shared `configs/application.yml`, and the service starts on its local defaults (BACKLOG.md).
+- Every service needs a file of its own, `configs/<spring.application.name>.yml` (`.yaml`, `.properties`, or a
+  `-<profile>` variant). Since 2026-10-25 config-server answers 404 to an environment request for an application
+  without one (`ApplicationFileRequired`) instead of the shared `configs/application.yml` alone, and the client
+  fails its startup (`None of labels [] found`) instead of starting on its local defaults. The health check reads
+  the repository directly and is unaffected. `ApplicationFileRequiredITTest` checks, against the real config
+  server, that the name each client's own `application.yml` asks for has its file, and that a missing one fails
+  the client's startup.
 - A configuration change takes effect when the service that reads it restarts. The deploy only restarts the
   services whose directory changed: a change to `configs/gateway-service.yml` alone restarts `config-server`,
   not the gateway. When both change, the gateway waits for `config-server: service_healthy` and reads the new

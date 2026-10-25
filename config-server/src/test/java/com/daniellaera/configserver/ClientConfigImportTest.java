@@ -15,6 +15,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Properties;
 
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
@@ -44,7 +46,7 @@ class ClientConfigImportTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"audit-trail-service", "auth-service", "cart-service", "gateway-service",
-            "inventory-service", "order-service", "payment-service"})
+            "inventory-service", "notification-service", "order-service", "payment-service"})
     void aConfigServerThatComesUpLate_isWaitedFor(String service) {
         // no answer twice (connection reset), a 503 once, then the config
         configServer.stubFor(WireMock.get("/" + service + "/default").inScenario("late").whenScenarioStateIs(STARTED)
@@ -65,7 +67,7 @@ class ClientConfigImportTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"audit-trail-service", "auth-service", "cart-service", "gateway-service",
-            "inventory-service", "order-service", "payment-service"})
+            "inventory-service", "notification-service", "order-service", "payment-service"})
     void aConfigServerThatNeverComesUp_failsTheStartup_afterTheLastAttempt(String service) {
         configServer.stubFor(WireMock.get("/" + service + "/default").willReturn(WireMock.serviceUnavailable()));
 
@@ -77,7 +79,7 @@ class ClientConfigImportTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"audit-trail-service", "auth-service", "cart-service", "gateway-service",
-            "inventory-service", "order-service", "payment-service"})
+            "inventory-service", "notification-service", "order-service", "payment-service"})
     void aConfigServerWithoutTheClientsConfig_failsTheStartup(String service) {
         // what the config server answers for an unknown label: not an empty config to start on
         configServer.stubFor(WireMock.get("/" + service + "/default").willReturn(WireMock.notFound()));
@@ -89,7 +91,7 @@ class ClientConfigImportTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"audit-trail-service", "auth-service", "cart-service", "gateway-service",
-            "inventory-service", "order-service", "payment-service"})
+            "inventory-service", "notification-service", "order-service", "payment-service"})
     void productionBudget(String service) {
         Properties yaml = applicationYml(service);
 
@@ -114,7 +116,7 @@ class ClientConfigImportTest {
                 .web(WebApplicationType.NONE)
                 .bannerMode(Banner.Mode.OFF)
                 .run("--spring.cloud.config.enabled=true",
-                        "--spring.config.location=file:../" + service + "/src/main/resources/application.yml",
+                        "--spring.config.location=file:" + applicationFile(service),
                         "--CONFIG_SERVER_URI=" + configServer.baseUrl(),
                         "--spring.cloud.config.retry.initial-interval=20",
                         "--spring.cloud.config.retry.max-interval=50");
@@ -122,8 +124,14 @@ class ClientConfigImportTest {
 
     private static Properties applicationYml(String service) {
         YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
-        yaml.setResources(new FileSystemResource("../" + service + "/src/main/resources/application.yml"));
+        yaml.setResources(new FileSystemResource(applicationFile(service)));
         return yaml.getObject();
+    }
+
+    // notification-service's is application.yaml
+    private static String applicationFile(String service) {
+        String yml = "../" + service + "/src/main/resources/application.yml";
+        return Files.exists(Path.of(yml)) ? yml : "../" + service + "/src/main/resources/application.yaml";
     }
 
     private static String environment(String service, String propertySource) {
