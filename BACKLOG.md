@@ -4,9 +4,6 @@
   API paths `/products` and `/audit` are also Angular routes, so nginx tells page loads from API calls
   by the `Accept: text/html` header (`$spa_navigation` in `shop-ui/config/nginx.conf`). A separate `/api`
   prefix removes that workaround.
-- **Order 59 may hold an unrefunded payment**: cancelled on 2026-10-21 (inventory REJECTED) before payment
-  compensation existed; its intent `pi_3USvDh…` (€15,999.80) may have been captured. Check it in the Stripe
-  dashboard and refund it there if it was.
 - **2026-10-30: delete the maintenance backups and review a week of memory on infra-node1.**
   - Delete `/srv/online-shop/maintenance/20261023/{kafka-logs,kafka-logs.tgz,grafana-data}` (3.4 GB) and
     `/srv/online-shop/maintenance/20261024`, then remove the old anonymous Kafka volumes, checking each one first
