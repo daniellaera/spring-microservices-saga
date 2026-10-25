@@ -31,6 +31,10 @@ All notable changes to this project are documented here. The format follows
   `@RetryableTopic` like payment-service: 5 attempts after 2, 6, 18 and 54 s on the service's own retry topics,
   an unreadable event straight to the dead-letter topic, whose handler reads the `kafka_exception-message`
   header, logs the record once and never throws.
+- **A config server still starting no longer fails the other services' startup.** Every client of
+  config-server sets `spring.cloud.config.fail-fast` with spring-retry: 10 attempts over about 85 s
+  (3 s connect and 10 s read timeout each), then a clear `ConfigClientFailFastException`. The import stays
+  mandatory. `ClientConfigImportTest` runs each client's `application.yml` against a stub config server.
 
 ## [1.1.0] - 2026-10-23
 
