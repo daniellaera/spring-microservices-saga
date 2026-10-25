@@ -4,8 +4,8 @@ import com.daniellaera.audittrailservice.dto.AuditEventDTO;
 import com.daniellaera.audittrailservice.domain.model.AuditEventFilter;
 import com.daniellaera.audittrailservice.dto.AuditMessage;
 import com.daniellaera.audittrailservice.domain.model.AuditEventType;
-import com.daniellaera.audittrailservice.model.AuditEvent;
-import com.daniellaera.audittrailservice.repository.AuditEventRepository;
+import com.daniellaera.audittrailservice.adapter.out.persistence.AuditEventJpaEntity;
+import com.daniellaera.audittrailservice.adapter.out.persistence.AuditEventJpaRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -29,7 +29,7 @@ import static org.mockito.Mockito.*;
 class AuditServiceTest {
 
     @Mock
-    private AuditEventRepository auditEventRepository;
+    private AuditEventJpaRepository auditEventRepository;
 
     @InjectMocks
     private AuditService auditService;
@@ -42,7 +42,7 @@ class AuditServiceTest {
 
         auditService.record(message);
 
-        ArgumentCaptor<AuditEvent> captor = ArgumentCaptor.forClass(AuditEvent.class);
+        ArgumentCaptor<AuditEventJpaEntity> captor = ArgumentCaptor.forClass(AuditEventJpaEntity.class);
         verify(auditEventRepository).save(captor.capture());
         assertThat(captor.getValue().getEventType()).isEqualTo(AuditEventType.ORDER_CREATED);
         assertThat(captor.getValue().getUserEmail()).isEqualTo("buyer@test.com");
@@ -59,7 +59,7 @@ class AuditServiceTest {
 
         auditService.record(message);
 
-        ArgumentCaptor<AuditEvent> captor = ArgumentCaptor.forClass(AuditEvent.class);
+        ArgumentCaptor<AuditEventJpaEntity> captor = ArgumentCaptor.forClass(AuditEventJpaEntity.class);
         verify(auditEventRepository).save(captor.capture());
         assertThat(captor.getValue().getCorrelationId()).isNull();
     }
@@ -77,8 +77,8 @@ class AuditServiceTest {
 
     @Test
     void search_returnsAPageOfTheMatchingEvents_newestFirst() {
-        AuditEvent event = AuditEvent.of(AuditEventType.ORDER_CREATED, "buyer@test.com", "ORDER", "1", "{}", "order-service");
-        when(auditEventRepository.findAll(ArgumentMatchers.<Specification<AuditEvent>>any(), any(Pageable.class)))
+        AuditEventJpaEntity event = AuditEventJpaEntity.of(AuditEventType.ORDER_CREATED, "buyer@test.com", "ORDER", "1", "{}", "order-service");
+        when(auditEventRepository.findAll(ArgumentMatchers.<Specification<AuditEventJpaEntity>>any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(event)));
 
         Page<AuditEventDTO> result = auditService.search(AuditEventFilter.none(), 2, 10);
@@ -86,7 +86,7 @@ class AuditServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).eventType()).isEqualTo("ORDER_CREATED");
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-        verify(auditEventRepository).findAll(ArgumentMatchers.<Specification<AuditEvent>>any(), pageable.capture());
+        verify(auditEventRepository).findAll(ArgumentMatchers.<Specification<AuditEventJpaEntity>>any(), pageable.capture());
         assertThat(pageable.getValue().getPageNumber()).isEqualTo(2);
         assertThat(pageable.getValue().getPageSize()).isEqualTo(10);
         assertThat(pageable.getValue().getSort()).containsExactly(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
@@ -104,7 +104,7 @@ class AuditServiceTest {
 
     @Test
     void getByUser_filtersByUserEmail() {
-        AuditEvent event = AuditEvent.of(AuditEventType.USER_LOGIN, "buyer@test.com", "USER", "buyer@test.com", "{}", "auth-service");
+        AuditEventJpaEntity event = AuditEventJpaEntity.of(AuditEventType.USER_LOGIN, "buyer@test.com", "USER", "buyer@test.com", "{}", "auth-service");
         when(auditEventRepository.findByUserEmailOrderByCreatedAtDesc("buyer@test.com"))
                 .thenReturn(List.of(event));
 
@@ -116,7 +116,7 @@ class AuditServiceTest {
 
     @Test
     void getByOrder_filtersByOrderEntityType() {
-        AuditEvent event = AuditEvent.of(AuditEventType.ORDER_CREATED, "buyer@test.com", "ORDER", "42", "{}", "order-service");
+        AuditEventJpaEntity event = AuditEventJpaEntity.of(AuditEventType.ORDER_CREATED, "buyer@test.com", "ORDER", "42", "{}", "order-service");
         when(auditEventRepository.findByEntityTypeAndEntityIdOrderByCreatedAtDesc("ORDER", "42"))
                 .thenReturn(List.of(event));
 

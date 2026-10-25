@@ -4,9 +4,9 @@ import com.daniellaera.audittrailservice.dto.AuditEventDTO;
 import com.daniellaera.audittrailservice.domain.model.AuditEventFilter;
 import com.daniellaera.audittrailservice.dto.AuditMessage;
 import com.daniellaera.audittrailservice.domain.model.AuditEventType;
-import com.daniellaera.audittrailservice.model.AuditEvent;
-import com.daniellaera.audittrailservice.repository.AuditEventRepository;
-import com.daniellaera.audittrailservice.repository.AuditEventSpecifications;
+import com.daniellaera.audittrailservice.adapter.out.persistence.AuditEventJpaEntity;
+import com.daniellaera.audittrailservice.adapter.out.persistence.AuditEventJpaRepository;
+import com.daniellaera.audittrailservice.adapter.out.persistence.AuditEventSpecifications;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,12 +24,12 @@ import java.util.List;
 @Slf4j
 public class AuditService {
 
-    private final AuditEventRepository auditEventRepository;
+    private final AuditEventJpaRepository auditEventRepository;
 
     @Transactional
     public void record(AuditMessage message) {
         try {
-            AuditEvent event = AuditEvent.of(
+            AuditEventJpaEntity event = AuditEventJpaEntity.of(
                     AuditEventType.valueOf(message.eventType()),
                     message.userEmail(),
                     message.entityType(),
@@ -79,7 +79,7 @@ public class AuditService {
                 .stream().map(this::toDTO).toList();
     }
 
-    private AuditEventDTO toDTO(AuditEvent e) {
+    private AuditEventDTO toDTO(AuditEventJpaEntity e) {
         return new AuditEventDTO(
                 e.getId(),
                 e.getEventType().name(),

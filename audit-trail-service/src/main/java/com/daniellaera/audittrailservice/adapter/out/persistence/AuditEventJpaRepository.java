@@ -1,7 +1,6 @@
-package com.daniellaera.audittrailservice.repository;
+package com.daniellaera.audittrailservice.adapter.out.persistence;
 
 import com.daniellaera.audittrailservice.domain.model.AuditEventType;
-import com.daniellaera.audittrailservice.model.AuditEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -9,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-public interface AuditEventRepository extends JpaRepository<AuditEvent, Long>, JpaSpecificationExecutor<AuditEvent> {
+public interface AuditEventJpaRepository extends JpaRepository<AuditEventJpaEntity, Long>, JpaSpecificationExecutor<AuditEventJpaEntity> {
 
     /**
      * Every event of one order's saga, oldest first. Events recorded before the correlation id existed are matched
@@ -18,20 +17,20 @@ public interface AuditEventRepository extends JpaRepository<AuditEvent, Long>, J
      * STOCK_DEDUCTED had no order id at all, so older orders show none.
      */
     @Query("""
-            select e from AuditEvent e
+            select e from AuditEventJpaEntity e
             where e.correlationId = :orderId
                or (e.correlationId is null
                    and ((e.entityType in ('ORDER', 'PAYMENT') and e.entityId = :orderId and e.eventType <> :initiated)
                         or (e.eventType = :restored and e.payload like :restoredPayload)))
             order by e.createdAt, e.id
             """)
-    List<AuditEvent> findTimeline(@Param("orderId") String orderId,
+    List<AuditEventJpaEntity> findTimeline(@Param("orderId") String orderId,
                                   @Param("initiated") AuditEventType initiated,
                                   @Param("restored") AuditEventType restored,
                                   @Param("restoredPayload") String restoredPayload);
 
-    List<AuditEvent> findByUserEmailOrderByCreatedAtDesc(String userEmail);
+    List<AuditEventJpaEntity> findByUserEmailOrderByCreatedAtDesc(String userEmail);
 
-    List<AuditEvent> findByEntityTypeAndEntityIdOrderByCreatedAtDesc(
+    List<AuditEventJpaEntity> findByEntityTypeAndEntityIdOrderByCreatedAtDesc(
             String entityType, String entityId);
 }

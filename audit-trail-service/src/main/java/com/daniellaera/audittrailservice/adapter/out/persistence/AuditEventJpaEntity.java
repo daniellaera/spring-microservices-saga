@@ -1,4 +1,4 @@
-package com.daniellaera.audittrailservice.model;
+package com.daniellaera.audittrailservice.adapter.out.persistence;
 
 import com.daniellaera.audittrailservice.domain.model.AuditEventType;
 import jakarta.persistence.Column;
@@ -29,7 +29,7 @@ import java.time.ZoneOffset;
 )
 @Getter
 @NoArgsConstructor
-public class AuditEvent {
+public class AuditEventJpaEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -71,7 +71,7 @@ public class AuditEvent {
     }
 
     // builder pattern for creation only
-    public static AuditEvent of(
+    public static AuditEventJpaEntity of(
             AuditEventType eventType,
             String userEmail,
             String entityType,
@@ -81,7 +81,7 @@ public class AuditEvent {
         return of(eventType, userEmail, entityType, entityId, payload, serviceName, null);
     }
 
-    public static AuditEvent of(
+    public static AuditEventJpaEntity of(
             AuditEventType eventType,
             String userEmail,
             String entityType,
@@ -89,7 +89,7 @@ public class AuditEvent {
             String payload,
             String serviceName,
             String correlationId) {
-        AuditEvent event = new AuditEvent();
+        AuditEventJpaEntity event = new AuditEventJpaEntity();
         event.eventType = eventType;
         event.userEmail = userEmail;
         event.entityType = entityType;

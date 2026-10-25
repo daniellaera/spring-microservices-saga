@@ -2,7 +2,7 @@ package com.daniellaera.audittrailservice.consumer;
 
 import com.daniellaera.audittrailservice.TestcontainersConfiguration;
 import com.daniellaera.audittrailservice.domain.model.AuditEventType;
-import com.daniellaera.audittrailservice.repository.AuditEventRepository;
+import com.daniellaera.audittrailservice.adapter.out.persistence.AuditEventJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -29,7 +29,7 @@ class AuditConsumerITTest {
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @Autowired
-    private AuditEventRepository auditEventRepository;
+    private AuditEventJpaRepository auditEventRepository;
 
     @BeforeEach
     void setUp() {

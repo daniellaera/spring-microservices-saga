@@ -1,8 +1,7 @@
-package com.daniellaera.audittrailservice.repository;
+package com.daniellaera.audittrailservice.adapter.out.persistence;
 
 import com.daniellaera.audittrailservice.domain.model.AuditEventFilter;
 import com.daniellaera.audittrailservice.domain.model.AuditEventType;
-import com.daniellaera.audittrailservice.model.AuditEvent;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
@@ -22,7 +21,7 @@ public final class AuditEventSpecifications {
     private AuditEventSpecifications() {
     }
 
-    public static Specification<AuditEvent> matching(AuditEventFilter filter) {
+    public static Specification<AuditEventJpaEntity> matching(AuditEventFilter filter) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (hasText(filter.q())) {
@@ -51,7 +50,7 @@ public final class AuditEventSpecifications {
     }
 
     // The text columns contain q; the event type (stored as its name) is matched on the enum's names instead
-    private static Predicate search(Root<AuditEvent> root, CriteriaBuilder cb, String q) {
+    private static Predicate search(Root<AuditEventJpaEntity> root, CriteriaBuilder cb, String q) {
         String pattern = "%" + escapeLike(q.toLowerCase(Locale.ROOT)) + "%";
         List<Predicate> any = new ArrayList<>();
         for (String column : List.of("userEmail", "entityType", "entityId", "serviceName", "correlationId")) {
