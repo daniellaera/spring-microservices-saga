@@ -3,6 +3,7 @@ package com.daniellaera.inventoryservice.contract;
 import com.daniellaera.inventoryservice.NoCachingConfiguration;
 import com.daniellaera.inventoryservice.adapter.in.messaging.OrderEvent;
 import com.daniellaera.inventoryservice.adapter.in.messaging.OrderEventListener;
+import com.daniellaera.inventoryservice.adapter.in.messaging.RecordingDeadLetters;
 import com.daniellaera.inventoryservice.adapter.in.messaging.OrderItemEvent;
 import com.daniellaera.inventoryservice.adapter.in.messaging.PaymentEvent;
 import com.daniellaera.inventoryservice.adapter.out.messaging.KafkaAuditPublisher;
@@ -226,7 +227,7 @@ class EventContractTest {
         new OrderEventListener(command -> {
             commands.add(command);
             return Optional.empty();
-        }, objectMapper).consumeOrder(fixture(orderEventFixture));
+        }, new RecordingDeadLetters(), objectMapper).consumeOrder(fixture(orderEventFixture));
         assertThat(commands).hasSize(1);
         return commands.get(0);
     }

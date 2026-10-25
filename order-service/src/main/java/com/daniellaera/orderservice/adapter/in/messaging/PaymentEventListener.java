@@ -2,6 +2,7 @@ package com.daniellaera.orderservice.adapter.in.messaging;
 
 import com.daniellaera.orderservice.domain.port.in.ApplyPaymentResultUseCase;
 import com.daniellaera.orderservice.domain.port.in.PaymentResult;
+import com.daniellaera.orderservice.domain.port.in.ReportDeadLetteredResultUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -24,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 public class PaymentEventListener {
 
     private final ApplyPaymentResultUseCase applyPaymentResultUseCase;
+    private final ReportDeadLetteredResultUseCase reportDeadLetteredResultUseCase;
     private final ObjectMapper objectMapper;
 
     // Nothing is caught: a failing payment result is retried on the retry topics without holding back payment-topic
@@ -49,8 +51,8 @@ public class PaymentEventListener {
                 event.quantity(), event.status(), event.price(), event.totalAmount(), event.userEmail()));
     }
 
-    // Called once per dead-lettered payment result: the order stays PENDING. It must not throw: the DLT container
-    // would retry it forever.
+    // Called once per dead-lettered payment result: the order stays PENDING. Logged and audited (ORDER_DEAD_LETTERED).
+    // It must not throw: the DLT container would retry it forever.
     @DltHandler
     public void handleDlt(ConsumerRecord<String, String> record) {
         // the retry topics record it as kafka_exception-message, a plain dead-letter recoverer as kafka_dlt-...
@@ -59,6 +61,14 @@ public class PaymentEventListener {
             error = headerValue(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE);
         }
         log.error("DLT received failed message: {} error: {}", record.value(), error);
+        PaymentEvent event;
+        try {
+            event = objectMapper.readValue(record.value(), PaymentEvent.class);
+        } catch (Exception e) {
+            reportDeadLetteredResultUseCase.deadLettered(null, null, error);
+            return;
+        }
+        reportDeadLetteredResultUseCase.deadLettered(event.orderId(), event.userEmail(), error);
     }
 
     private static String headerValue(ConsumerRecord<String, String> record, String name) {

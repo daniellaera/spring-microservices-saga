@@ -43,6 +43,12 @@ public class KafkaAuditTrail implements AuditTrail {
                 () -> new OutboxFailedAuditPayload(orderId, eventType, attempts, error));
     }
 
+    @Async
+    @Override
+    public void paymentResultDeadLettered(Long orderId, String userEmail, String error) {
+        publish("ORDER_DEAD_LETTERED", orderId, userEmail, () -> new DeadLetterAuditPayload(orderId, error));
+    }
+
     private void publish(String eventType, Order order, Supplier<Object> payload) {
         publish(eventType, order.id(), order.userEmail(), payload);
     }
@@ -53,7 +59,7 @@ public class KafkaAuditTrail implements AuditTrail {
                     "eventType", eventType,
                     "userEmail", userEmail != null ? userEmail : "system",
                     "entityType", "ORDER",
-                    "entityId", String.valueOf(orderId),
+                    "entityId", orderId != null ? String.valueOf(orderId) : "",
                     "payload", objectMapper.writeValueAsString(payload.get()),
                     "serviceName", "order-service",
                     "timestamp", LocalDateTime.now().toString()

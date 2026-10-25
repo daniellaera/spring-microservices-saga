@@ -4,6 +4,7 @@ import com.daniellaera.orderservice.application.ApplyPaymentResultService;
 import com.daniellaera.orderservice.application.GetOrderService;
 import com.daniellaera.orderservice.application.ListOrdersService;
 import com.daniellaera.orderservice.application.PlaceOrderService;
+import com.daniellaera.orderservice.application.ReportDeadLetteredResultService;
 import com.daniellaera.orderservice.domain.port.out.AuditTrail;
 import com.daniellaera.orderservice.domain.port.out.OrderEventPublisher;
 import com.daniellaera.orderservice.domain.port.out.OrderRepository;
@@ -36,5 +37,10 @@ public class OrderUseCaseConfig {
                                                                AuditTrail auditTrail,
                                                                OrderStatusNotifier orderStatusNotifier) {
         return new ApplyPaymentResultService(orderRepository, auditTrail, orderStatusNotifier);
+    }
+
+    @Bean
+    public ReportDeadLetteredResultService reportDeadLetteredResultService(AuditTrail auditTrail) {
+        return new ReportDeadLetteredResultService(auditTrail);
     }
 }

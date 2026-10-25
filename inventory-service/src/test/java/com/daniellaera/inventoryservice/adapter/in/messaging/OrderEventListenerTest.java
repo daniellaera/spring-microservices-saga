@@ -29,10 +29,11 @@ class OrderEventListenerTest {
 
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
     private final List<ReserveStockCommand> commands = new ArrayList<>();
+    private final RecordingDeadLetters deadLetters = new RecordingDeadLetters();
     private final OrderEventListener listener = new OrderEventListener(command -> {
         commands.add(command);
         return Optional.empty();
-    }, objectMapper);
+    }, deadLetters, objectMapper);
 
     @Test
     void multiItemOrder_mapsEveryFieldAndItem() {
@@ -78,7 +79,7 @@ class OrderEventListenerTest {
     void useCaseFailure_propagatesToTheContainer() {
         OrderEventListener failing = new OrderEventListener(command -> {
             throw new IllegalStateException("database unavailable");
-        }, objectMapper);
+        }, deadLetters, objectMapper);
 
         assertThatThrownBy(() -> failing.consumeOrder("{\"orderId\":3,\"productName\":\"MacBook Pro\",\"quantity\":1}"))
                 .isInstanceOf(IllegalStateException.class)
@@ -86,13 +87,17 @@ class OrderEventListenerTest {
     }
 
     @Test
-    void deadLetteredOrder_isLoggedWithTheRetryTopicsError(CapturedOutput output) {
-        ConsumerRecord<String, String> record = new ConsumerRecord<>("orders-topic-inventory-dlt", 0, 0L, null, "{\"orderId\":7}");
+    void deadLetteredOrder_isLoggedAndReportedWithTheRetryTopicsError(CapturedOutput output) {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>("orders-topic-inventory-dlt", 0, 0L, null,
+                "{\"orderId\":7,\"userEmail\":\"user@test.com\"}");
         record.headers().add(KafkaHeaders.EXCEPTION_MESSAGE, "database unavailable".getBytes(StandardCharsets.UTF_8));
 
         listener.handleDlt(record);
 
-        assertThat(output.getAll()).contains("DLT received failed message: {\"orderId\":7} error: database unavailable");
+        assertThat(output.getAll()).contains("DLT received failed message: {\"orderId\":7,\"userEmail\":\"user@test.com\"} "
+                + "error: database unavailable");
+        assertThat(deadLetters.reports()).containsExactly(
+                new RecordingDeadLetters.Report("reservation", 7L, "user@test.com", "database unavailable"));
         assertThat(commands).isEmpty();
     }
 
@@ -110,6 +115,17 @@ class OrderEventListenerTest {
     void deadLetteredOrderWithoutTheExceptionHeader_neverThrows() {
         assertThatCode(() -> listener.handleDlt(new ConsumerRecord<>("orders-topic-inventory-dlt", 0, 0L, null, "not json")))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void anUnreadableDeadLetteredOrder_isReportedWithoutAnOrder() {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>("orders-topic-inventory-dlt", 0, 0L, null, "not json");
+        record.headers().add(KafkaHeaders.EXCEPTION_MESSAGE, "Unrecognized token 'not'".getBytes(StandardCharsets.UTF_8));
+
+        listener.handleDlt(record);
+
+        assertThat(deadLetters.reports()).containsExactly(
+                new RecordingDeadLetters.Report("reservation", null, null, "Unrecognized token 'not'"));
     }
 
     @Test

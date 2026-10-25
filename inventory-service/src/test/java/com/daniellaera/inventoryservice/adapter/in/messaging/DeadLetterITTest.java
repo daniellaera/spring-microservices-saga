@@ -95,6 +95,7 @@ class DeadLetterITTest {
                 .contains(handled + "\"productName\":\"Lamp\",\"quantity\":1} error: Listener failed; database unavailable"));
         assertHandledOnceAndCommitted(output, handled, "orders-topic-inventory-dlt", "inventory-group-inventory-dlt");
         verify(reserveStockUseCase, times(ATTEMPTS)).reserve(argThat(command -> command.orderId() == 901L));
+        assertAudited("STOCK_RESERVATION_DEAD_LETTERED", "901", "Listener failed; database unavailable");
     }
 
     @Test
@@ -107,6 +108,7 @@ class DeadLetterITTest {
         assertThat(messagesOnTopicsMatching(Pattern.compile("orders-topic-inventory-dlt"))).contains("not json 902");
         assertThat(messagesOnTopicsMatching(Pattern.compile("orders-topic-inventory-retry.*"))).doesNotContain("not json 902");
         verify(reserveStockUseCase, never()).reserve(any());
+        assertAudited("STOCK_RESERVATION_DEAD_LETTERED", "", "Unrecognized token");
     }
 
     @Test
@@ -122,6 +124,7 @@ class DeadLetterITTest {
         assertHandledOnceAndCommitted(output, handled, "payment-topic-inventory-dlt",
                 "inventory-compensation-group-inventory-dlt");
         verify(compensateStockUseCase, times(ATTEMPTS)).compensate(argThat(outcome -> outcome.orderId() == 903L));
+        assertAudited("STOCK_RESTORE_DEAD_LETTERED", "903", "Listener failed; database unavailable");
     }
 
     // Still handled once a few seconds later, and the DLT consumer's committed offset is at the end of the topic
@@ -139,6 +142,22 @@ class DeadLetterITTest {
         }
         await().pollDelay(Duration.ofSeconds(5)).atMost(Duration.ofSeconds(6)).untilAsserted(() ->
                 assertThat(output.getAll().split(Pattern.quote(handled), -1)).hasSize(2));
+    }
+
+    // one audit event for the order (with it as correlation id), the error in its payload; orderId "" if unreadable
+    private void assertAudited(String eventType, String orderId, String error) {
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> assertThat(
+                messagesOnTopicsMatching(Pattern.compile("audit-topic")))
+                .filteredOn(message -> message.contains("\"eventType\":\"" + eventType + "\"")
+                        && message.contains("\"entityId\":\"" + orderId + "\""))
+                .singleElement().satisfies(audit -> {
+                    assertThat(audit).contains("\"entityType\":\"ORDER\"", error);
+                    if (orderId.isEmpty()) {
+                        assertThat(audit).doesNotContain("correlationId");
+                    } else {
+                        assertThat(audit).contains("\"correlationId\":\"" + orderId + "\"");
+                    }
+                }));
     }
 
     private List<String> messagesOnTopicsMatching(Pattern topics) {

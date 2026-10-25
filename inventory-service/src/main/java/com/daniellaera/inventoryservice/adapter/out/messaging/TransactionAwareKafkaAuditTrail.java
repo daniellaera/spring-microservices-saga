@@ -41,6 +41,22 @@ public class TransactionAwareKafkaAuditTrail implements AuditTrail {
         publishAfterCommit("PRODUCT_RESTOCKED", null, product, null, ProductAuditPayload.of(product));
     }
 
+    // outside any transaction (a @DltHandler): published right away
+    @Override
+    public void stockReservationDeadLettered(Long orderId, String userEmail, String error) {
+        publishDeadLettered("STOCK_RESERVATION_DEAD_LETTERED", orderId, userEmail, error);
+    }
+
+    @Override
+    public void stockRestoreDeadLettered(Long orderId, String userEmail, String error) {
+        publishDeadLettered("STOCK_RESTORE_DEAD_LETTERED", orderId, userEmail, error);
+    }
+
+    private void publishDeadLettered(String eventType, Long orderId, String userEmail, String error) {
+        kafkaAuditPublisher.publish(eventType, userEmail, "ORDER", orderId != null ? String.valueOf(orderId) : null,
+                orderId, new DeadLetterAuditPayload(orderId, error));
+    }
+
     // orderId: the saga's correlation id, null for the product events outside a saga
     private void publishAfterCommit(String eventType, String userEmail, Product product, Long orderId, Object payload) {
         Runnable publish = () -> kafkaAuditPublisher.publish(eventType, userEmail, "PRODUCT",

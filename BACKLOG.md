@@ -15,12 +15,6 @@
     Decide whether the host needs more RAM before adding services: steady swap use, available memory under
     1 GiB, or a container near its limit say yes. The `sda` disk also has ~30 GB unallocated if the root volume
     needs to grow.
-- **Dead-lettered records in inventory-service and order-service are only logged** (since 2026-10-25): no audit
-  event and no replay runbook, unlike payment-service's `PAYMENT_DEAD_LETTERED` and
-  `docs/maintenance/replay-dead-lettered-inventory-results.md`. A dead-lettered order stays PENDING, a
-  dead-lettered compensation leaves the stock deducted. Watch for `DLT received failed message` in the logs of
-  both services, and replay from `orders-topic-inventory-dlt`, `payment-topic-inventory-dlt` or
-  `payment-topic-order-dlt` the same way.
 - **The saga timeline query scans `audit_events`**: `GET /audit/orders/{id}/timeline` matches rows without a
   correlation id by entity and by `payload LIKE '%"orderId":N,%'` (ADR 18), so PostgreSQL cannot use the
   correlation id index alone. Harmless at today's size; once the table is large, or once no order older than

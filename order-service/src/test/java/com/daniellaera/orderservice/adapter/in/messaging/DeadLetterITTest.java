@@ -89,6 +89,7 @@ class DeadLetterITTest {
         await().pollDelay(Duration.ofSeconds(5)).atMost(Duration.ofSeconds(6)).untilAsserted(() ->
                 assertThat(output.getAll().split(Pattern.quote(handled), -1)).hasSize(2));
         verify(applyPaymentResultUseCase, times(ATTEMPTS)).applyPaymentResult(argThat(result -> result.orderId() == 911L));
+        assertAudited("911", "Listener failed; database unavailable");
     }
 
     @Test
@@ -101,6 +102,23 @@ class DeadLetterITTest {
         assertThat(messagesOnTopicsMatching(Pattern.compile("payment-topic-order-dlt"))).contains("not json 912");
         assertThat(messagesOnTopicsMatching(Pattern.compile("payment-topic-order-retry.*"))).doesNotContain("not json 912");
         verify(applyPaymentResultUseCase, never()).applyPaymentResult(any());
+        assertAudited("", "Unrecognized token");
+    }
+
+    // one ORDER_DEAD_LETTERED for the order (with it as correlation id), the error in its payload; "" if unreadable
+    private void assertAudited(String orderId, String error) {
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> assertThat(
+                messagesOnTopicsMatching(Pattern.compile("audit-topic")))
+                .filteredOn(message -> message.contains("\"eventType\":\"ORDER_DEAD_LETTERED\"")
+                        && message.contains("\"entityId\":\"" + orderId + "\""))
+                .singleElement().satisfies(audit -> {
+                    assertThat(audit).contains("\"entityType\":\"ORDER\"", error);
+                    if (orderId.isEmpty()) {
+                        assertThat(audit).doesNotContain("correlationId");
+                    } else {
+                        assertThat(audit).contains("\"correlationId\":\"" + orderId + "\"");
+                    }
+                }));
     }
 
     private List<String> messagesOnTopicsMatching(Pattern topics) {

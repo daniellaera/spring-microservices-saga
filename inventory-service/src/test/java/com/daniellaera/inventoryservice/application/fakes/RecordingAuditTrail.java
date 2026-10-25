@@ -36,6 +36,17 @@ public class RecordingAuditTrail implements AuditTrail {
         audits.add(new Audit("PRODUCT_RESTOCKED", snapshot(product), null, null, null));
     }
 
+    // the payload: the error
+    @Override
+    public void stockReservationDeadLettered(Long orderId, String userEmail, String error) {
+        audits.add(new Audit("STOCK_RESERVATION_DEAD_LETTERED", null, error, userEmail, orderId));
+    }
+
+    @Override
+    public void stockRestoreDeadLettered(Long orderId, String userEmail, String error) {
+        audits.add(new Audit("STOCK_RESTORE_DEAD_LETTERED", null, error, userEmail, orderId));
+    }
+
     public List<Audit> audits() {
         return List.copyOf(audits);
     }

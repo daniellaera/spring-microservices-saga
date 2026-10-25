@@ -1,6 +1,7 @@
 package com.daniellaera.inventoryservice.adapter.in.messaging;
 
 import com.daniellaera.inventoryservice.domain.model.OrderLine;
+import com.daniellaera.inventoryservice.domain.port.in.ReportDeadLetteredUseCase;
 import com.daniellaera.inventoryservice.domain.port.in.ReserveStockCommand;
 import com.daniellaera.inventoryservice.domain.port.in.ReserveStockUseCase;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import java.util.List;
 public class OrderEventListener {
 
     private final ReserveStockUseCase reserveStockUseCase;
+    private final ReportDeadLetteredUseCase reportDeadLetteredUseCase;
     private final ObjectMapper objectMapper;
 
     // Nothing is caught (an unknown product is no failure: the use case rejects the order). A failing order is retried
@@ -66,10 +68,19 @@ public class OrderEventListener {
         return List.of(new OrderItemEvent(productName, quantity, price, totalAmount));
     }
 
-    // Called once per dead-lettered order, which stays PENDING (no stock reserved). It must not throw: the DLT
-    // container would retry it forever.
+    // Called once per dead-lettered order, which stays PENDING (no stock reserved): logged and audited
+    // (STOCK_RESERVATION_DEAD_LETTERED). It must not throw: the DLT container would retry it forever.
     @DltHandler
     public void handleDlt(ConsumerRecord<String, String> record) {
-        log.error("DLT received failed message: {} error: {}", record.value(), DeadLetters.errorOf(record));
+        String error = DeadLetters.errorOf(record);
+        log.error("DLT received failed message: {} error: {}", record.value(), error);
+        OrderEvent event;
+        try {
+            event = objectMapper.readValue(record.value(), OrderEvent.class);
+        } catch (Exception e) {
+            reportDeadLetteredUseCase.reservationDeadLettered(null, null, error);
+            return;
+        }
+        reportDeadLetteredUseCase.reservationDeadLettered(event.orderId(), event.userEmail(), error);
     }
 }

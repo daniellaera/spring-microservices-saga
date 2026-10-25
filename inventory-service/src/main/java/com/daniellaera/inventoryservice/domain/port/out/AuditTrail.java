@@ -15,4 +15,9 @@ public interface AuditTrail {
     void productCreated(Product product);
 
     void productRestocked(Product product);
+
+    // a dead-lettered order (no stock reserved) or payment result (stock not released); orderId null if unreadable
+    void stockReservationDeadLettered(Long orderId, String userEmail, String error);
+
+    void stockRestoreDeadLettered(Long orderId, String userEmail, String error);
 }
