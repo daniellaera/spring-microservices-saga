@@ -61,9 +61,10 @@ class AuditConsumerITTest {
                 );
     }
 
-    // payment compensation (PR #17) and outbox dead-letter events: before they were AuditEventTypes, all were dropped
+    // payment compensation (PR #17), outbox and dead-letter events: before they were AuditEventTypes, all were dropped
     @ParameterizedTest
-    @ValueSource(strings = {"PAYMENT_REFUNDED", "PAYMENT_REFUND_FAILED", "PAYMENT_DEAD_LETTERED", "OUTBOX_EVENT_FAILED"})
+    @ValueSource(strings = {"PAYMENT_REFUNDED", "PAYMENT_REFUND_FAILED", "PAYMENT_DEAD_LETTERED", "OUTBOX_EVENT_FAILED",
+            "ORDER_DEAD_LETTERED", "STOCK_RESERVATION_DEAD_LETTERED", "STOCK_RESTORE_DEAD_LETTERED"})
     void consume_compensationAndOutboxEvents_savedWithTheirType(String eventType) {
         String json = """
                 {

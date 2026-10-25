@@ -3,7 +3,7 @@ import { auditSeverity } from './audit-events';
 describe('auditSeverity', () => {
   it('shows the events someone has to act on as danger', () => {
     for (const type of ['PAYMENT_FAILED', 'ORDER_CANCELLED', 'PAYMENT_REFUND_FAILED', 'PAYMENT_DEAD_LETTERED',
-      'OUTBOX_EVENT_FAILED']) {
+      'OUTBOX_EVENT_FAILED', 'ORDER_DEAD_LETTERED', 'STOCK_RESERVATION_DEAD_LETTERED', 'STOCK_RESTORE_DEAD_LETTERED']) {
       expect(auditSeverity(type)).toBe('danger');
     }
   });
