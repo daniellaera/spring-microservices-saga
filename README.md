@@ -255,7 +255,14 @@ A single order can hold multiple line items (`order_items` table) instead of one
 Append-only PostgreSQL table — no UPDATE or DELETE ever.
 All business events published to audit-topic via Kafka.
 Consumed by audit-trail-service and persisted immutably.
-Admin-only REST API with full event history.
+Admin-only REST API with full event history, paginated and filtered on the server.
+
+### Saga Timeline
+Every saga audit event carries the order id as its `correlationId`, so audit-trail-service can show one order's
+saga in order: `ORDER_CREATED → STOCK_DEDUCTED → PAYMENT_* → ORDER_*`, or the compensation with
+`STOCK_RESTORED` / `PAYMENT_REFUNDED`. In shop-ui an admin opens it from the audit trail or from an order on the
+dashboard (`/audit/orders/:orderId`); times are shown in the browser's time zone. Events recorded before the
+correlation id are matched by their entity ([ADR 18](docs/adr/0018-saga-timeline-correlation-id.md)).
 
 ### Token Rotation
 Every refresh issues a new refresh token and revokes the old one.
@@ -437,6 +444,10 @@ GET  /orders/stream       — SSE stream for real-time order updates
 
 GET  /transactions        — list payment transactions
 GET  /transactions/{id}   — get transaction by ID
+
+GET  /audit               — audit events, newest first (ADMIN only); optional filters:
+                            q, eventType (repeatable), serviceName, userEmail, orderId, from, to (ISO instants)
+GET  /audit/orders/{id}/timeline — one order's saga events, oldest first (ADMIN only)
 ```
 
 ### Swagger UI (direct service access)

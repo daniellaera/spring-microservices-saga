@@ -70,7 +70,12 @@
             <ng-template pTemplate="body" let-order>
               <tr>
                 <td class="text-color-secondary text-sm">
-                  {{ order.id }}
+                  @if (isAdmin()) {
+                    <a [routerLink]="['/audit/orders', order.id]" class="no-underline"
+                       [attr.aria-label]="'Saga timeline of order ' + order.id">{{ order.id }}</a>
+                  } @else {
+                    {{ order.id }}
+                  }
                 </td>
                 @if (isAdmin()) {
                   <td class="text-sm text-color-secondary">

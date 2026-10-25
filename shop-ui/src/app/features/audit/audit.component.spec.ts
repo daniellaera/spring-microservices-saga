@@ -1,4 +1,4 @@
-import { auditSeverity } from './audit.component';
+import { auditSeverity } from './audit-events';
 
 describe('auditSeverity', () => {
   it('shows the events someone has to act on as danger', () => {

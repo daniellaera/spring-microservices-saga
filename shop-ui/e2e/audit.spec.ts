@@ -1,20 +1,13 @@
 import { expect, test } from '@playwright/test';
+import { loginAsAdmin, stubAuditApi } from './support/audit';
 
-// Unsigned ADMIN token: the app only decodes it, and the stub gateway only checks it is present
-const base64url = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
-const ADMIN_TOKEN = `${base64url({ alg: 'HS256' })}.${base64url({
-  sub: 'admin@example.com', role: 'ADMIN', exp: 4102444800
-})}.signature`;
+// The audit trail is paginated and filtered by audit-trail-service: the first and last tests go through the real
+// nginx.conf to the stub gateway (e2e/stack), the others stub the API in the browser and check what is asked for.
 
 const rows = '.p-datatable-tbody > tr';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(token => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('refreshToken', 'refresh-token');
-    localStorage.setItem('userEmail', 'admin@example.com');
-    localStorage.setItem('userRole', 'ADMIN');
-  }, ADMIN_TOKEN);
+  await loginAsAdmin(page);
 });
 
 test('a page load of /audit gets the app, which loads the events from the API', async ({ page }) => {
@@ -26,14 +19,29 @@ test('a page load of /audit gets the app, which loads the events from the API', 
   const apiResponse = await api;
   expect(apiResponse.status()).toBe(200);
   expect(apiResponse.headers()['content-type']).toContain('application/json');
+  expect(new URL(apiResponse.url()).searchParams.toString()).toBe('page=0&size=20');
 
-  await expect(page.locator(rows)).toHaveCount(20);
+  await expect(page.locator(rows).first().locator('td:nth-child(3)')).toHaveText('USER_LOGIN');
   await expect(page.locator('.p-paginator-current')).toHaveText('1 to 20 of 31');
 });
 
-test('searching an order id finds its events', async ({ page }) => {
+test('the paginator asks the server for the next page', async ({ page }) => {
+  const api = await stubAuditApi(page);
   await page.goto('/audit');
   await expect(page.locator(rows)).toHaveCount(20);
+
+  await page.locator('.p-paginator-next').click();
+
+  await expect(page.locator(rows)).toHaveCount(11);
+  await expect(page.locator('.p-paginator-current')).toHaveText('21 to 31 of 31');
+  expect(api.listRequests.map(params => params.toString())).toEqual(['page=0&size=20', 'page=1&size=20']);
+});
+
+test('searching an order id asks the server, from the first page', async ({ page }) => {
+  const api = await stubAuditApi(page);
+  await page.goto('/audit');
+  await page.locator('.p-paginator-next').click();
+  await expect(page.locator('.p-paginator-current')).toHaveText('21 to 31 of 31');
 
   await page.getByPlaceholder('Search...').fill('65');
 
@@ -43,9 +51,56 @@ test('searching an order id finds its events', async ({ page }) => {
   for (const entity of await page.locator(rows).locator('td:nth-child(5)').allTextContents()) {
     expect(entity.trim()).toMatch(/\/ 65$/);
   }
+  // typing is debounced: one request for the whole search
+  expect(api.listRequests.at(-1)?.toString()).toBe('page=0&size=20&q=65');
+  expect(api.listRequests.filter(params => params.has('q'))).toHaveLength(1);
+});
+
+test('the event type and service filters are sent to the server', async ({ page }) => {
+  const api = await stubAuditApi(page);
+  await page.goto('/audit');
+  await expect(page.locator(rows)).toHaveCount(20);
+
+  await page.getByRole('combobox', { name: 'Event type' }).click();
+  await page.getByRole('option', { name: 'PAYMENT_SUCCEEDED', exact: true }).click();
+
+  await expect(page.locator(rows)).toHaveCount(5);
+  expect(api.listRequests.at(-1)?.toString()).toBe('page=0&size=20&eventType=PAYMENT_SUCCEEDED');
+
+  await page.getByRole('combobox', { name: 'Service' }).click();
+  await page.getByRole('option', { name: 'order-service', exact: true }).click();
+
+  await expect(page.locator(rows)).toHaveCount(1);
+  await expect(page.locator(rows).first()).toContainText('No audit events found.');
+  expect(api.listRequests.at(-1)?.toString()).toBe('page=0&size=20&eventType=PAYMENT_SUCCEEDED&serviceName=order-service');
+});
+
+test.describe('in Zurich', () => {
+  test.use({ timezoneId: 'Europe/Zurich' });
+
+  test('timestamps are shown in the browser\'s time zone', async ({ page }) => {
+    await stubAuditApi(page);
+    await page.goto('/audit');
+
+    // recorded at 07:59 UTC, sent without an offset (before occurredAt): 09:59 in Zurich on 23 October (CEST)
+    await expect(page.locator(rows).first().locator('td:nth-child(2)')).toHaveText('2026-10-23 09:59:00');
+  });
+});
+
+test('an order event links to the order\'s saga timeline', async ({ page }) => {
+  await stubAuditApi(page);
+  await page.goto('/audit');
+  await page.getByPlaceholder('Search...').fill('65');
+  await expect(page.locator(rows)).toHaveCount(3);
+
+  await page.getByRole('link', { name: 'Timeline of order 65' }).first().click();
+
+  await expect(page).toHaveURL(/\/audit\/orders\/65$/);
+  await expect(page.getByTestId('timeline-event-type')).toHaveText(['ORDER_CREATED', 'PAYMENT_SUCCEEDED', 'ORDER_CONFIRMED']);
 });
 
 test('a row expands to show its payload and collapses again', async ({ page }) => {
+  await stubAuditApi(page);
   await page.goto('/audit');
   await page.getByPlaceholder('Search...').fill('65');
   await expect(page.locator(rows)).toHaveCount(3);
@@ -65,6 +120,7 @@ test('a row expands to show its payload and collapses again', async ({ page }) =
 });
 
 test('Entity and Service columns are visible at desktop width only', async ({ page }) => {
+  await stubAuditApi(page);
   await page.goto('/audit');
   const header = (name: string) => page.locator('.p-datatable-thead th', { hasText: name });
   const firstRowCell = (n: number) => page.locator(rows).first().locator(`td:nth-child(${n})`);
@@ -82,12 +138,12 @@ test('Entity and Service columns are visible at desktop width only', async ({ pa
 
 test('reloading /audit still renders the app', async ({ page }) => {
   await page.goto('/audit');
-  await expect(page.locator(rows)).toHaveCount(20);
+  await expect(page.locator('.p-paginator-current')).toHaveText('1 to 20 of 31');
 
   const reload = await page.reload();
 
   expect(reload?.status()).toBe(200);
   expect(reload?.headers()['content-type']).toContain('text/html');
   await expect(page).toHaveURL(/\/audit$/);
-  await expect(page.locator(rows)).toHaveCount(20);
+  await expect(page.locator('.p-paginator-current')).toHaveText('1 to 20 of 31');
 });

@@ -51,6 +51,37 @@ Feature: Order saga across order, inventory and payment
       | STOCK_DEDUCTED    | inventory-service |
       | PAYMENT_SUCCEEDED | payment-service   |
       | ORDER_CONFIRMED   | order-service     |
+    And the saga timeline of the order shows:
+      | step | event             | service           |
+      | 1    | ORDER_CREATED     | order-service     |
+      | 2    | STOCK_DEDUCTED    | inventory-service |
+      | 3    | PAYMENT_SUCCEEDED | payment-service   |
+      | 4    | ORDER_CONFIRMED   | order-service     |
+
+  # Steps with the same number happen concurrently: order-service and inventory-service both react to the payment
+  # result, and payment-service audits the failure and the refund asynchronously
+  Scenario: A declined payment's saga timeline shows the compensation
+    Given a product "Tripod" with 10 in stock
+    When the customer orders 3 "Tripod" paid with a declined card
+    Then the order is CANCELLED
+    And the saga timeline of the order shows:
+      | step | event           | service           |
+      | 1    | ORDER_CREATED   | order-service     |
+      | 2    | STOCK_DEDUCTED  | inventory-service |
+      | 3    | PAYMENT_FAILED  | payment-service   |
+      | 4    | STOCK_RESTORED  | inventory-service |
+      | 4    | ORDER_CANCELLED | order-service     |
+
+  Scenario: A paid order inventory rejects has the refund in its saga timeline
+    Given a product "Router" with 1 in stock
+    When the customer orders 2 "Router" paid with an accepted card
+    Then the order is CANCELLED
+    And the saga timeline of the order shows:
+      | step | event            | service         |
+      | 1    | ORDER_CREATED    | order-service   |
+      | 2    | PAYMENT_FAILED   | payment-service |
+      | 2    | PAYMENT_REFUNDED | payment-service |
+      | 3    | ORDER_CANCELLED  | order-service   |
 
   Scenario: An order without a payment intent is not confirmed for free
     Given a product "Keyboard" with 10 in stock

@@ -62,10 +62,6 @@ public class ScenarioContext {
         return found;
     }
 
-    public Set<Long> productIds() {
-        return products.values().stream().map(Product::id).collect(Collectors.toSet());
-    }
-
     public void orderPlaced(long id) {
         orderId = id;
         orderIds.add(id);

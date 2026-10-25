@@ -25,6 +25,7 @@ restates ADR 8; both are kept so that existing references stay valid.
 | 15 | [Hexagonal architecture for the saga services](0015-hexagonal-architecture.md) | 2026-10-22 | Accepted |
 | 16 | [Transactional outbox with at-least-once delivery](0016-transactional-outbox-at-least-once.md) | 2026-10-23 | Accepted |
 | 17 | [Payment compensation by refund](0017-payment-compensation-by-refund.md) | 2026-10-23 | Accepted |
+| 18 | [Per-order saga timeline from a correlation id on audit events](0018-saga-timeline-correlation-id.md) | 2026-10-25 | Accepted |
 
 Secrets management with Infisical was already recorded as ADR 6, so it has no new record.
 
