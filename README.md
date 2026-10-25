@@ -106,9 +106,9 @@ only from PENDING.
 
 ### Hexagonal layout of a service
 
-order-service, inventory-service and payment-service use ports and adapters
+Every domain service (order, inventory, payment, audit-trail, notification, cart, auth) uses ports and adapters
 ([ADR 15](docs/adr/0015-hexagonal-architecture.md)); `HexagonalArchitectureTest` (ArchUnit) enforces the
-rules. payment-service:
+rules in each. gateway-service and config-server have no domain and keep their layout. payment-service:
 
 ```
 payment-service/src/main/java/com/daniellaera/paymentservice/
