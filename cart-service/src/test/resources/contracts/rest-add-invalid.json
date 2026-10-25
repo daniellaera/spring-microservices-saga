@@ -1,0 +1,12 @@
+{
+  "status" : 400,
+  "body" : {
+    "status" : 400,
+    "error" : "Validation Failed",
+    "errors" : {
+      "quantity" : "Quantity must be at least 1",
+      "productName" : "Product name is required",
+      "price" : "Price must be greater than 0"
+    }
+  }
+}

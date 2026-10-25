@@ -1,0 +1,14 @@
+{
+  "status" : 200,
+  "body" : {
+    "userEmail" : "contract@example.com",
+    "items" : [ {
+      "productName" : "Desk",
+      "quantity" : 1,
+      "price" : 199.0
+    } ],
+    "total" : 199.0,
+    "ttlSeconds" : 1799,
+    "expiresIn" : "29m 59s"
+  }
+}
