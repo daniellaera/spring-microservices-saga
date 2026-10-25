@@ -1,4 +1,4 @@
-package com.daniellaera.audittrailservice.dto;
+package com.daniellaera.audittrailservice.adapter.in.messaging;
 
 public record AuditMessage(
         String eventType,     // AuditEventType name

@@ -1,4 +1,4 @@
-package com.daniellaera.audittrailservice.consumer;
+package com.daniellaera.audittrailservice.adapter.in.messaging;
 
 import com.daniellaera.audittrailservice.TestcontainersConfiguration;
 import com.daniellaera.audittrailservice.domain.model.AuditEventType;

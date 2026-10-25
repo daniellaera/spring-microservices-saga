@@ -1,7 +1,7 @@
 package com.daniellaera.audittrailservice.contract;
 
 import com.daniellaera.audittrailservice.TestcontainersConfiguration;
-import com.daniellaera.audittrailservice.consumer.AuditConsumer;
+import com.daniellaera.audittrailservice.adapter.in.messaging.AuditConsumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.skyscreamer.jsonassert.Customization;
