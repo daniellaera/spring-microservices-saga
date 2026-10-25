@@ -37,6 +37,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A service whose config file is missing no longer starts on its local defaults**: config-server answers 404
+  for an application without its own `configs/<name>.yml` (it used to answer with the shared `application.yml`
+  alone), and the client fails its startup clearly. notification-service, missed in the fail-fast change, now
+  has `fail-fast` and the same retry budget as the other clients, so a 404 or an unreachable config server stops
+  it too.
 - **`/orders/stream` while order-service is down** answers 503 (`/fallback/order-stream`, JSON) instead of a
   500 with a stack trace in the gateway log. Its own breaker `order-stream-cb` has no time limit, so a long-lived
   stream is never cut; shop-ui reconnects after the 503 as after any non-200 answer.
