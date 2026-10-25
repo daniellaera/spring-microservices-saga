@@ -103,7 +103,11 @@
       <ng-template pTemplate="emptymessage">
         <tr>
           <td colspan="6" class="text-center text-color-secondary py-4">
-            No audit events found.
+            @if (failed()) {
+              The audit trail could not be loaded. Try again with Refresh.
+            } @else {
+              No audit events found.
+            }
           </td>
         </tr>
       </ng-template>

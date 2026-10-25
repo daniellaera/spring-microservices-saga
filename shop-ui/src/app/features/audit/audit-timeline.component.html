@@ -6,7 +6,9 @@
           <a routerLink="/audit" class="no-underline text-color-secondary" aria-label="Back to the audit trail">
             <i class="pi pi-arrow-left"></i>
           </a>
-          <h2 class="m-0 text-xl" data-testid="timeline-title">Order #{{ orderId() }} · saga timeline</h2>
+          <h2 class="m-0 text-xl" data-testid="timeline-title">
+            @if (orderId() !== null) { Order #{{ orderId() }} · saga timeline } @else { Saga timeline }
+          </h2>
         </div>
         <form class="flex gap-2" (ngSubmit)="openOtherOrder()">
           <input pInputText type="text" inputmode="numeric" name="otherOrder" [(ngModel)]="otherOrder"
@@ -20,6 +22,10 @@
       <div class="flex justify-content-center p-5">
         <p-progress-spinner strokeWidth="4" styleClass="w-3rem h-3rem" />
       </div>
+    } @else if (invalid()) {
+      <p class="text-center text-color-secondary py-4" data-testid="timeline-invalid">
+        That is not an order id: enter the number of an order.
+      </p>
     } @else if (failed()) {
       <p class="text-center text-color-secondary py-4" data-testid="timeline-error">
         The timeline could not be loaded. Try again later.

@@ -45,9 +45,10 @@ Older STOCK_DEDUCTED events cannot be matched.
 
 Both are behind the gateway's admin check, like the rest of `/audit`.
 
-**Time as an instant.** `createdAt` keeps its format; every event also gets `occurredAt`, the same instant with
+**Time as an instant.** `createdAt` keeps its format; every event also gets `recordedAt` (named for what it is:
+when audit-trail-service stored the event, not when the producing service acted), the same instant with
 its `Z`, and the service records `createdAt` in UTC explicitly instead of the JVM's zone. shop-ui shows
-`occurredAt` in the browser's time zone, falling back to `createdAt` read as UTC.
+`recordedAt` in the browser's time zone, falling back to `createdAt` read as UTC.
 
 **shop-ui**: the audit page paginates and filters on the server. Each saga event links to
 `/audit/orders/:orderId`, a timeline with the outcome (CONFIRMED, CANCELLED, in progress), a COMPENSATED tag
@@ -59,6 +60,13 @@ open it from an order on the dashboard.
 - The timeline is ordered by recording time in audit-trail-service, not by when each service acted. Steps
   that run concurrently (inventory and order-service both react to the payment result; payment-service
   audits asynchronously) can be recorded in either order. The saga e2e suite asserts them as one step.
+- After an audit-trail-service outage the backlog is recorded within milliseconds: the timeline keeps the order,
+  but its durations then measure the catch-up, not the saga.
+- Order versus concurrency: payment-service audits asynchronously and then publishes the payment result, so in
+  theory ORDER_CANCELLED/CONFIRMED could be recorded before PAYMENT_*. It has not happened in the e2e suite or in
+  production so far; the suite asserts the payment step first, as the confirmed scenario has since 1.1.0.
+- Local runs on a JVM that is not in UTC stored local time before this change; those rows now show shifted.
+  Containers run in UTC, so production is not affected.
 - A lost audit event (Kafka unreachable, ADR 11) is a missing step in the timeline. The timeline shows what
   was recorded, not what happened.
 - The `eventType` list in shop-ui's filter repeats `AuditEventType`. A new type needs both.

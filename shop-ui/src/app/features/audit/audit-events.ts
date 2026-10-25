@@ -38,11 +38,11 @@ export function isCompensation(eventType: string): boolean {
 
 /**
  * The event's instant as ISO-8601 with its offset, which DatePipe shows in the browser's time zone. Before
- * occurredAt existed, createdAt (UTC, sent without an offset) would have been read as local time.
+ * recordedAt existed, createdAt (UTC, sent without an offset) would have been read as local time.
  */
-export function eventInstant(event: Pick<AuditEventDto, 'createdAt' | 'occurredAt'>): string {
-  if (event.occurredAt) {
-    return event.occurredAt;
+export function eventInstant(event: Pick<AuditEventDto, 'createdAt' | 'recordedAt'>): string {
+  if (event.recordedAt) {
+    return event.recordedAt;
   }
   return /([zZ]|[+-]\d\d:\d\d)$/.test(event.createdAt) ? event.createdAt : `${event.createdAt}Z`;
 }

@@ -106,9 +106,9 @@ public class AuditSteps {
             assertThat(timeline).allSatisfy(event -> {
                 assertThat(event.path("correlationId").asString()).isEqualTo(String.valueOf(orderId));
                 // the instant, in UTC
-                assertThat(event.path("occurredAt").asString()).endsWith("Z");
+                assertThat(event.path("recordedAt").asString()).endsWith("Z");
             });
-            assertThat(timeline).extracting(event -> Instant.parse(event.path("occurredAt").asString()))
+            assertThat(timeline).extracting(event -> Instant.parse(event.path("recordedAt").asString()))
                     .isSorted();
         });
     }

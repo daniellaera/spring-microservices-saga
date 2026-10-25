@@ -1,14 +1,14 @@
 import { AuditEventDto } from '../../core/services/audit.service';
 import { eventInstant, formatDuration, isCompensation, orderIdOf, sagaSummary, sinceStartMs } from './audit-events';
 
-const event = (id: number, eventType: string, occurredAt: string, extra: Partial<AuditEventDto> = {}): AuditEventDto => ({
-  id, eventType, occurredAt, createdAt: occurredAt.replace('Z', ''), userEmail: 'buyer@test.com',
+const event = (id: number, eventType: string, recordedAt: string, extra: Partial<AuditEventDto> = {}): AuditEventDto => ({
+  id, eventType, recordedAt, createdAt: recordedAt.replace('Z', ''), userEmail: 'buyer@test.com',
   entityType: 'ORDER', entityId: '42', payload: '{}', serviceName: 'order-service', correlationId: '42', ...extra
 });
 
 describe('eventInstant', () => {
-  it('uses occurredAt, the instant with its offset', () => {
-    expect(eventInstant({ createdAt: '2026-10-25T08:00:00', occurredAt: '2026-10-25T08:00:00Z' }))
+  it('uses recordedAt, the instant with its offset', () => {
+    expect(eventInstant({ createdAt: '2026-10-25T08:00:00', recordedAt: '2026-10-25T08:00:00Z' }))
       .toBe('2026-10-25T08:00:00Z');
   });
 

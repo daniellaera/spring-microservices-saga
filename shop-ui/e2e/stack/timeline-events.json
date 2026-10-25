@@ -9,7 +9,7 @@
     "serviceName": "order-service",
     "createdAt": "2026-07-01T08:00:00.000",
     "correlationId": "42",
-    "occurredAt": "2026-07-01T08:00:00.000Z"
+    "recordedAt": "2026-07-01T08:00:00.000Z"
   },
   {
     "id": 202,
@@ -21,7 +21,7 @@
     "serviceName": "inventory-service",
     "createdAt": "2026-07-01T08:00:00.400",
     "correlationId": "42",
-    "occurredAt": "2026-07-01T08:00:00.400Z"
+    "recordedAt": "2026-07-01T08:00:00.400Z"
   },
   {
     "id": 203,
@@ -33,7 +33,7 @@
     "serviceName": "payment-service",
     "createdAt": "2026-07-01T08:00:01.200",
     "correlationId": "42",
-    "occurredAt": "2026-07-01T08:00:01.200Z"
+    "recordedAt": "2026-07-01T08:00:01.200Z"
   },
   {
     "id": 204,
@@ -45,6 +45,6 @@
     "serviceName": "order-service",
     "createdAt": "2026-07-01T08:00:01.500",
     "correlationId": "42",
-    "occurredAt": "2026-07-01T08:00:01.500Z"
+    "recordedAt": "2026-07-01T08:00:01.500Z"
   }
 ]

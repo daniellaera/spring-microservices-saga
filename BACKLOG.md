@@ -30,3 +30,7 @@
   404 for an application without its own file (a change of its HTTP answer, to agree on first: every client and
   the config-server health check `app` request), or each client fails at startup without a property only its
   file sets.
+- **The saga timeline query scans `audit_events`**: `GET /audit/orders/{id}/timeline` matches rows without a
+  correlation id by entity and by `payload LIKE '%"orderId":N,%'` (ADR 18), so PostgreSQL cannot use the
+  correlation id index alone. Harmless at today's size; once the table is large, or once no order older than
+  2026-10-25 matters any more, drop the legacy branch or make it a separate, bounded query.

@@ -10,9 +10,9 @@ export interface AuditEventDto {
   entityId: string;
   payload: string;
   serviceName: string;
-  // UTC without an offset (as the API has always sent it); occurredAt is the same instant with its Z
+  // UTC without an offset (as the API has always sent it); recordedAt is the same instant with its Z
   createdAt: string;
-  occurredAt?: string;
+  recordedAt?: string;
   // the order id of a saga event; absent before audit-trail-service recorded it
   correlationId?: string | null;
 }

@@ -132,6 +132,32 @@ test('an order without events, and an audit service that does not answer', async
   await expect(page.getByTestId('timeline-error')).toContainText('could not be loaded');
 });
 
+test('after a failed timeline, another order still opens', async ({ page }) => {
+  const api = await stubAuditApi(page, {
+    events: compensated,
+    timelineAnswer: orderId => orderId === '47' ? { status: 503, body: { status: '503' } } : undefined
+  });
+  await page.goto('/audit/orders/47');
+  await expect(page.getByTestId('timeline-error')).toBeVisible();
+
+  await page.getByRole('textbox', { name: 'Order id' }).fill('43');
+  await page.getByRole('button', { name: 'Open' }).click();
+
+  await expect(page.getByTestId('timeline-title')).toHaveText('Order #43 · saga timeline');
+  await expect(page.getByTestId(types)).toHaveCount(5);
+  expect(api.timelineRequests).toEqual(['47', '43']);
+});
+
+test('a path that is not an order id asks nothing', async ({ page }) => {
+  const api = await stubAuditApi(page);
+
+  await page.goto('/audit/orders/abc');
+
+  await expect(page.getByTestId('timeline-invalid')).toBeVisible();
+  await expect(page.getByTestId('timeline-title')).toHaveText('Saga timeline');
+  expect(api.timelineRequests).toEqual([]);
+});
+
 test('an admin opens an order\'s timeline from the dashboard', async ({ page }) => {
   await stubAuditApi(page, { events: compensated });
   await page.route('**/*', async route => {

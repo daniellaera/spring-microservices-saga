@@ -20,7 +20,7 @@ export interface AuditEvent {
   payload: string;
   serviceName: string;
   createdAt: string;
-  occurredAt?: string;
+  recordedAt?: string;
   correlationId?: string | null;
 }
 
@@ -34,6 +34,8 @@ export interface AuditApi {
 
 export interface AuditApiOptions {
   events?: AuditEvent[];
+  // how many GET /audit requests fail (503) before the stub answers
+  listFailures?: number;
   // the answer for an order's timeline, instead of the one computed from the events
   timelineAnswer?: (orderId: string) => { status: number; body: unknown } | undefined;
 }
@@ -50,6 +52,7 @@ export async function loginAsAdmin(page: Page): Promise<void> {
 export async function stubAuditApi(page: Page, options: AuditApiOptions = {}): Promise<AuditApi> {
   const events = options.events ?? FIXTURE_EVENTS;
   const api: AuditApi = { listRequests: [], timelineRequests: [] };
+  let listFailures = options.listFailures ?? 0;
   const json = (route: Route, status: number, body: unknown) =>
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
@@ -61,6 +64,10 @@ export async function stubAuditApi(page: Page, options: AuditApiOptions = {}): P
     const url = new URL(request.url());
     if (url.pathname === '/audit') {
       api.listRequests.push(url.searchParams);
+      if (listFailures > 0) {
+        listFailures--;
+        return json(route, 503, { status: '503', message: 'Audit trail service is currently unavailable.' });
+      }
       return json(route, 200, page_(search(events, url.searchParams), url.searchParams));
     }
     const timeline = url.pathname.match(/^\/audit\/orders\/(\d+)\/timeline$/);
@@ -109,13 +116,13 @@ function timelineOf(events: AuditEvent[], orderId: string): AuditEvent[] {
     .sort((a, b) => -newestFirst(a, b));
 }
 
-// A saga event as audit-trail-service sends it since the correlation id: occurredAt is createdAt with its Z
-export function sagaEvent(id: number, eventType: string, serviceName: string, occurredAt: string, orderId: number,
+// A saga event as audit-trail-service sends it since the correlation id: recordedAt is createdAt with its Z
+export function sagaEvent(id: number, eventType: string, serviceName: string, recordedAt: string, orderId: number,
                           payload: object = {}): AuditEvent {
   const entityType = serviceName === 'inventory-service' ? 'PRODUCT' : serviceName === 'payment-service' ? 'PAYMENT' : 'ORDER';
   return {
     id, eventType, userEmail: 'buyer@example.com', entityType,
     entityId: entityType === 'PRODUCT' ? '3' : String(orderId), payload: JSON.stringify(payload), serviceName,
-    createdAt: occurredAt.replace('Z', ''), occurredAt, correlationId: String(orderId)
+    createdAt: recordedAt.replace('Z', ''), recordedAt, correlationId: String(orderId)
   };
 }

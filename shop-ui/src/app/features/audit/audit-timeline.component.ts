@@ -8,7 +8,7 @@ import { TimelineModule } from 'primeng/timeline';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { Subject, map, switchMap, takeUntil, tap } from 'rxjs';
+import { Observable, Subject, catchError, of, switchMap, takeUntil, tap } from 'rxjs';
 import { AuditEventDto, AuditService } from '../../core/services/audit.service';
 import {
   AuditSeverity, SagaSummary, auditSeverity, eventInstant, formatDuration, isCompensation, sagaSummary, sinceStartMs
@@ -38,33 +38,38 @@ export class AuditTimelineComponent implements OnInit, OnDestroy {
   summary = signal<SagaSummary | null>(null);
   loading = signal(true);
   failed = signal(false);
+  invalid = signal(false);
   expanded = new Set<number>();
   otherOrder = '';
 
   ngOnInit(): void {
+    // A failed request is caught inside the switchMap: opening another order (same component) still loads it
     this.route.paramMap.pipe(
-      map(params => Number(params.get('orderId'))),
-      tap(orderId => {
-        this.orderId.set(orderId);
+      tap(() => {
         this.loading.set(true);
         this.failed.set(false);
+        this.invalid.set(false);
         this.expanded.clear();
       }),
-      switchMap(orderId => this.auditService.getTimeline(orderId)),
+      switchMap(params => this.load(params.get('orderId'))),
       takeUntil(this.destroy$)
-    ).subscribe({
-      next: events => {
-        this.events.set(events);
-        this.summary.set(sagaSummary(events));
-        this.loading.set(false);
-      },
-      error: () => {
-        this.events.set([]);
-        this.summary.set(null);
-        this.failed.set(true);
-        this.loading.set(false);
-      }
+    ).subscribe(events => {
+      this.events.set(events ?? []);
+      this.summary.set(events ? sagaSummary(events) : null);
+      this.failed.set(events === null && !this.invalid());
+      this.loading.set(false);
     });
+  }
+
+  // null when there is nothing to show: not an order id (no request), or the request failed
+  private load(param: string | null): Observable<AuditEventDto[] | null> {
+    if (!param || !/^\d+$/.test(param)) {
+      this.orderId.set(null);
+      this.invalid.set(true);
+      return of(null);
+    }
+    this.orderId.set(Number(param));
+    return this.auditService.getTimeline(Number(param)).pipe(catchError(() => of(null)));
   }
 
   ngOnDestroy(): void {

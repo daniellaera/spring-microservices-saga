@@ -75,6 +75,17 @@ test('the event type and service filters are sent to the server', async ({ page 
   expect(api.listRequests.at(-1)?.toString()).toBe('page=0&size=20&eventType=PAYMENT_SUCCEEDED&serviceName=order-service');
 });
 
+test('after a failed request, Refresh asks again and the list comes back', async ({ page }) => {
+  const api = await stubAuditApi(page, { listFailures: 1 });
+  await page.goto('/audit');
+  await expect(page.locator(rows).first()).toContainText('could not be loaded');
+
+  await page.getByTitle('Refresh').click();
+
+  await expect(page.locator(rows)).toHaveCount(20);
+  expect(api.listRequests).toHaveLength(2);
+});
+
 test.describe('in Zurich', () => {
   test.use({ timezoneId: 'Europe/Zurich' });
 
@@ -82,7 +93,7 @@ test.describe('in Zurich', () => {
     await stubAuditApi(page);
     await page.goto('/audit');
 
-    // recorded at 07:59 UTC, sent without an offset (before occurredAt): 09:59 in Zurich on 23 October (CEST)
+    // recorded at 07:59 UTC, sent without an offset (before recordedAt): 09:59 in Zurich on 23 October (CEST)
     await expect(page.locator(rows).first().locator('td:nth-child(2)')).toHaveText('2026-10-23 09:59:00');
   });
 });

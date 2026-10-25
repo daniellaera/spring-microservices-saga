@@ -95,7 +95,7 @@ class AuditQueriesITTest {
     void events_carryTheirRecordingTime_asBeforeAndAsAnInstantInUtc() throws Exception {
         timeline("66")
                 .andExpect(jsonPath("$[0].createdAt").value("2026-10-25T08:00:00"))
-                .andExpect(jsonPath("$[0].occurredAt").value("2026-10-25T08:00:00Z"));
+                .andExpect(jsonPath("$[0].recordedAt").value("2026-10-25T08:00:00Z"));
     }
 
     @Test

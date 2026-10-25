@@ -8,7 +8,7 @@ import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
-import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil, tap } from 'rxjs';
+import { EMPTY, Subject, catchError, debounceTime, distinctUntilChanged, switchMap, takeUntil, tap } from 'rxjs';
 import { AuditEventDto, AuditQuery, AuditService } from '../../core/services/audit.service';
 import { AuditSeverity, auditSeverity, eventInstant, orderIdOf } from './audit-events';
 
@@ -47,6 +47,7 @@ export class AuditComponent implements OnInit, OnDestroy {
 
   events: AuditEventDto[] = [];
   loading = signal(true);
+  failed = signal(false);
   totalRecords = 0;
   first = 0;
   rows = 20;
@@ -56,18 +57,24 @@ export class AuditComponent implements OnInit, OnDestroy {
   serviceName: string | null = null;
 
   ngOnInit(): void {
-    // the latest query wins: an answer to an older one is dropped
+    // The latest query wins: an answer to an older one is dropped. A failed request is caught inside the switchMap,
+    // so the next page, filter or Refresh still asks again.
     this.queries$.pipe(
       tap(() => this.loading.set(true)),
-      switchMap(query => this.auditService.search(query)),
+      switchMap(query => this.auditService.search(query).pipe(
+        catchError(() => {
+          this.events = [];
+          this.totalRecords = 0;
+          this.failed.set(true);
+          this.loading.set(false);
+          return EMPTY;
+        }))),
       takeUntil(this.destroy$)
-    ).subscribe({
-      next: res => {
-        this.events = res.content ?? [];
-        this.totalRecords = res.totalElements ?? 0;
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false)
+    ).subscribe(res => {
+      this.events = res.content ?? [];
+      this.totalRecords = res.totalElements ?? 0;
+      this.failed.set(false);
+      this.loading.set(false);
     });
     this.searchInput$.pipe(
       debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged(), takeUntil(this.destroy$)
