@@ -1,6 +1,6 @@
 package com.daniellaera.authservice.service;
 
-import com.daniellaera.authservice.audit.AuditPublisher;
+import com.daniellaera.authservice.adapter.out.messaging.AuditPublisher;
 import com.daniellaera.authservice.dto.AuthResponse;
 import com.daniellaera.authservice.dto.LoginRequest;
 import com.daniellaera.authservice.dto.OtpInitiatedResponse;
@@ -14,7 +14,7 @@ import com.daniellaera.authservice.adapter.out.persistence.UserJpaEntity;
 import com.daniellaera.authservice.otp.OtpLimitExceededException;
 import com.daniellaera.authservice.otp.OtpService;
 import com.daniellaera.authservice.adapter.out.persistence.UserJpaRepository;
-import com.daniellaera.authservice.util.JwtUtil;
+import com.daniellaera.authservice.adapter.out.security.JwtUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;

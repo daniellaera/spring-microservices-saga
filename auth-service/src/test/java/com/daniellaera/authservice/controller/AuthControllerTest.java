@@ -1,6 +1,6 @@
 package com.daniellaera.authservice.controller;
 
-import com.daniellaera.authservice.audit.AuditPublisher;
+import com.daniellaera.authservice.adapter.out.messaging.AuditPublisher;
 import com.daniellaera.authservice.dto.AuthResponse;
 import com.daniellaera.authservice.dto.LoginRequest;
 import com.daniellaera.authservice.dto.OtpInitiatedResponse;
@@ -11,7 +11,7 @@ import com.daniellaera.authservice.adapter.out.persistence.UserJpaEntity;
 import com.daniellaera.authservice.domain.model.Role;
 import com.daniellaera.authservice.service.AuthService;
 import com.daniellaera.authservice.service.RefreshTokenService;
-import com.daniellaera.authservice.util.JwtUtil;
+import com.daniellaera.authservice.adapter.out.security.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

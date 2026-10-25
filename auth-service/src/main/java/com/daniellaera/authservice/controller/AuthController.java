@@ -1,6 +1,6 @@
 package com.daniellaera.authservice.controller;
 
-import com.daniellaera.authservice.audit.AuditPublisher;
+import com.daniellaera.authservice.adapter.out.messaging.AuditPublisher;
 import com.daniellaera.authservice.dto.AuthResponse;
 import com.daniellaera.authservice.dto.LoginRequest;
 import com.daniellaera.authservice.dto.OtpInitiatedResponse;
@@ -12,7 +12,7 @@ import com.daniellaera.authservice.dto.RegisterRequest;
 import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaEntity;
 import com.daniellaera.authservice.service.AuthService;
 import com.daniellaera.authservice.service.RefreshTokenService;
-import com.daniellaera.authservice.util.JwtUtil;
+import com.daniellaera.authservice.adapter.out.security.JwtUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

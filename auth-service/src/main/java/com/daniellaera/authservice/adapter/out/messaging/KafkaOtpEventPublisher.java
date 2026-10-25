@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.otp;
+package com.daniellaera.authservice.adapter.out.messaging;
 
 import com.daniellaera.authservice.domain.port.out.OtpEventPublisher;
 import com.daniellaera.authservice.domain.model.OtpCode;

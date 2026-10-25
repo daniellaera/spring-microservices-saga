@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.otp;
+package com.daniellaera.authservice.adapter.out.redis;
 
 import com.daniellaera.authservice.domain.port.out.OtpAttempts;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.audit;
+package com.daniellaera.authservice.adapter.out.messaging;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

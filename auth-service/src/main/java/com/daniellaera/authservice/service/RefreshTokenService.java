@@ -1,6 +1,6 @@
 package com.daniellaera.authservice.service;
 
-import com.daniellaera.authservice.audit.AuditPublisher;
+import com.daniellaera.authservice.adapter.out.messaging.AuditPublisher;
 import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaEntity;
 import com.daniellaera.authservice.adapter.out.persistence.UserJpaEntity;
 import com.daniellaera.authservice.adapter.out.persistence.RefreshTokenJpaRepository;

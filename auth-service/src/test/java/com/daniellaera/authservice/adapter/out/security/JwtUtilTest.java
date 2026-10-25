@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.util;
+package com.daniellaera.authservice.adapter.out.security;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -1,4 +1,7 @@
-package com.daniellaera.authservice.util;
+package com.daniellaera.authservice.adapter.out.security;
+
+import com.daniellaera.authservice.domain.model.Role;
+import com.daniellaera.authservice.domain.port.out.AccessTokenIssuer;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -12,7 +15,7 @@ import java.util.Date;
 
 @Component
 @Slf4j
-public class JwtUtil {
+public class JwtUtil implements AccessTokenIssuer {
 
     @Value("${app.jwt.secret}")
     private String secret;
@@ -46,5 +49,10 @@ public class JwtUtil {
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey())
                 .compact();
+    }
+
+    @Override
+    public String issue(String email, Role role) {
+        return generateToken(email, role.name());
     }
 }

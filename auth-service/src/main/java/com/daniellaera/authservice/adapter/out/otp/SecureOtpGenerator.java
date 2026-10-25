@@ -1,4 +1,4 @@
-package com.daniellaera.authservice.otp;
+package com.daniellaera.authservice.adapter.out.otp;
 
 import com.daniellaera.authservice.domain.port.out.OtpGenerator;
 import com.daniellaera.authservice.domain.model.OtpCode;
