@@ -63,3 +63,18 @@ On infra-node1 alone, `docker pull daniellaera/order-service:<sha>`,
 `docker tag daniellaera/order-service:<sha> daniellaera/order-service:latest`, then
 `docker compose -f docker-compose.yml up -d --no-deps order-service` (without `--pull`). This lasts only until
 the next deploy pulls `:latest` again, so do step 3 as soon as possible.
+
+## Redeploying after a failed `main` run
+
+A `main.yml` run whose tests fail builds and deploys nothing (since #37). Gitea has no re-run API, and pushing
+again only rebuilds what that push changed. To deploy everything changed since the last good deploy, dispatch
+`main.yml` on `main` with `base` set to the **full** SHA of that commit (paths-filter cannot resolve a short one):
+
+```bash
+curl -X POST -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" \
+  http://192.168.1.103:3000/api/v1/repos/daniellaera/spring-saga-store/actions/workflows/main.yml/dispatches \
+  -d '{"ref":"main","inputs":{"base":"<full 40-character sha>"}}'
+```
+
+Or from the Actions tab: "Build and Deploy Online Shop" → "Run workflow". Done on 2026-10-25 (run 265) for the
+#36 merge, whose own run (259) had failed on a flaky test.

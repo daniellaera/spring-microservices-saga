@@ -47,8 +47,8 @@ All notable changes to this project are documented here. The format follows
 - `GET /audit/user/{email}` and `GET /audit/order/{orderId}` answered 500 (unnamed path variables).
 - **`main.yml` deployed after failed tests** (run 259): with the images not built, the deploy restarted the
   changed services on their previous `:latest` and logged a SHA tag that was never pushed. The deploy now
-  needs the test jobs. `workflow_dispatch` takes an optional `base` commit, so a failed run can be redeployed
-  with every service changed since the last good one.
+  needs the test jobs. `workflow_dispatch` takes an optional `base` commit (a full SHA), so a failed run can be
+  redeployed with every service changed since the last good one (`docs/ROLLBACK.md`).
 
 ## [1.1.0] - 2026-10-23
 
