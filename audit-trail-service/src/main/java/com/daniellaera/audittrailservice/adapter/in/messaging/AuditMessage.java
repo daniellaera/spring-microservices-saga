@@ -1,0 +1,13 @@
+package com.daniellaera.audittrailservice.adapter.in.messaging;
+
+public record AuditMessage(
+        String eventType,     // AuditEventType name
+        String userEmail,
+        String entityType,
+        String entityId,
+        String payload,       // JSON string
+        String serviceName,
+        String timestamp,     // ISO-8601
+        String correlationId  // the order id for saga events; absent (null) in older messages and outside a saga
+) {
+}

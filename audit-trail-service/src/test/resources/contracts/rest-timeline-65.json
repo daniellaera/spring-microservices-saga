@@ -1,0 +1,26 @@
+{
+  "status" : 200,
+  "body" : [ {
+    "id" : 2,
+    "eventType" : "ORDER_CREATED",
+    "userEmail" : "buyer@test.com",
+    "entityType" : "ORDER",
+    "entityId" : "65",
+    "payload" : "{\"orderId\":65,\"productName\":\"Lamp\"}",
+    "serviceName" : "order-service",
+    "createdAt" : "2026-10-20T10:00:00",
+    "correlationId" : null,
+    "recordedAt" : "2026-10-20T10:00:00Z"
+  }, {
+    "id" : 3,
+    "eventType" : "STOCK_RESTORED",
+    "userEmail" : "buyer@test.com",
+    "entityType" : "PRODUCT",
+    "entityId" : "3",
+    "payload" : "{\"id\":\"3f2b\",\"orderId\":65,\"productName\":\"Lamp\",\"quantity\":1}",
+    "serviceName" : "inventory-service",
+    "createdAt" : "2026-10-20T10:00:03",
+    "correlationId" : null,
+    "recordedAt" : "2026-10-20T10:00:03Z"
+  } ]
+}

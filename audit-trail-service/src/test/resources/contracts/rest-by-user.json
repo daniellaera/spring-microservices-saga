@@ -1,0 +1,15 @@
+{
+  "status" : 200,
+  "body" : [ {
+    "id" : 20,
+    "eventType" : "USER_LOGIN",
+    "userEmail" : "admin@example.com",
+    "entityType" : "USER",
+    "entityId" : "admin@example.com",
+    "payload" : "\"admin@example.com\"",
+    "serviceName" : "auth-service",
+    "createdAt" : "2026-10-25T08:05:00",
+    "correlationId" : null,
+    "recordedAt" : "2026-10-25T08:05:00Z"
+  } ]
+}

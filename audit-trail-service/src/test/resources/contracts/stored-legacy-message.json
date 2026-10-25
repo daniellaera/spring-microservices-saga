@@ -1,0 +1,11 @@
+{
+  "event_type" : "USER_LOGIN",
+  "user_email" : "admin@example.com",
+  "entity_type" : "USER",
+  "entity_id" : "admin@example.com",
+  "payload" : "\"admin@example.com\"",
+  "ip_address" : null,
+  "service_name" : "auth-service",
+  "correlation_id" : null,
+  "rows" : 1
+}
