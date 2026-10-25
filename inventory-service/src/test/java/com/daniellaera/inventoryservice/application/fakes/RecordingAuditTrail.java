@@ -11,28 +11,29 @@ import java.util.List;
 /** Records every call; the after-commit behaviour belongs to the adapter and is tested there. */
 public class RecordingAuditTrail implements AuditTrail {
 
-    public record Audit(String eventType, Product product, Object payload, String userEmail) {}
+    // orderId: the saga's correlation id the adapter sends with the event
+    public record Audit(String eventType, Product product, Object payload, String userEmail, Long orderId) {}
 
     private final List<Audit> audits = new ArrayList<>();
 
     @Override
-    public void stockDeducted(Product product, OrderLine line, String userEmail) {
-        audits.add(new Audit("STOCK_DEDUCTED", snapshot(product), line, userEmail));
+    public void stockDeducted(Product product, OrderLine line, Long orderId, String userEmail) {
+        audits.add(new Audit("STOCK_DEDUCTED", snapshot(product), line, userEmail, orderId));
     }
 
     @Override
     public void stockRestored(Product product, StockReservation reservation, String userEmail) {
-        audits.add(new Audit("STOCK_RESTORED", snapshot(product), reservation, userEmail));
+        audits.add(new Audit("STOCK_RESTORED", snapshot(product), reservation, userEmail, reservation.orderId()));
     }
 
     @Override
     public void productCreated(Product product) {
-        audits.add(new Audit("PRODUCT_CREATED", snapshot(product), null, null));
+        audits.add(new Audit("PRODUCT_CREATED", snapshot(product), null, null, null));
     }
 
     @Override
     public void productRestocked(Product product) {
-        audits.add(new Audit("PRODUCT_RESTOCKED", snapshot(product), null, null));
+        audits.add(new Audit("PRODUCT_RESTOCKED", snapshot(product), null, null, null));
     }
 
     public List<Audit> audits() {

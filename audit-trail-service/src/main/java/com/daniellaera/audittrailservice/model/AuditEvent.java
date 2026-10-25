@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "audit_events",
@@ -22,7 +23,8 @@ import java.time.LocalDateTime;
                 @Index(name = "idx_audit_user_email", columnList = "user_email"),
                 @Index(name = "idx_audit_event_type", columnList = "event_type"),
                 @Index(name = "idx_audit_created_at", columnList = "created_at"),
-                @Index(name = "idx_audit_entity_id", columnList = "entity_id")
+                @Index(name = "idx_audit_entity_id", columnList = "entity_id"),
+                @Index(name = "idx_audit_correlation_id", columnList = "correlation_id, created_at")
         }
 )
 @Getter
@@ -58,10 +60,14 @@ public class AuditEvent {
     @Column(nullable = false)
     private String serviceName; // which service emitted this
 
+    @Column
+    private String correlationId; // the order id of a saga event
+
     // NO setters — append-only, immutable after creation
+    // UTC whatever the JVM's zone: the column has no offset, and the API presents it as UTC
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 
     // builder pattern for creation only
@@ -72,6 +78,17 @@ public class AuditEvent {
             String entityId,
             String payload,
             String serviceName) {
+        return of(eventType, userEmail, entityType, entityId, payload, serviceName, null);
+    }
+
+    public static AuditEvent of(
+            AuditEventType eventType,
+            String userEmail,
+            String entityType,
+            String entityId,
+            String payload,
+            String serviceName,
+            String correlationId) {
         AuditEvent event = new AuditEvent();
         event.eventType = eventType;
         event.userEmail = userEmail;
@@ -79,6 +96,7 @@ public class AuditEvent {
         event.entityId = entityId;
         event.payload = payload;
         event.serviceName = serviceName;
+        event.correlationId = correlationId;
         return event;
     }
 }

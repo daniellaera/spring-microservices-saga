@@ -90,6 +90,39 @@ class AuditConsumerITTest {
     }
 
     @Test
+    void consume_sagaEvent_keepsItsCorrelationId() {
+        kafkaTemplate.send(AUDIT_TOPIC, """
+                {"eventType":"STOCK_DEDUCTED","userEmail":"buyer@test.com","entityType":"PRODUCT","entityId":"3",
+                 "payload":"{}","serviceName":"inventory-service","timestamp":"2026-10-25T08:00:00",
+                 "correlationId":"42"}
+                """);
+
+        await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertThat(auditEventRepository.findAll()).singleElement().satisfies(saved -> {
+                    assertThat(saved.getEntityId()).isEqualTo("3");
+                    assertThat(saved.getCorrelationId()).isEqualTo("42");
+                }));
+    }
+
+    // A producer deployed before this service may send fields it does not know yet: the event is still recorded
+    @Test
+    void consume_messageWithAFieldItDoesNotKnow_isStillRecorded() {
+        kafkaTemplate.send(AUDIT_TOPIC, """
+                {"eventType":"ORDER_CREATED","userEmail":"buyer@test.com","entityType":"ORDER","entityId":"43",
+                 "payload":"{}","serviceName":"order-service","timestamp":"2026-10-25T08:00:00",
+                 "correlationId":"43","traceParent":"00-abc-def-01"}
+                """);
+
+        await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertThat(auditEventRepository.findAll()).singleElement()
+                        .satisfies(saved -> assertThat(saved.getCorrelationId()).isEqualTo("43")));
+    }
+
+    @Test
     void consume_invalidJson_swallowedNoException() {
         kafkaTemplate.send(AUDIT_TOPIC, "not-valid-json");
 

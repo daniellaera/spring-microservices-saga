@@ -128,10 +128,11 @@ class EventContractTest {
 
     @Test
     void auditStockDeducted_payloadIsTheOrderItem() throws Exception {
-        List<OrderLine> lines = commandFor("order-event-multi-item.json").lines();
+        ReserveStockCommand command = commandFor("order-event-multi-item.json");
+        List<OrderLine> lines = command.lines();
 
-        auditTrail().stockDeducted(macbook(9), lines.get(0), "user@test.com");
-        auditTrail().stockDeducted(usbHub(48), lines.get(1), "user@test.com");
+        auditTrail().stockDeducted(macbook(9), lines.get(0), command.orderId(), "user@test.com");
+        auditTrail().stockDeducted(usbHub(48), lines.get(1), command.orderId(), "user@test.com");
 
         List<String> audits = sentAuditMessages(2);
         JSONAssert.assertEquals(fixture("audit-stock-deducted.json"), audits.get(0), IGNORE_TIMESTAMP);

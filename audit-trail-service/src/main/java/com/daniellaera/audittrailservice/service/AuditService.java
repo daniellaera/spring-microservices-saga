@@ -1,17 +1,22 @@
 package com.daniellaera.audittrailservice.service;
 
 import com.daniellaera.audittrailservice.dto.AuditEventDTO;
+import com.daniellaera.audittrailservice.dto.AuditEventFilter;
 import com.daniellaera.audittrailservice.dto.AuditMessage;
 import com.daniellaera.audittrailservice.enums.AuditEventType;
 import com.daniellaera.audittrailservice.model.AuditEvent;
 import com.daniellaera.audittrailservice.repository.AuditEventRepository;
+import com.daniellaera.audittrailservice.repository.AuditEventSpecifications;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Service
@@ -30,7 +35,8 @@ public class AuditService {
                     message.entityType(),
                     message.entityId(),
                     message.payload(),
-                    message.serviceName()
+                    message.serviceName(),
+                    message.correlationId()
             );
             auditEventRepository.save(event);
             log.info("=== Audit: recorded {} for {} entity={}",
@@ -43,10 +49,22 @@ public class AuditService {
         }
     }
 
-    public Page<AuditEventDTO> getAll(Pageable pageable) {
+    // newest first; the id breaks ties between events recorded in the same microsecond
+    private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+
+    public Page<AuditEventDTO> search(AuditEventFilter filter, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, NEWEST_FIRST);
         return auditEventRepository
-                .findAllByOrderByCreatedAtDesc(pageable)
+                .findAll(AuditEventSpecifications.matching(filter), pageable)
                 .map(this::toDTO);
+    }
+
+    // orderId: digits only (the controller's path pattern), so it is safe inside the LIKE pattern
+    public List<AuditEventDTO> getTimeline(String orderId) {
+        return auditEventRepository
+                .findTimeline(orderId, AuditEventType.PAYMENT_INITIATED, AuditEventType.STOCK_RESTORED,
+                        "%\"orderId\":" + orderId + ",%")
+                .stream().map(this::toDTO).toList();
     }
 
     public List<AuditEventDTO> getByUser(String userEmail) {
@@ -70,7 +88,9 @@ public class AuditService {
                 e.getEntityId(),
                 e.getPayload(),
                 e.getServiceName(),
-                e.getCreatedAt()
+                e.getCreatedAt(),
+                e.getCorrelationId(),
+                e.getCreatedAt() != null ? e.getCreatedAt().toInstant(ZoneOffset.UTC) : null
         );
     }
 }

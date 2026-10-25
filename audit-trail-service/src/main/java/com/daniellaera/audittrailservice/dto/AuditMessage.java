@@ -7,6 +7,7 @@ public record AuditMessage(
         String entityId,
         String payload,       // JSON string
         String serviceName,
-        String timestamp      // ISO-8601
+        String timestamp,     // ISO-8601
+        String correlationId  // the order id for saga events; absent (null) in older messages and outside a saga
 ) {
 }

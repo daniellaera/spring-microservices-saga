@@ -32,25 +32,34 @@ class KafkaAuditPublisherTest {
     @Test
     void publish_isAsync() throws Exception {
         assertThat(KafkaAuditPublisher.class
-                .getMethod("publish", String.class, String.class, String.class, String.class, Object.class)
+                .getMethod("publish", String.class, String.class, String.class, String.class, Long.class, Object.class)
                 .isAnnotationPresent(Async.class)).isTrue();
     }
 
     @Test
     void publish_withoutUserOrEntityId_usesSystemAndEmptyId() {
-        publisher.publish("PRODUCT_CREATED", null, "PRODUCT", null, Map.of());
+        publisher.publish("PRODUCT_CREATED", null, "PRODUCT", null, null, Map.of());
 
         Map<?, ?> message = sentMessage();
         assertThat(message.get("userEmail")).isEqualTo("system");
         assertThat(message.get("entityId")).isEqualTo("");
         assertThat(message.get("serviceName")).isEqualTo("inventory-service");
+        // outside a saga: no correlation id at all, not a null one
+        assertThat(message.containsKey("correlationId")).isFalse();
+    }
+
+    @Test
+    void publish_ofASagaEvent_carriesTheOrderIdAsCorrelationId() {
+        publisher.publish("STOCK_DEDUCTED", "user@test.com", "PRODUCT", "11", 42L, Map.of());
+
+        assertThat(sentMessage().get("correlationId")).isEqualTo("42");
     }
 
     @Test
     void kafkaFailure_isSwallowed() {
         when(kafkaTemplate.send(eq("audit-topic"), anyString())).thenThrow(new IllegalStateException("broker down"));
 
-        assertThatCode(() -> publisher.publish("PRODUCT_CREATED", null, "PRODUCT", "1", Map.of()))
+        assertThatCode(() -> publisher.publish("PRODUCT_CREATED", null, "PRODUCT", "1", null, Map.of()))
                 .doesNotThrowAnyException();
     }
 
