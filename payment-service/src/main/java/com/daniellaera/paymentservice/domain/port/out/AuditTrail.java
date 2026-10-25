@@ -7,6 +7,10 @@ import com.daniellaera.paymentservice.domain.port.in.CreatePaymentIntentCommand;
 public interface AuditTrail {
     void paymentInitiated(String paymentIntentId, CreatePaymentIntentCommand command);
 
+    /**
+     * This and the two refund events are on their way to the audit topic when the call returns, so they come before the
+     * payment result the caller publishes next.
+     */
     void paymentProcessed(PaymentTransaction transaction, String userEmail);
 
     /** The captured payment of a failed order was refunded (or had already been, refundId ALREADY_REFUNDED). */

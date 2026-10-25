@@ -31,14 +31,16 @@ public class KafkaAuditTrail implements AuditTrail {
                 () -> PaymentIntentRequestAuditPayload.of(command));
     }
 
-    @Async
+    // Not @Async, like the two refund events: the payment result is published right after these calls, and the saga
+    // timeline orders events as audit-trail-service receives them. Sent from another thread, PAYMENT_FAILED could reach
+    // the audit topic after inventory-service's STOCK_RESTORED, its reaction to that result. kafkaTemplate.send only
+    // hands the record to the producer, which keeps the order of the two sends.
     @Override
     public void paymentProcessed(PaymentTransaction transaction, String userEmail) {
         publish(transaction.succeeded() ? "PAYMENT_SUCCEEDED" : "PAYMENT_FAILED", userEmail,
                 String.valueOf(transaction.orderId()), transaction.orderId(), () -> TransactionAuditPayload.of(transaction));
     }
 
-    @Async
     @Override
     public void paymentRefunded(PaymentTransaction transaction, String userEmail) {
         publish("PAYMENT_REFUNDED", userEmail, String.valueOf(transaction.orderId()), transaction.orderId(),
@@ -46,7 +48,6 @@ public class KafkaAuditTrail implements AuditTrail {
                         transaction.refundId()));
     }
 
-    @Async
     @Override
     public void paymentRefundFailed(PaymentTransaction transaction, String errorCode, String userEmail) {
         publish("PAYMENT_REFUND_FAILED", userEmail, String.valueOf(transaction.orderId()), transaction.orderId(),
