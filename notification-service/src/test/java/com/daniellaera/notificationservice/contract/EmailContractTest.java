@@ -1,8 +1,10 @@
 package com.daniellaera.notificationservice.contract;
 
-import com.daniellaera.notificationservice.consumer.NotificationConsumer;
-import com.daniellaera.notificationservice.consumer.OtpNotificationConsumer;
-import com.daniellaera.notificationservice.service.EmailNotificationService;
+import com.daniellaera.notificationservice.adapter.in.messaging.NotificationConsumer;
+import com.daniellaera.notificationservice.adapter.in.messaging.OtpNotificationConsumer;
+import com.daniellaera.notificationservice.adapter.out.mail.SmtpEmailSender;
+import com.daniellaera.notificationservice.application.NotifyPaymentOutcomeService;
+import com.daniellaera.notificationservice.application.SendOtpCodeService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -83,12 +85,14 @@ class EmailContractTest {
     // ─── the classes under contract ──────────────────────────────────────────
 
     private void deliver(String message) {
-        EmailNotificationService emails = new EmailNotificationService(mailSender);
-        ReflectionTestUtils.setField(emails, "fromEmail", "shop@daniellaera.com");
+        SmtpEmailSender sender = new SmtpEmailSender(mailSender);
+        ReflectionTestUtils.setField(sender, "fromEmail", "shop@daniellaera.com");
         if (message.contains("\"otp\"")) {
-            new OtpNotificationConsumer(JsonMapper.builder().build(), emails).handleOtpEvent(message);
+            new OtpNotificationConsumer(JsonMapper.builder().build(), new SendOtpCodeService(sender))
+                    .handleOtpEvent(message);
         } else {
-            new NotificationConsumer(JsonMapper.builder().build(), emails).handlePaymentEvent(message);
+            new NotificationConsumer(JsonMapper.builder().build(), new NotifyPaymentOutcomeService(sender))
+                    .handlePaymentEvent(message);
         }
     }
 
