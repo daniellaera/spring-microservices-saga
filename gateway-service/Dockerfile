@@ -1,18 +1,10 @@
-# Step 1: Build all modules
-FROM maven:3.9.9-eclipse-temurin-21-alpine AS maven-builder
-
-WORKDIR /app
-COPY . .
-
-# Build everything
-RUN mvn clean package -DskipTests
-
-# Step 2: Runtime for each service
-FROM eclipse-temurin:21-jdk-jammy
+# Runtime image only. The jar is built beforehand, from the repo root:
+#   mvn -pl gateway-service -am package -DskipTests
+# (main.yml builds every changed service in one Maven run before building the images.)
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
-# Copy the JAR of THIS service
-COPY --from=maven-builder /app/gateway-service/target/gateway-service.jar gateway-service.jar
+COPY gateway-service/target/gateway-service.jar gateway-service.jar
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "gateway-service.jar"]

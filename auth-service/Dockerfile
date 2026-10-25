@@ -1,17 +1,10 @@
-# Step 1: Build all modules
-FROM maven:3.9.9-eclipse-temurin-21-alpine AS maven-builder
-
-WORKDIR /app
-COPY . .
-
-# Build everything
-RUN mvn clean package -DskipTests
-
-# Step 2: Runtime for each service
-FROM eclipse-temurin:21-jdk-jammy
+# Runtime image only. The jar is built beforehand, from the repo root:
+#   mvn -pl auth-service -am package -DskipTests
+# (main.yml builds every changed service in one Maven run before building the images.)
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
-COPY --from=maven-builder /app/auth-service/target/auth-service.jar auth-service.jar
+COPY auth-service/target/auth-service.jar auth-service.jar
 
 EXPOSE 8084
 ENTRYPOINT ["java", "-jar", "auth-service.jar"]

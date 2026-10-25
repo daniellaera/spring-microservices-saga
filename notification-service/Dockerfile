@@ -1,18 +1,10 @@
-# Step 1: Build all modules
-FROM maven:3.9.9-eclipse-temurin-21-alpine AS maven-builder
-
-WORKDIR /app
-COPY . .
-
-# Build everything
-RUN mvn clean package -DskipTests
-
-# Step 2: Runtime for each service
-FROM eclipse-temurin:21-jdk-jammy
+# Runtime image only. The jar is built beforehand, from the repo root:
+#   mvn -pl notification-service -am package -DskipTests
+# (main.yml builds every changed service in one Maven run before building the images.)
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
-# Copy the JAR of THIS service
-COPY --from=maven-builder /app/notification-service/target/notification-service.jar notification-service.jar
+COPY notification-service/target/notification-service.jar notification-service.jar
 
 EXPOSE 8085
 ENTRYPOINT ["java", "-jar", "notification-service.jar"]

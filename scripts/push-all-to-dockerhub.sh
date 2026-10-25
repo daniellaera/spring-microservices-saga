@@ -23,6 +23,14 @@ SERVICES=(
   "shop-ui"
 )
 
+# The service Dockerfiles copy a prebuilt jar: package every service once (shop-ui builds in its image)
+echo "🔧 Packaging the service jars"
+if ! mvn -pl config-server,auth-service,order-service,inventory-service,payment-service,notification-service,gateway-service,cart-service,audit-trail-service \
+  -am clean package -DskipTests --no-transfer-progress; then
+  echo "❌ Maven package failed"
+  exit 1
+fi
+
 # Loop over each service
 for SERVICE in "${SERVICES[@]}"; do
   IMAGE_NAME="$DOCKERHUB_USERNAME/$SERVICE:$TAG"

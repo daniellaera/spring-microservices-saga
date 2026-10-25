@@ -22,6 +22,17 @@
     <build>
         <finalName>config-server</finalName>
         <plugins>
+            <!-- Local-only configs (gitignored) stay in target/classes for spring-boot:run, never in the jar:
+                 the image copies a jar that may be built in a developer's working tree -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/*-local.yml</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

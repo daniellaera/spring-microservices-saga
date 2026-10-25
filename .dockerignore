@@ -1,4 +1,5 @@
-# Build context for every image (all Dockerfiles build from the repo root with COPY . . or COPY shop-ui/).
+# Build context for every image (all Dockerfiles build from the repo root). The service images only COPY their
+# prebuilt jar (<service>/target/<service>.jar); shop-ui copies shop-ui/ and builds it.
 # Keeps local-only and secret files out of images and the context small.
 
 # Local configuration and secrets (gitignored, but present in local working trees)
@@ -6,8 +7,9 @@
 .env*
 **/.env*
 
-# Build outputs and dependency caches: images rebuild them from source
+# Build outputs and dependency caches, except the service jars the images copy
 **/target
+!*/target/*.jar
 **/node_modules
 **/.angular
 **/dist

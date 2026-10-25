@@ -7,6 +7,7 @@ on:
     paths:
       - '.dockerignore'
       - '**/Dockerfile'
+      - 'config-server/pom.xml'
       - '.gitea/workflows/docker-build-check.yml'
   workflow_dispatch:
 
@@ -26,6 +27,12 @@ jobs:
         run: |
           echo "probe: true" > config-server/src/main/resources/configs/ci-probe-local.yml
 
+      # The service Dockerfiles copy a prebuilt jar, as in main.yml
+      - name: Package every service
+        run: |
+          mvn -pl config-server,auth-service,order-service,inventory-service,payment-service,notification-service,gateway-service,cart-service,audit-trail-service \
+            -am package -DskipTests --no-transfer-progress
+
       - name: Build config-server
         uses: docker/build-push-action@v5
         with:
@@ -36,10 +43,13 @@ jobs:
           load: true
           tags: docker-build-check/config-server:${{ github.sha }}
 
+      # The jar inside the image, read on the runner (the JRE runtime image has no `jar` tool)
       - name: Check config-server.jar has no local configs
         run: |
-          LOCAL=$(docker run --rm --entrypoint jar docker-build-check/config-server:${{ github.sha }} \
-            tf config-server.jar | grep -- '-local.yml' || true)
+          CID=$(docker create docker-build-check/config-server:${{ github.sha }})
+          docker cp "$CID:/app/config-server.jar" /tmp/config-server-image.jar
+          docker rm "$CID" >/dev/null
+          LOCAL=$(jar tf /tmp/config-server-image.jar | grep -- '-local.yml' || true)
           if [ -n "$LOCAL" ]; then
             echo "Local config files packaged into config-server.jar:"; echo "$LOCAL"; exit 1
           fi
