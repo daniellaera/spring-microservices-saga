@@ -1,0 +1,18 @@
+{
+  "status" : 200,
+  "body" : {
+    "userEmail" : "contract@example.com",
+    "items" : [ {
+      "productName" : "MacBook Pro",
+      "quantity" : 2,
+      "price" : 1299.99
+    }, {
+      "productName" : "USB-C Hub",
+      "quantity" : 2,
+      "price" : 49.9
+    } ],
+    "total" : 2699.78,
+    "ttlSeconds" : 1799,
+    "expiresIn" : "29m 59s"
+  }
+}

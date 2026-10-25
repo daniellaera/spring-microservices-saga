@@ -1,0 +1,14 @@
+{
+  "status" : 200,
+  "body" : {
+    "userEmail" : "contract@example.com",
+    "items" : [ {
+      "productName" : "Lamp",
+      "quantity" : 3,
+      "price" : 49.9
+    } ],
+    "total" : 149.7,
+    "ttlSeconds" : 1799,
+    "expiresIn" : "29m 59s"
+  }
+}

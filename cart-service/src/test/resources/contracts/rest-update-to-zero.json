@@ -1,0 +1,10 @@
+{
+  "status" : 200,
+  "body" : {
+    "userEmail" : "contract@example.com",
+    "items" : [ ],
+    "total" : 0,
+    "ttlSeconds" : 0,
+    "expiresIn" : "Cart is empty"
+  }
+}

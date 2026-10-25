@@ -1,0 +1,7 @@
+{
+  "status" : 500,
+  "body" : {
+    "status" : 500,
+    "message" : "Required request header 'X-User-Email' for method parameter type String is not present"
+  }
+}
