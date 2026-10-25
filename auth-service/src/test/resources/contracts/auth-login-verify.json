@@ -1,0 +1,157 @@
+{
+  "steps" : [ {
+    "step" : "register",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "buyer@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  }, {
+    "step" : "login wrong password",
+    "status" : 400,
+    "body" : {
+      "error" : "Bad Request",
+      "message" : "Bad credentials",
+      "status" : 400
+    }
+  }, {
+    "step" : "login unknown user",
+    "status" : 400,
+    "body" : {
+      "error" : "Bad Request",
+      "message" : "Bad credentials",
+      "status" : 400
+    }
+  }, {
+    "step" : "login",
+    "status" : 200,
+    "body" : {
+      "email" : "buyer@example.com",
+      "message" : "OTP sent to your email address",
+      "requiresOtp" : true
+    }
+  }, {
+    "step" : "verify wrong code",
+    "status" : 401,
+    "body" : {
+      "error" : "Invalid OTP code",
+      "message" : "Invalid OTP code",
+      "status" : 401
+    }
+  }, {
+    "step" : "verify",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "buyer@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  }, {
+    "step" : "verify the consumed code again",
+    "status" : 401,
+    "body" : {
+      "error" : "OTP expired or not found — please login again",
+      "message" : "OTP expired or not found — please login again",
+      "status" : 401
+    }
+  } ],
+  "events" : [ {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "buyer@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"buyer@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "buyer@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "buyer@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"buyer@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "buyer@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "buyer@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN",
+      "payload" : "\"buyer@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "buyer@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "buyer@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN_INITIATED",
+      "payload" : "\"buyer@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "buyer@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "buyer@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_REGISTER",
+      "payload" : "\"buyer@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "buyer@example.com"
+    }
+  }, {
+    "topic" : "otp-topic",
+    "value" : {
+      "email" : "buyer@example.com",
+      "otp" : "<otp>",
+      "timestamp" : "<timestamp>"
+    }
+  } ],
+  "users" : [ {
+    "created" : true,
+    "email" : "buyer@example.com",
+    "first_name" : null,
+    "last_name" : null,
+    "password" : "<bcrypt $2a$10$>",
+    "role" : "USER"
+  } ],
+  "refreshTokens" : [ {
+    "days_left" : 7,
+    "email" : "buyer@example.com",
+    "revoked" : true,
+    "token" : "<uuid>"
+  }, {
+    "days_left" : 7,
+    "email" : "buyer@example.com",
+    "revoked" : false,
+    "token" : "<uuid>"
+  } ],
+  "redis" : {
+    "otp-issued:buyer@example.com" : {
+      "ttl" : "<= 900 s",
+      "value" : "1"
+    }
+  }
+}

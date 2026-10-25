@@ -1,0 +1,102 @@
+{
+  "steps" : [ {
+    "step" : "register",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "leaver@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  }, {
+    "step" : "logout",
+    "status" : 204,
+    "body" : null
+  }, {
+    "step" : "refresh after logout",
+    "status" : 400,
+    "body" : {
+      "error" : "Bad Request",
+      "message" : "Refresh token revoked",
+      "status" : 400
+    }
+  }, {
+    "step" : "logout unknown",
+    "status" : 204,
+    "body" : null
+  }, {
+    "step" : "logout without token",
+    "status" : 400,
+    "body" : {
+      "error" : "Validation Failed",
+      "errors" : {
+        "refreshToken" : "Refresh token is required"
+      },
+      "status" : 400
+    }
+  } ],
+  "events" : [ {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGOUT",
+      "payload" : "\"<uuid>\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "system"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGOUT",
+      "payload" : "\"unknown\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "system"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "leaver@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"leaver@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "leaver@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "leaver@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_REGISTER",
+      "payload" : "\"leaver@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "leaver@example.com"
+    }
+  } ],
+  "users" : [ {
+    "created" : true,
+    "email" : "leaver@example.com",
+    "first_name" : null,
+    "last_name" : null,
+    "password" : "<bcrypt $2a$10$>",
+    "role" : "USER"
+  } ],
+  "refreshTokens" : [ {
+    "days_left" : 7,
+    "email" : "leaver@example.com",
+    "revoked" : true,
+    "token" : "<uuid>"
+  } ],
+  "redis" : { }
+}

@@ -1,0 +1,81 @@
+{
+  "steps" : [ {
+    "step" : "register",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "gone@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  }, {
+    "step" : "login",
+    "status" : 200,
+    "body" : {
+      "email" : "gone@example.com",
+      "message" : "OTP sent to your email address",
+      "requiresOtp" : true
+    }
+  }, {
+    "step" : "verify",
+    "status" : 401,
+    "body" : {
+      "error" : "User not found",
+      "message" : "User not found",
+      "status" : 401
+    }
+  } ],
+  "events" : [ {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "gone@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"gone@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "gone@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "gone@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN_INITIATED",
+      "payload" : "\"gone@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "gone@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "gone@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_REGISTER",
+      "payload" : "\"gone@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "gone@example.com"
+    }
+  }, {
+    "topic" : "otp-topic",
+    "value" : {
+      "email" : "gone@example.com",
+      "otp" : "<otp>",
+      "timestamp" : "<timestamp>"
+    }
+  } ],
+  "users" : [ ],
+  "refreshTokens" : [ ],
+  "redis" : {
+    "otp-issued:gone@example.com" : {
+      "ttl" : "<= 900 s",
+      "value" : "1"
+    }
+  }
+}

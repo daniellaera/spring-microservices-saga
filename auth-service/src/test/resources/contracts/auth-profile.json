@@ -1,0 +1,160 @@
+{
+  "steps" : [ {
+    "step" : "register",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "profile@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  }, {
+    "step" : "check taken",
+    "status" : 200,
+    "body" : {
+      "available" : false
+    }
+  }, {
+    "step" : "check free",
+    "status" : 200,
+    "body" : {
+      "available" : true
+    }
+  }, {
+    "step" : "profile without user",
+    "status" : 401,
+    "body" : {
+      "error" : "Missing authentication",
+      "message" : "Missing authentication",
+      "status" : 401
+    }
+  }, {
+    "step" : "profile with a blank user",
+    "status" : 401,
+    "body" : {
+      "error" : "Missing authentication",
+      "message" : "Missing authentication",
+      "status" : 401
+    }
+  }, {
+    "step" : "profile",
+    "status" : 200,
+    "body" : {
+      "displayName" : "profile",
+      "email" : "profile@example.com",
+      "firstName" : null,
+      "lastName" : null,
+      "role" : "USER"
+    }
+  }, {
+    "step" : "profile of an unknown user",
+    "status" : 400,
+    "body" : {
+      "error" : "Bad Request",
+      "message" : "User not found: nobody@example.com",
+      "status" : 400
+    }
+  }, {
+    "step" : "set first name",
+    "status" : 200,
+    "body" : {
+      "displayName" : "Ada",
+      "email" : "profile@example.com",
+      "firstName" : "Ada",
+      "lastName" : null,
+      "role" : "USER"
+    }
+  }, {
+    "step" : "set last name",
+    "status" : 200,
+    "body" : {
+      "displayName" : "Ada Lovelace",
+      "email" : "profile@example.com",
+      "firstName" : "Ada",
+      "lastName" : "Lovelace",
+      "role" : "USER"
+    }
+  }, {
+    "step" : "name too long",
+    "status" : 400,
+    "body" : {
+      "error" : "Validation Failed",
+      "errors" : {
+        "firstName" : "First name too long"
+      },
+      "status" : 400
+    }
+  }, {
+    "step" : "update without user",
+    "status" : 401,
+    "body" : {
+      "error" : "Missing authentication",
+      "message" : "Missing authentication",
+      "status" : 401
+    }
+  } ],
+  "events" : [ {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "profile@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"profile@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "profile@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "profile@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_PROFILE_UPDATED",
+      "payload" : "{\"firstName\":\"Ada\",\"lastName\":null}",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "profile@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "profile@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_PROFILE_UPDATED",
+      "payload" : "{\"firstName\":null,\"lastName\":\"Lovelace\"}",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "profile@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "profile@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_REGISTER",
+      "payload" : "\"profile@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "profile@example.com"
+    }
+  } ],
+  "users" : [ {
+    "created" : true,
+    "email" : "profile@example.com",
+    "first_name" : "Ada",
+    "last_name" : "Lovelace",
+    "password" : "<bcrypt $2a$10$>",
+    "role" : "USER"
+  } ],
+  "refreshTokens" : [ {
+    "days_left" : 7,
+    "email" : "profile@example.com",
+    "revoked" : false,
+    "token" : "<uuid>"
+  } ],
+  "redis" : { }
+}

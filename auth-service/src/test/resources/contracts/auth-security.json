@@ -1,0 +1,22 @@
+{
+  "steps" : [ {
+    "step" : "an unknown path",
+    "status" : 403,
+    "body" : null
+  }, {
+    "step" : "an unknown auth path",
+    "status" : 404,
+    "body" : null
+  }, {
+    "step" : "health",
+    "status" : 200,
+    "body" : {
+      "groups" : [ "liveness", "readiness" ],
+      "status" : "UP"
+    }
+  } ],
+  "events" : [ ],
+  "users" : [ ],
+  "refreshTokens" : [ ],
+  "redis" : { }
+}

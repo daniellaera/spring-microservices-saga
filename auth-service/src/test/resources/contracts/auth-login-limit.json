@@ -1,0 +1,212 @@
+{
+  "steps" : [ {
+    "step" : "register",
+    "status" : 200,
+    "body" : {
+      "refreshToken" : "<uuid>",
+      "token" : {
+        "alg" : "HS256",
+        "claims" : [ "exp", "iat", "role", "sub" ],
+        "role" : "USER",
+        "sub" : "eager@example.com",
+        "validitySeconds" : 3600
+      }
+    }
+  }, {
+    "step" : "login 1",
+    "status" : 200,
+    "body" : {
+      "email" : "eager@example.com",
+      "message" : "OTP sent to your email address",
+      "requiresOtp" : true
+    }
+  }, {
+    "step" : "login 2",
+    "status" : 200,
+    "body" : {
+      "email" : "eager@example.com",
+      "message" : "OTP sent to your email address",
+      "requiresOtp" : true
+    }
+  }, {
+    "step" : "login 3",
+    "status" : 200,
+    "body" : {
+      "email" : "eager@example.com",
+      "message" : "OTP sent to your email address",
+      "requiresOtp" : true
+    }
+  }, {
+    "step" : "login 4",
+    "status" : 200,
+    "body" : {
+      "email" : "eager@example.com",
+      "message" : "OTP sent to your email address",
+      "requiresOtp" : true
+    }
+  }, {
+    "step" : "login 5",
+    "status" : 200,
+    "body" : {
+      "email" : "eager@example.com",
+      "message" : "OTP sent to your email address",
+      "requiresOtp" : true
+    }
+  }, {
+    "step" : "login 6",
+    "status" : 429,
+    "body" : {
+      "error" : "Too many login attempts — please try again in 15 minutes",
+      "message" : "Too many login attempts — please try again in 15 minutes",
+      "status" : 429
+    }
+  } ],
+  "events" : [ {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "eager@example.com",
+      "entityType" : "USER",
+      "eventType" : "TOKEN_REFRESHED",
+      "payload" : "\"eager@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "eager@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "eager@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN_FAILED",
+      "payload" : "{\"reason\":\"OTP_TOO_MANY_CODES_ISSUED\"}",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "eager@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "eager@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN_INITIATED",
+      "payload" : "\"eager@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "eager@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "eager@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN_INITIATED",
+      "payload" : "\"eager@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "eager@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "eager@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN_INITIATED",
+      "payload" : "\"eager@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "eager@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "eager@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN_INITIATED",
+      "payload" : "\"eager@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "eager@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "eager@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_LOGIN_INITIATED",
+      "payload" : "\"eager@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "eager@example.com"
+    }
+  }, {
+    "topic" : "audit-topic",
+    "value" : {
+      "entityId" : "eager@example.com",
+      "entityType" : "USER",
+      "eventType" : "USER_REGISTER",
+      "payload" : "\"eager@example.com\"",
+      "serviceName" : "auth-service",
+      "timestamp" : "<timestamp>",
+      "userEmail" : "eager@example.com"
+    }
+  }, {
+    "topic" : "otp-topic",
+    "value" : {
+      "email" : "eager@example.com",
+      "otp" : "<otp>",
+      "timestamp" : "<timestamp>"
+    }
+  }, {
+    "topic" : "otp-topic",
+    "value" : {
+      "email" : "eager@example.com",
+      "otp" : "<otp>",
+      "timestamp" : "<timestamp>"
+    }
+  }, {
+    "topic" : "otp-topic",
+    "value" : {
+      "email" : "eager@example.com",
+      "otp" : "<otp>",
+      "timestamp" : "<timestamp>"
+    }
+  }, {
+    "topic" : "otp-topic",
+    "value" : {
+      "email" : "eager@example.com",
+      "otp" : "<otp>",
+      "timestamp" : "<timestamp>"
+    }
+  }, {
+    "topic" : "otp-topic",
+    "value" : {
+      "email" : "eager@example.com",
+      "otp" : "<otp>",
+      "timestamp" : "<timestamp>"
+    }
+  } ],
+  "users" : [ {
+    "created" : true,
+    "email" : "eager@example.com",
+    "first_name" : null,
+    "last_name" : null,
+    "password" : "<bcrypt $2a$10$>",
+    "role" : "USER"
+  } ],
+  "refreshTokens" : [ {
+    "days_left" : 7,
+    "email" : "eager@example.com",
+    "revoked" : false,
+    "token" : "<uuid>"
+  } ],
+  "redis" : {
+    "otp-issued:eager@example.com" : {
+      "ttl" : "<= 900 s",
+      "value" : "6"
+    },
+    "otp:eager@example.com" : {
+      "ttl" : "<= 300 s",
+      "value" : "<otp>"
+    }
+  }
+}
