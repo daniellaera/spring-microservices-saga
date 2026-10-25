@@ -6,11 +6,7 @@ import com.daniellaera.paymentservice.domain.model.IntentVerification;
 import com.daniellaera.paymentservice.domain.model.PaymentGatewayUnavailableException;
 import com.daniellaera.paymentservice.domain.model.PaymentStatus;
 import com.daniellaera.paymentservice.domain.port.out.PaymentGateway;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.serialization.StringDeserializer;
+import com.daniellaera.paymentservice.support.TopicReader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,11 +20,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.kafka.KafkaContainer;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -92,17 +87,25 @@ class InventoryResultRetryITTest {
 
     @Test
     void aRetryingResult_doesNotHoldBackTheNextOne() {
-        when(paymentGateway.verifyIntent("pi_805")).thenThrow(new PaymentGatewayUnavailableException("Stripe unavailable: 503", null));
-        when(paymentGateway.verifyIntent("pi_806"))
-                .thenReturn(Optional.of(new IntentVerification("succeeded", 1000L, "eur")));
+        // 805's retries wait until 806 is verified: on the retry topic's own consumer that holds back nothing, while
+        // retried in place they would block inventory-topic, and 806 behind them, for longer than the test waits
+        CountDownLatch verified806 = new CountDownLatch(1);
+        when(paymentGateway.verifyIntent("pi_805"))
+                .thenThrow(new PaymentGatewayUnavailableException("Stripe unavailable: 503", null))
+                .thenAnswer(invocation -> {
+                    verified806.await(120, TimeUnit.SECONDS);
+                    throw new PaymentGatewayUnavailableException("Stripe unavailable: 503", null);
+                });
+        when(paymentGateway.verifyIntent("pi_806")).thenAnswer(invocation -> {
+            verified806.countDown();
+            return Optional.of(new IntentVerification("succeeded", 1000L, "eur"));
+        });
 
         kafkaTemplate.send("inventory-topic", approved(805L, "pi_805"));
         kafkaTemplate.send("inventory-topic", approved(806L, "pi_806"));
 
-        // 806 is paid while 805 waits out its 3 s backoff on the retry topic: inventory-topic is not blocked
-        await().atMost(Duration.ofMillis(2500)).untilAsserted(() -> assertThat(transactionRepository.findByOrderId(806L))
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> assertThat(transactionRepository.findByOrderId(806L))
                 .hasValueSatisfying(t -> assertThat(t.getStatus()).isEqualTo(PaymentStatus.SUCCESS)));
-        verify(paymentGateway, times(1)).verifyIntent("pi_805");
         assertThat(transactionRepository.findByOrderId(805L)).isEmpty();
     }
 
@@ -126,26 +129,6 @@ class InventoryResultRetryITTest {
     }
 
     private List<String> messagesOn(String topic) {
-        Map<String, Object> config = Map.of(
-                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
-                ConsumerConfig.GROUP_ID_CONFIG, "retry-it-" + UUID.randomUUID(),
-                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        try (KafkaConsumer<String, String> consumer =
-                     new KafkaConsumer<>(config, new StringDeserializer(), new StringDeserializer())) {
-            consumer.subscribe(List.of(topic));
-            List<String> messages = new ArrayList<>();
-            // until the group has its partitions (slow on a busy runner), then up to their end offsets
-            long deadline = System.currentTimeMillis() + 30_000;
-            while (consumer.assignment().isEmpty() && System.currentTimeMillis() < deadline) {
-                consumer.poll(Duration.ofMillis(200)).forEach(record -> messages.add(record.value()));
-            }
-            Map<TopicPartition, Long> end = consumer.endOffsets(consumer.assignment());
-            while (end.entrySet().stream().anyMatch(e -> consumer.position(e.getKey()) < e.getValue())
-                    && System.currentTimeMillis() < deadline) {
-                consumer.poll(Duration.ofMillis(200)).forEach(record -> messages.add(record.value()));
-            }
-            assertThat(consumer.assignment()).as("partitions assigned to the reading consumer").isNotEmpty();
-            return messages;
-        }
+        return TopicReader.readAll(kafka.getBootstrapServers(), topic);
     }
 }

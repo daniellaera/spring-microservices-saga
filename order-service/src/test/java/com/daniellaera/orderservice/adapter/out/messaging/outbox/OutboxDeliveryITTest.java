@@ -2,10 +2,7 @@ package com.daniellaera.orderservice.adapter.out.messaging.outbox;
 
 import com.daniellaera.orderservice.TestcontainersConfiguration;
 import com.daniellaera.orderservice.adapter.out.messaging.OrderEvent;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.serialization.StringDeserializer;
+import com.daniellaera.orderservice.support.TopicReader;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,9 +15,9 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -87,7 +84,7 @@ class OutboxDeliveryITTest {
                 .untilAsserted(() -> assertThat(outboxRepository.findAllById(List.of(first, second)))
                         .hasSize(2).allMatch(OutboxEventJpaEntity::isPublished));
         // at least once, and the first row before the second
-        List<Long> delivered = ordersTopicOrderIds(9001L, 9002L);
+        List<Long> delivered = ordersTopicOrderIds();
         assertThat(delivered).contains(9001L, 9002L);
         assertThat(delivered.indexOf(9001L)).isLessThan(delivered.indexOf(9002L));
     }
@@ -105,7 +102,7 @@ class OutboxDeliveryITTest {
         await().atMost(Duration.ofSeconds(15))
                 .untilAsserted(() -> assertThat(outboxRepository.findById(later)).get()
                         .returns(OutboxStatus.PUBLISHED, OutboxEventJpaEntity::getStatus));
-        assertThat(ordersTopicOrderIds(9102L)).contains(9102L);
+        assertThat(ordersTopicOrderIds()).contains(9102L);
 
         // two ticks later it is FAILED, and stays so
         await().atMost(Duration.ofSeconds(20))
@@ -135,44 +132,21 @@ class OutboxDeliveryITTest {
         return outboxRepository.save(row).getId();
     }
 
-    private List<Long> ordersTopicOrderIds(Long... expected) {
-        try (KafkaConsumer<String, String> consumer = consumer("orders-topic")) {
-            List<Long> orderIds = new ArrayList<>();
-            await().atMost(Duration.ofSeconds(30)).until(() -> {
-                for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(500))) {
-                    orderIds.add(objectMapper.readValue(record.value(), OrderEvent.class).orderId());
-                }
-                return orderIds.containsAll(List.of(expected));
-            });
-            return orderIds;
-        }
+    // the rows are PUBLISHED once the broker acked them: they are on the topic now
+    private List<Long> ordersTopicOrderIds() {
+        return TopicReader.readAll(kafka.getBootstrapServers(), "orders-topic").stream()
+                .map(value -> objectMapper.readValue(value, OrderEvent.class).orderId())
+                .toList();
     }
 
     private Map<?, ?> auditMessage(String eventType, String entityId) {
-        try (KafkaConsumer<String, String> consumer = consumer("audit-topic")) {
-            List<Map<?, ?>> found = new ArrayList<>();
-            await().atMost(Duration.ofSeconds(30)).until(() -> {
-                for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(500))) {
-                    Map<?, ?> message = objectMapper.readValue(record.value(), Map.class);
-                    if (eventType.equals(message.get("eventType")) && entityId.equals(message.get("entityId"))) {
-                        found.add(message);
-                    }
-                }
-                return !found.isEmpty();
-            });
-            return found.getFirst();
-        }
-    }
-
-    private KafkaConsumer<String, String> consumer(String topic) {
-        Map<String, Object> config = Map.of(
-                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
-                ConsumerConfig.GROUP_ID_CONFIG, "outbox-it-" + UUID.randomUUID(),
-                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        KafkaConsumer<String, String> consumer =
-                new KafkaConsumer<>(config, new StringDeserializer(), new StringDeserializer());
-        consumer.subscribe(List.of(topic));
-        return consumer;
+        return await().atMost(Duration.ofSeconds(30)).until(
+                () -> TopicReader.readAll(kafka.getBootstrapServers(), "audit-topic").stream()
+                        .map(value -> (Map<?, ?>) objectMapper.readValue(value, Map.class))
+                        .filter(message -> eventType.equals(message.get("eventType"))
+                                && entityId.equals(message.get("entityId")))
+                        .findFirst(),
+                Optional::isPresent).orElseThrow();
     }
 
     private void pauseKafka() {
