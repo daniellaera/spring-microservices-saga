@@ -43,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 // without a working lock timeout the lock waits forever: fail instead of hanging the build
 @Timeout(value = 60, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+@MockitoBean(types = KafkaTemplate.class)
 class ProductLockTimeoutITTest {
 
     private static final String PRODUCT = "Locked Widget";
@@ -69,7 +70,7 @@ class ProductLockTimeoutITTest {
     @Autowired
     private DataSource dataSource;
 
-    @MockitoBean
+    @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
     private Connection lockHolder;

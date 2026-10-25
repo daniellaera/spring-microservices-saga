@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
@@ -43,6 +44,9 @@ import static org.mockito.Mockito.verify;
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+// Replaces the auto-configured KafkaTemplate<?, ?> (a field-level KafkaTemplate<String, String> mock would be a second
+// bean, and @RetryableTopic needs a single KafkaTemplate for its dead-letter publishing). Same in the other ITs.
+@MockitoBean(types = KafkaTemplate.class)
 class OrderEventListenerITTest {
 
     @Autowired
@@ -60,7 +64,7 @@ class OrderEventListenerITTest {
     @MockitoSpyBean
     private StockReservationJpaRepository stockReservationRepository;
 
-    @MockitoBean
+    @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @BeforeEach
@@ -93,7 +97,9 @@ class OrderEventListenerITTest {
             return reservation;
         }).when(stockReservationRepository).save(any(StockReservationJpaEntity.class));
 
-        inventoryConsumer.consumeOrder(message);
+        // propagated to the container, which retries the order on the retry topics
+        assertThatThrownBy(() -> inventoryConsumer.consumeOrder(message))
+                .isInstanceOf(DataIntegrityViolationException.class);
 
         assertThat(quantityOf("MacBook Pro")).isEqualTo(10);
         assertThat(quantityOf("AirPods")).isEqualTo(5);

@@ -48,6 +48,10 @@ flowchart LR
     t_audit -->|audit-group| audit
 ```
 
+inventory-service and order-service retry their own failures the same way, on topics named after them:
+`orders-topic-inventory-retry-N` / `-dlt`, `payment-topic-inventory-retry-N` / `-dlt` and
+`payment-topic-order-retry-N` / `-dlt` (5 attempts, then the dead-letter topic, where the record is logged once).
+
 Each stateful service owns its PostgreSQL database (authdb, orderdb, inventorydb, paymentdb, auditdb). Redis serves the
 gateway rate limiter, the carts and the product list cache. config-server serves every service's configuration;
 Grafana LGTM receives traces, metrics and logs over OTLP.

@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(properties = "spring.cache.type=simple")
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@MockitoBean(types = KafkaTemplate.class)
 class ProductListAfterSagaITTest {
 
     @Autowired
@@ -57,7 +58,7 @@ class ProductListAfterSagaITTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockitoBean
+    @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @BeforeEach

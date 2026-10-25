@@ -41,6 +41,7 @@ import static org.mockito.Mockito.verify;
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@MockitoBean(types = KafkaTemplate.class)
 class PaymentEventListenerITTest {
 
     private static final String PAYMENT_FAILED = "{\"orderId\":200,\"status\":\"FAILED\",\"userEmail\":\"user@test.com\"}";
@@ -60,7 +61,7 @@ class PaymentEventListenerITTest {
     @MockitoSpyBean
     private CompensationLogJpaRepository compensationLogRepository;
 
-    @MockitoBean
+    @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @BeforeEach

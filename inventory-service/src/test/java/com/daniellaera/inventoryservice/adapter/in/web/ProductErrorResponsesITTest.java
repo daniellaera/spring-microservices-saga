@@ -26,13 +26,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@MockitoBean(types = KafkaTemplate.class)
 class ProductErrorResponsesITTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     // same context as ProductControllerITTest; also keeps audit events off a real broker
-    @MockitoBean
+    @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @Test

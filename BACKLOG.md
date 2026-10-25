@@ -20,9 +20,9 @@
     needs to grow.
 - **Warm the Stripe client when payment-service starts**: the first Stripe call after a restart took over 1 s
   (the gateway 404 of 2026-10-23). The gateway now allows 10 s, so this is only latency for the first buyer.
-- **Dormant DLT handlers in inventory-service and order-service:** their listeners declare
-  `@DltHandler handleDlt(String, Exception)`, but they have no retry topics, so the handlers never run. If retries
-  are ever enabled there, declare them with `@RetryableTopic` on the listener, as payment-service does.
-  `spring.kafka.retry.topic.*` ignores the class's `@DltHandler` and uses Spring Kafka's default one, which fails
-  on every record under `ack-mode: record` and loops forever. Also, an `Exception` parameter can't be resolved
-  there: read the `kafka_exception-message` header from the `ConsumerRecord` instead.
+- **Dead-lettered records in inventory-service and order-service are only logged** (since 2026-10-25): no audit
+  event and no replay runbook, unlike payment-service's `PAYMENT_DEAD_LETTERED` and
+  `docs/maintenance/replay-dead-lettered-inventory-results.md`. A dead-lettered order stays PENDING, a
+  dead-lettered compensation leaves the stock deducted. Watch for `DLT received failed message` in the logs of
+  both services, and replay from `orders-topic-inventory-dlt`, `payment-topic-inventory-dlt` or
+  `payment-topic-order-dlt` the same way.

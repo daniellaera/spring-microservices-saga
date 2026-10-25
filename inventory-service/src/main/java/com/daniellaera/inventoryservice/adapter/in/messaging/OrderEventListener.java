@@ -5,9 +5,14 @@ import com.daniellaera.inventoryservice.domain.port.in.ReserveStockCommand;
 import com.daniellaera.inventoryservice.domain.port.in.ReserveStockUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.kafka.retrytopic.TopicSuffixingStrategy;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
@@ -21,15 +26,26 @@ public class OrderEventListener {
     private final ReserveStockUseCase reserveStockUseCase;
     private final ObjectMapper objectMapper;
 
-    // Every failure is logged and swallowed (an unknown product is not one: the use case rejects the order)
+    // Nothing is caught (an unknown product is no failure: the use case rejects the order). A failing order is retried
+    // on the retry topics without holding back orders-topic (non-blocking retries), then dead-lettered to handleDlt;
+    // an unreadable one goes there at once. Declared here, as in payment-service, rather than with
+    // spring.kafka.retry.topic.*, which ignores this class's @DltHandler and uses Spring Kafka's default one: that one
+    // fails on every record under ack-mode: record and loops forever. The suffixes name the topics after this service
+    // (orders-topic-inventory-retry-N, orders-topic-inventory-dlt), so no other consumer of orders-topic can share them.
+    // Budget: 5 attempts, retried after 2, 6, 18 and 54 s (~80 s).
+    @RetryableTopic(
+            attempts = "${inventory.retry.attempts:5}",
+            backOff = @BackOff(delayString = "${inventory.retry.delay:2000}",
+                    multiplierString = "${inventory.retry.multiplier:3.0}",
+                    maxDelayString = "${inventory.retry.max-delay:60000}"),
+            retryTopicSuffix = "-inventory-retry",
+            dltTopicSuffix = "-inventory-dlt",
+            topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE,
+            exclude = JacksonException.class)
     @KafkaListener(topics = "orders-topic", groupId = "inventory-group")
     public void consumeOrder(String message) {
-        try {
-            OrderEvent event = objectMapper.readValue(message, OrderEvent.class);
-            reserveStockUseCase.reserve(toCommand(event));
-        } catch (Exception e) {
-            log.error("=== Inventory: failed to process order event: {}", e.getMessage());
-        }
+        OrderEvent event = objectMapper.readValue(message, OrderEvent.class);
+        reserveStockUseCase.reserve(toCommand(event));
     }
 
     static ReserveStockCommand toCommand(OrderEvent event) {
@@ -50,8 +66,10 @@ public class OrderEventListener {
         return List.of(new OrderItemEvent(productName, quantity, price, totalAmount));
     }
 
+    // Called once per dead-lettered order, which stays PENDING (no stock reserved). It must not throw: the DLT
+    // container would retry it forever.
     @DltHandler
-    public void handleDlt(String message, Exception ex) {
-        log.error("DLT received failed message: {} error: {}", message, ex.getMessage());
+    public void handleDlt(ConsumerRecord<String, String> record) {
+        log.error("DLT received failed message: {} error: {}", record.value(), DeadLetters.errorOf(record));
     }
 }
