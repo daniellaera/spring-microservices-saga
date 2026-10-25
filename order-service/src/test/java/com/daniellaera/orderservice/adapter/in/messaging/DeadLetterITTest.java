@@ -1,14 +1,11 @@
 package com.daniellaera.orderservice.adapter.in.messaging;
 
 import com.daniellaera.orderservice.TestcontainersConfiguration;
+import com.daniellaera.orderservice.support.TopicReader;
 import com.daniellaera.orderservice.domain.port.in.ApplyPaymentResultUseCase;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.OffsetSpec;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.Test;
@@ -24,10 +21,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.kafka.KafkaContainer;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -108,28 +103,7 @@ class DeadLetterITTest {
         verify(applyPaymentResultUseCase, never()).applyPaymentResult(any());
     }
 
-    // Every record on the topics matching the pattern, read from the beginning for a few seconds
     private List<String> messagesOnTopicsMatching(Pattern topics) {
-        Map<String, Object> config = Map.of(
-                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
-                ConsumerConfig.GROUP_ID_CONFIG, "dead-letter-it-" + UUID.randomUUID(),
-                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        try (KafkaConsumer<String, String> consumer =
-                     new KafkaConsumer<>(config, new StringDeserializer(), new StringDeserializer())) {
-            consumer.subscribe(topics);
-            List<String> messages = new ArrayList<>();
-            // until the group has its partitions (slow on a busy runner), then up to their end offsets
-            long deadline = System.currentTimeMillis() + 30_000;
-            while (consumer.assignment().isEmpty() && System.currentTimeMillis() < deadline) {
-                consumer.poll(Duration.ofMillis(200)).forEach(record -> messages.add(record.value()));
-            }
-            Map<TopicPartition, Long> end = consumer.endOffsets(consumer.assignment());
-            while (end.entrySet().stream().anyMatch(e -> consumer.position(e.getKey()) < e.getValue())
-                    && System.currentTimeMillis() < deadline) {
-                consumer.poll(Duration.ofMillis(200)).forEach(record -> messages.add(record.value()));
-            }
-            assertThat(consumer.assignment()).as("partitions assigned to the reading consumer").isNotEmpty();
-            return messages;
-        }
+        return TopicReader.readAll(kafka.getBootstrapServers(), topics);
     }
 }
