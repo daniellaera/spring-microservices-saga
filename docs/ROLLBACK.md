@@ -78,3 +78,31 @@ curl -X POST -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: applicatio
 
 Or from the Actions tab: "Build and Deploy Online Shop" → "Run workflow". Done on 2026-10-25 (run 265) for the
 #36 merge, whose own run (259) had failed on a flaky test.
+
+## Every API call answers 502 after a deploy, and the services are healthy
+
+The site (`GET /`) works, the services' health checks are UP, and the post-deploy smoke check fails on
+`GET /products` with 502. shop-ui's log (`docker logs shop-ui`) says which of two causes it is.
+
+**`connect() failed (111: Connection refused)` with an `upstream: "http://172.18.0.N:8080/…"` that is not the
+gateway's current address** (`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+gateway-service`): shop-ui's nginx is using a stale address for the gateway. Since the fix for the deploy of
+5267479 (2026-10-25), which recreated gateway-service on a new IP and left the whole API down until a manual
+reload, `shop-ui/config/nginx.conf` resolves `gateway-service` through Docker's DNS per request and caches it for
+10 s. So after the gateway is recreated, this lasts at most 10 s past the gateway's own startup. If it lasts
+longer, the running shop-ui image predates that fix, or its config lost the `resolver`/`set $gateway` lines
+(`docker exec shop-ui cat /etc/nginx/conf.d/default.conf`). A rollback does not help, because no service image
+is at fault. Make nginx resolve again, on infra-node1:
+
+```bash
+docker exec shop-ui nginx -s reload
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: application/json' https://shop-staging.daniellaera.com/products   # 401
+```
+
+**`gateway-service could not be resolved`**: Docker's DNS at `127.0.0.11` has no `gateway-service`, because the
+gateway container is not running or not on `app-network`. Check `docker ps -a --filter name=gateway-service` and
+`docker compose -f docker-compose.yml up -d --no-deps gateway-service`. shop-ui needs no reload; it resolves
+again on the next request.
+
+Do not "fix" this by reloading nginx after every deploy: it would hide a broken resolver from the smoke check,
+which is how the next stale address would be found.

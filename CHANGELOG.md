@@ -43,6 +43,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **Every API call answered 502 after a deploy that recreated gateway-service** (5267479, 2026-10-25): shop-ui's
+  nginx resolved `gateway-service` once, at startup, and kept proxying to the gateway's old IP until someone
+  reloaded it. It now asks Docker's DNS (`resolver 127.0.0.11 valid=10s`) and resolves the gateway per request,
+  so a recreated gateway is found again within 10 s, with no reload. What each location forwards is unchanged.
 - **A declined payment's saga timeline could show STOCK_RESTORED before PAYMENT_FAILED** (e2e run 295):
   payment-service sent PAYMENT_FAILED, PAYMENT_REFUNDED and PAYMENT_REFUND_FAILED from an `@Async` thread, so the
   payment result could reach inventory-service, and its STOCK_RESTORED the audit topic, first. They are now handed
