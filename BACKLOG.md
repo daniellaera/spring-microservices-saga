@@ -4,10 +4,15 @@
   API paths `/products` and `/audit` are also Angular routes, so nginx tells page loads from API calls
   by the `Accept: text/html` header (`$spa_navigation` in `shop-ui/config/nginx.conf`). A separate `/api`
   prefix removes that workaround.
+- **Run `docs/maintenance/hash-refresh-tokens-in-old-logout-events.sql` on auditdb** (dry run first, then
+  `-v apply=true`): USER_LOGOUT events recorded before #45 (deployed 2026-10-25) still hold the raw, revoked
+  refresh token; the script gives them the `"sha256:<12 hex>"` form. The header says what it does not reach
+  (audit-topic until 2026-11-08, the backup below).
 - **2026-10-30: delete the maintenance backups and review a week of memory on infra-node1.**
-  - Delete `/srv/online-shop/maintenance/20261023/{kafka-logs,kafka-logs.tgz,grafana-data}` (3.4 GB) and
-    `/srv/online-shop/maintenance/20261024`, then remove the old anonymous Kafka volumes, checking each one first
-    (see "Afterwards" in `docs/maintenance/kafka-and-grafana-volumes.md`).
+  - Delete `/srv/online-shop/maintenance/20261023/{kafka-logs,kafka-logs.tgz,grafana-data}` (3.4 GB; its
+    `kafka-logs/audit-topic-0` also holds raw refresh tokens) and `/srv/online-shop/maintenance/20261024`, then
+    remove the old anonymous Kafka volumes, checking each one first (see "Afterwards" in
+    `docs/maintenance/kafka-and-grafana-volumes.md`).
   - Review a week of memory on the Grafana dashboard **infra-node1** (node-exporter + cAdvisor, since
     2026-10-24): memory available, swap used and pages swapped, memory per container and as a % of its
     `mem_limit`. Setup: 4 GB swap file (swappiness 10), a `mem_limit` on every container but shop-ui and
